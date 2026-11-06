@@ -71,9 +71,12 @@ import app.vitune.android.models.Format
 import app.vitune.android.models.QueuedMediaItem
 import app.vitune.android.models.Song
 import app.vitune.android.models.SongWithContentLength
+import app.vitune.android.preferences.AccountPreferences
 import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.preferences.PlayerPreferences
+import com.metrolist.innertube.YouTube
+import kotlinx.coroutines.SupervisorJob
 import app.vitune.android.query
 import app.vitune.android.transaction
 import app.vitune.android.utils.ActionReceiver
@@ -81,7 +84,6 @@ import app.vitune.android.utils.ConditionalCacheDataSourceFactory
 import app.vitune.android.utils.GlyphInterface
 import app.vitune.android.utils.InvincibleService
 import app.vitune.android.utils.TimerJob
-import app.vitune.android.utils.YouTubeDLResponse
 import app.vitune.android.utils.YouTubeRadio
 import app.vitune.android.utils.activityPendingIntent
 import app.vitune.android.utils.asDataSource
@@ -116,6 +118,9 @@ import app.vitune.core.ui.utils.isAtLeastAndroid8
 import app.vitune.core.ui.utils.isAtLeastAndroid9
 import app.vitune.core.ui.utils.songBundle
 import app.vitune.core.ui.utils.streamVolumeFlow
+import android.net.ConnectivityManager
+import app.vitune.android.utils.innertube.InnerTubeXPlayer
+import timber.log.Timber
 import app.vitune.providers.innertube.Innertube
 import app.vitune.providers.innertube.models.NavigationEndpoint
 import app.vitune.providers.innertube.models.bodies.PlayerBody
@@ -226,6 +231,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     private var timerJob: TimerJob? by mutableStateOf(null)
     private var radio: YouTubeRadio? = null
+    private var historyReporter: YouTubeHistoryReporter? = null
 
     private lateinit var bitmapProvider: BitmapProvider
 
@@ -315,15 +321,30 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             .apply {
                 skipSilenceEnabled = PlayerPreferences.skipSilence
                 addListener(this@PlayerService)
-                addAnalyticsListener(
-                    PlaybackStatsListener(
-                        /* keepHistory = */
-                        false,
-                        /* callback = */
-                        this@PlayerService
-                    )
-                )
             }
+
+        val historyReporter = YouTubeHistoryReporter(
+            player = player,
+            scope = CoroutineScope(Dispatchers.Main + SupervisorJob()),
+            thresholdMs = { 30_000L },
+            isEnabled = { AccountPreferences.reportHistory && !YouTube.cookie.isNullOrBlank() },
+            createReport = { videoId ->
+                val account = Triple(YouTube.cookie, YouTube.dataSyncId, YouTube.authUser)
+                val nonce = com.metrolist.innertubex.extraction.generateClientPlaybackNonce()
+                suspend {
+                    withContext(Dispatchers.IO) {
+                        YouTube.registerPlayback(videoId, nonce) {
+                            AccountPreferences.reportHistory &&
+                                account == Triple(YouTube.cookie, YouTube.dataSyncId, YouTube.authUser)
+                        }.getOrDefault(false)
+                    }
+                }
+            },
+            onStatsReady = this@PlayerService,
+        )
+        this.historyReporter = historyReporter
+        player.addAnalyticsListener(historyReporter.statsListener)
+        player.addAnalyticsListener(historyReporter.listener)
 
         updateRepeatMode()
         maybeRestorePlayerQueue()
@@ -431,6 +452,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             player.removeListener(this)
             player.stop()
             player.release()
+            historyReporter?.close()
 
             unregisterReceiver(notificationActionReceiver)
 
@@ -1401,21 +1423,22 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                         .withUri(cachedUri.uri)
                         .ranged(cachedUri.meta)
                 } ?: run {
-                    val body = runBlocking(Dispatchers.IO) {
-                        Innertube.player(PlayerBody(videoId = mediaId))
-                    }?.getOrNull()
-                    val youtubeFormat = body?.streamingData?.highestQualityFormat
+                    val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                    val playbackData = runBlocking(Dispatchers.IO) {
+                        InnerTubeXPlayer.playerResponseForPlayback(
+                            videoId = mediaId,
+                            audioQuality = PlayerPreferences.audioQuality,
+                            connectivityManager = connectivityManager
+                        )
+                    }.getOrElse { throwable ->
+                        Timber.e(throwable, "Failed to resolve stream for $mediaId")
+                        throw UnplayableException()
+                    }
 
-                    val info = runCatching {
-                        Dependencies.runDownload(mediaId)
-                    }.mapCatching {
-                        YouTubeDLResponse.fromString(it)
-                    }.also { it.exceptionOrNull()?.printStackTrace() }.getOrNull()
-                    if (info?.id != mediaId) throw VideoIdMismatchException()
-                    val format = info.formats?.firstOrNull { it.formatId == info.formatId }
-
-                    val uri =
-                        runCatching { info.url?.toUri() }.getOrNull() ?: throw UnplayableException()
+                    val format = playbackData.format
+                    val uri = playbackData.streamUrl.toUri()
+                    val loudnessDb = playbackData.audioConfig?.loudnessDb
+                    val contentLength = format.contentLength
 
                     val mediaItem = runCatching {
                         runBlocking(Dispatchers.IO) { findMediaItem(mediaId) }
@@ -1423,10 +1446,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
                     val extras = mediaItem?.mediaMetadata?.extras?.songBundle
                     if (extras?.durationText == null) {
-                        body
-                            ?.streamingData
-                            ?.highestQualityFormat
-                            ?.approxDurationMs
+                        format.approxDurationMs
+                            ?.toLongOrNull()
                             ?.div(1000)
                             ?.let(DateUtils::formatElapsedTime)
                             ?.removePrefix("0")
@@ -1442,12 +1463,12 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                             Database.insert(
                                 Format(
                                     songId = mediaId,
-                                    itag = info.formatId?.toIntOrNull(),
-                                    mimeType = youtubeFormat?.mimeType,
-                                    bitrate = format?.abr?.let { it * 1000 }?.toLong(),
-                                    loudnessDb = body?.playerConfig?.audioConfig?.normalizedLoudnessDb,
-                                    contentLength = info.fileSize,
-                                    lastModified = youtubeFormat?.lastModified
+                                    itag = format.itag,
+                                    mimeType = format.mimeType,
+                                    bitrate = format.bitrate,
+                                    loudnessDb = loudnessDb,
+                                    contentLength = contentLength,
+                                    lastModified = format.lastModified
                                 )
                             )
                         }
@@ -1455,13 +1476,14 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
                     uriCache.push(
                         key = mediaId,
-                        meta = info.fileSize,
+                        meta = contentLength,
                         uri = uri
                     )
 
                     dataSpec
                         .withUri(uri)
-                        .ranged(info.fileSize)
+                        .withAdditionalHeaders(playbackData.streamHeaders)
+                        .ranged(contentLength)
                 }
             }
         }.handleUnknownErrors {

@@ -271,37 +271,6 @@ fun OtherSettings() {
             ) {
                 val troubleshootScope = rememberCoroutineScope()
                 var reloading by rememberSaveable { mutableStateOf(false) }
-                var upgrading by rememberSaveable { mutableStateOf(false) }
-
-                SecondaryTextButton(
-                    text = stringResource(R.string.upgrade_yt_dlp),
-                    onClick = {
-                        upgrading = true
-                        context.toast(R.string.please_wait)
-                        val job = troubleshootScope.launch {
-                            val success = runCatching {
-                                withContext(Dispatchers.IO) {
-                                    Dependencies.upgradeYoutubeDl()
-                                }
-                            }.also { it.exceptionOrNull()?.printStackTrace() }.getOrNull()
-
-                            withContext(Dispatchers.Main) {
-                                context.toast(
-                                    if (success == true) R.string.yt_dlp_success
-                                    else R.string.yt_dlp_fail
-                                )
-                            }
-                        }
-                        job.invokeOnCompletion { upgrading = false }
-                    },
-                    enabled = !reloading && !upgrading,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp)
-                        .padding(horizontal = 16.dp)
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
 
                 SecondaryTextButton(
                     text = stringResource(R.string.reload_app_internals),

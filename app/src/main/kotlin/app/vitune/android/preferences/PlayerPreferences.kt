@@ -55,6 +55,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var handleAudioFocus by boolean(true)
 
     var pauseCache by boolean(false)
+    var audioQuality by enum(app.vitune.core.data.enums.AudioQuality.AUTO)
 
     val sponsorBlockEnabledProperty = boolean(false)
     var sponsorBlockEnabled by sponsorBlockEnabledProperty

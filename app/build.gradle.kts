@@ -6,7 +6,6 @@ plugins {
     alias(libs.plugins.kotlin.parcelize)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.chaquo)
 }
 
 android {
@@ -31,13 +30,6 @@ android {
         ndk {
             //noinspection ChromeOsAbiSupport
             abiFilters += abis
-        }
-
-        @Suppress("UnstableApiUsage")
-        externalNativeBuild {
-            cmake {
-                arguments += listOf("-DANDROID_STL=c++_static")
-            }
         }
     }
 
@@ -105,41 +97,6 @@ android {
         @Suppress("UnstableApiUsage")
         generateLocaleConfig = true
     }
-
-    externalNativeBuild {
-        cmake {
-            version = cmakeVersion
-            path = file("src/main/cpp/CMakeLists.txt")
-        }
-    }
-}
-
-afterEvaluate {
-    val jniLibs = file("${layout.projectDirectory}/src/main/jniLibs").also { it.mkdirs() }
-    android.buildTypes.forEach { type ->
-        val typeCapitalized = type.name.let {
-            it.first().uppercase() + it.substring(1)
-        }
-
-        tasks.named("assemble${typeCapitalized}").configure {
-            doFirst {
-                val cxxDir =
-                    file("${layout.buildDirectory.get()}/intermediates/cxx/${if (typeCapitalized == "Debug") "Debug" else "RelWithDebInfo"}")
-
-                cxxDir.walkTopDown().forEach cxx@{ f ->
-                    if (f.name != "qjs") return@cxx
-
-                    f.copyTo(
-                        target = jniLibs
-                            .resolve(f.parentFile.name)
-                            .also { it.mkdirs() }
-                            .resolve("libqjs.so"), // disguise because fuck you
-                        overwrite = true
-                    )
-                }
-            }
-        }
-    }
 }
 
 kotlin {
@@ -163,17 +120,6 @@ composeCompiler {
         val dest = layout.buildDirectory.dir("compose_metrics")
         metricsDestination = dest
         reportsDestination = dest
-    }
-}
-
-chaquopy {
-    defaultConfig {
-        version = "3.14"
-        pip {
-            install("yt-dlp>=2026.10.26")
-            install("yt-dlp-ejs>=0.8.0")
-            install("pip")
-        }
     }
 }
 
@@ -229,6 +175,11 @@ dependencies {
 
     implementation(projects.providers.github)
     implementation(projects.providers.innertube)
+    implementation(project(":innertube"))
+    implementation(libs.innertubex)
+    implementation(libs.timber)
+    implementation(libs.kuromoji)
+    implementation(libs.tinypinyin)
     implementation(projects.providers.kugou)
     implementation(projects.providers.lrclib)
     implementation(projects.providers.piped)

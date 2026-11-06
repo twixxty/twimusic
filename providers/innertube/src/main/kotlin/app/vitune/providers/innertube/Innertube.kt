@@ -36,6 +36,9 @@ internal val json = Json {
 }
 
 object Innertube {
+    var cookie: String? = null
+    var visitorData: String? = null
+
     private val OriginInterceptor = createClientPlugin("OriginInterceptor") {
         client.sendPipeline.intercept(HttpSendPipeline.State) {
             context.headers {
@@ -45,6 +48,8 @@ object Innertube {
                 set("host", host)
                 set("x-origin", origin)
                 set("origin", origin)
+                cookie?.let { set("cookie", it) }
+                visitorData?.let { set("x-goog-visitor-id", it) }
             }
         }
     }

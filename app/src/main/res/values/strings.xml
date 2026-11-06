@@ -381,4 +381,20 @@
         <item quantity="one">%1$d song</item>
         <item quantity="other">%1$d songs</item>
     </plurals>
+    <string name="youtube_account">YouTube Music Account</string>
+    <string name="log_out">Log out</string>
+    <string name="switch_account">Switch channel</string>
+    <string name="logged_in_as">Signed in as %1$s</string>
+    <string name="not_logged_in">Not signed in</string>
+    <string name="sign_in_youtube">Sign in with YouTube Music</string>
+    <string name="use_login_for_browse">Personalize recommendations</string>
+    <string name="use_login_for_browse_description">Use your account to load personalized home feed, moods, and quick picks</string>
+    <string name="report_history">Report watch history</string>
+    <string name="report_history_description">Synchronize played songs with your YouTube Music watch history</string>
+    <string name="logging_in">Signing in…</string>
+    <string name="login_failed">Sign in failed</string>
+    <string name="select_channel">Select YouTube Channel</string>
+    <string name="login_stage_auth">Authenticating with Google…</string>
+    <string name="login_stage_channels">Loading YouTube channels…</string>
+    <string name="login_stage_finishing">Finalizing sign in…</string>
 </resources>

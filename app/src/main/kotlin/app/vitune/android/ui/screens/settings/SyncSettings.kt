@@ -43,6 +43,7 @@ import app.vitune.android.ui.components.themed.DialogTextButton
 import app.vitune.android.ui.components.themed.IconButton
 import app.vitune.android.ui.components.themed.TextField
 import app.vitune.android.ui.screens.Route
+import app.vitune.android.ui.screens.loginRoute
 import app.vitune.android.utils.center
 import app.vitune.android.utils.get
 import app.vitune.android.utils.semiBold
@@ -265,6 +266,12 @@ fun SyncSettings(
 
     SettingsCategoryScreen(title = stringResource(R.string.sync)) {
         SettingsDescription(text = stringResource(R.string.sync_description))
+
+        AccountSettings(
+            onNavigateToLogin = { isSwitching ->
+                loginRoute(isSwitching)
+            }
+        )
 
         SettingsGroup(title = stringResource(R.string.piped)) {
             SettingsEntry(

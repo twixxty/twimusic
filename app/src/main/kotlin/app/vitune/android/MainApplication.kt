@@ -122,9 +122,9 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
-import coil3.util.DebugLogger
-import com.chaquo.python.Python
-import com.chaquo.python.android.AndroidPlatform
+import app.vitune.android.utils.innertube.InnerTubeXPlayer
+import app.vitune.android.preferences.AccountPreferences
+import com.metrolist.innertube.YouTube
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
 import com.kieronquinn.monetcompat.core.MonetCompat
 import com.kieronquinn.monetcompat.interfaces.MonetColorsChangedListener
@@ -531,6 +531,21 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
                 .build()
         )
         Dependencies.init(this)
+        InnerTubeXPlayer.initialize(this)
+
+        if (AccountPreferences.innerTubeCookie.isNotBlank()) {
+            YouTube.cookie = AccountPreferences.innerTubeCookie
+            app.vitune.providers.innertube.Innertube.cookie = AccountPreferences.innerTubeCookie
+        }
+        if (AccountPreferences.visitorData.isNotBlank()) {
+            YouTube.visitorData = AccountPreferences.visitorData
+            app.vitune.providers.innertube.Innertube.visitorData = AccountPreferences.visitorData
+        }
+        if (AccountPreferences.dataSyncId.isNotBlank()) {
+            YouTube.dataSyncId = AccountPreferences.dataSyncId
+        }
+        YouTube.authUser = AccountPreferences.innerTubeAuthUser
+        YouTube.useLoginForBrowse = AccountPreferences.useLoginForBrowse
 
         MonetCompat.debugLog = BuildConfig.DEBUG
         super.onCreate()
@@ -566,30 +581,6 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 object Dependencies {
     lateinit var application: MainApplication
         private set
-
-    val py by lazy {
-        if (!Python.isStarted()) Python.start(AndroidPlatform(application))
-        Python.getInstance()
-    }
-
-    private val module by lazy { py.getModule("download") }
-
-    val quickjsPath by lazy {
-        File(application.applicationInfo.nativeLibraryDir, "libqjs.so")
-            .also { if (!it.canExecute()) it.setExecutable(true) }
-    }
-
-    fun runDownload(id: String): String = module
-        .callAttr("download", quickjsPath.absolutePath, id)
-        .toString()
-
-    fun upgradeYoutubeDl(packageName: String = "yt-dlp"): Boolean {
-        val success = runCatching { module.callAttr("upgrade", packageName) }
-            .also { it.exceptionOrNull()?.printStackTrace() }
-            .isSuccess
-        if (!success) Log.e("Python", "Upgrading $packageName resulted in non-zero exit code!")
-        return success
-    }
 
     val credentialManager by lazy { CredentialManager.create(application) }
 

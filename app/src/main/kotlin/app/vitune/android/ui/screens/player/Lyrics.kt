@@ -89,14 +89,7 @@ import app.vitune.core.ui.onOverlay
 import app.vitune.core.ui.onOverlayShimmer
 import app.vitune.core.ui.overlay
 import app.vitune.core.ui.utils.dp
-import app.vitune.providers.innertube.Innertube
-import app.vitune.providers.innertube.models.bodies.NextBody
-import app.vitune.providers.innertube.requests.lyrics
-import app.vitune.providers.kugou.KuGou
-import app.vitune.providers.lrclib.LrcLib
-import app.vitune.providers.lrclib.LrcParser
-import app.vitune.providers.lrclib.models.Track
-import app.vitune.providers.lrclib.toLrcFile
+import app.vitune.android.lyrics.LyricsHelper
 import com.valentinilk.shimmer.shimmer
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap
@@ -206,32 +199,28 @@ fun Lyrics(
                             lyrics = null
                             error = false
 
-                            val fixed = currentLyrics?.fixed ?: Innertube
-                                .lyrics(NextBody(videoId = mediaId))
-                                ?.getOrNull()
-                                ?: LrcLib.bestLyrics(
-                                    artist = artist,
+                            val fetched = if (currentLyrics?.fixed == null || currentLyrics.synced == null) {
+                                LyricsHelper.getLyrics(
+                                    context = context,
+                                    videoId = mediaId,
                                     title = title,
-                                    duration = duration.milliseconds,
-                                    album = album,
-                                    synced = false
-                                )?.map { it?.text }?.getOrNull()
+                                    artist = artist,
+                                    durationSeconds = (duration / 1000).toInt(),
+                                    album = album
+                                )
+                            } else null
 
-                            val synced = currentLyrics?.synced ?: LrcLib.bestLyrics(
-                                artist = artist,
-                                title = title,
-                                duration = duration.milliseconds,
-                                album = album
-                            )?.map { it?.text }?.getOrNull() ?: LrcLib.bestLyrics(
-                                artist = artist,
-                                title = title.split("(")[0].trim(),
-                                duration = duration.milliseconds,
-                                album = album
-                            )?.map { it?.text }?.getOrNull() ?: KuGou.lyrics(
-                                artist = artist,
-                                title = title,
-                                duration = duration / 1000
-                            )?.map { it?.value }?.getOrNull()
+                            val rawLyrics = fetched?.lyrics.orEmpty()
+                            val isSynced = rawLyrics.contains(Regex("\\[\\d+:\\d+"))
+                            val plainLyrics = if (isSynced) {
+                                rawLyrics.lines()
+                                    .map { it.replace(Regex("\\[\\d+:\\d+[^]]*\\]|<[^>]+>"), "").trim() }
+                                    .filter { it.isNotBlank() }
+                                    .joinToString("\n")
+                            } else rawLyrics
+
+                            val fixed = currentLyrics?.fixed ?: plainLyrics.ifBlank { null }
+                            val synced = currentLyrics?.synced ?: if (isSynced) rawLyrics else null
 
                             Lyrics(
                                 songId = mediaId,
