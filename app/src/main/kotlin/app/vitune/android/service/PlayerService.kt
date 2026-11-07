@@ -1465,8 +1465,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                                     songId = mediaId,
                                     itag = format.itag,
                                     mimeType = format.mimeType,
-                                    bitrate = format.bitrate,
-                                    loudnessDb = loudnessDb,
+                                    bitrate = format.bitrate.toLong(),
+                                    loudnessDb = loudnessDb?.toFloat(),
                                     contentLength = contentLength,
                                     lastModified = format.lastModified
                                 )

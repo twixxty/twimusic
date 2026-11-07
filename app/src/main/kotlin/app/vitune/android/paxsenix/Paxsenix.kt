@@ -176,7 +176,7 @@ object Paxsenix {
         }.also { results ->
             Timber.d("Apple Music search results count: ${results.size}")
             results.forEach { result ->
-                Timber.v("  - ${result.displayName} by ${result.displayArtist} (ID: ${result.id}, Duration: ${result.duration})")
+                Timber.d("  - ${result.displayName} by ${result.displayArtist} (ID: ${result.id}, Duration: ${result.duration})")
             }
         }
     }
@@ -322,7 +322,7 @@ object Paxsenix {
                 }
             }
             
-            Timber.v("  Score for '${resultTitle}': $score")
+            Timber.d("  Score for '${resultTitle}': $score")
             result to score
         }.sortedByDescending { it.second }.filter { it.second > 0 }.take(10)
     }

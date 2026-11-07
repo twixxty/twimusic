@@ -392,8 +392,8 @@ fun LoginScreen(
                                 .background(if (isSelected) colorPalette.surface else colorPalette.background0)
                                 .clickable {
                                     selectedAccount = account
-                                    val authEndpoint = account.endpoint
-                                    if (authEndpoint != null) {
+                                    val authEndpoint = account.signinUrl
+                                    if (!authEndpoint.isNullOrBlank()) {
                                         loginStage = LoginStage.SwitchingAccount
                                         webViewRef?.loadUrl(authEndpoint)
                                     } else {
