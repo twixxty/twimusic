@@ -13,8 +13,15 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import kotlin.math.abs
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -510,21 +517,42 @@ fun Lyrics(
                             .fillMaxSize()
                     ) {
                         item(key = "header") {
-                            Spacer(modifier = Modifier.height(containerMaxHeight / 2))
+                            Spacer(modifier = Modifier.height(containerMaxHeight * 0.35f))
                         }
                         itemsIndexed(
                             items = parsedEntries,
                             key = { index, entry -> "${entry.time}_$index" }
                         ) { index, entry ->
                             val isActive = index == activeIndex
-                            val isPast = index < activeIndex
+                            val distance = abs(index - activeIndex)
+                            val targetAlpha = when {
+                                isActive -> 1.0f
+                                distance == 1 -> 0.35f
+                                distance == 2 -> 0.22f
+                                distance == 3 -> 0.15f
+                                else -> 0.08f
+                            }.let { if (entry.isBackground && !isActive) 0.08f else it }
+                            val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lineAlpha")
+                            val animatedScale by animateFloatAsState(if (isActive) 1.03f else 1.0f, tween(300), label = "lineScale")
+
+                            val (horizontalAlignment, textAlign) = when {
+                                entry.agent == "v1" -> Alignment.Start to TextAlign.Left
+                                entry.agent == "v2" -> Alignment.End to TextAlign.Right
+                                entry.isBackground -> Alignment.CenterHorizontally to TextAlign.Center
+                                else -> Alignment.CenterHorizontally to TextAlign.Center
+                            }
 
                             if (entry.text.isBlank()) {
-                                val noteColor = if (isActive) Color.White else Color.White.copy(alpha = 0.35f)
+                                val noteColor = if (isActive) colorPalette.accent else Color.White.copy(alpha = 0.35f)
                                 Box(
                                     contentAlignment = Alignment.Center,
                                     modifier = Modifier
                                         .fillMaxWidth()
+                                        .graphicsLayer {
+                                            scaleX = animatedScale
+                                            scaleY = animatedScale
+                                            alpha = animatedAlpha
+                                        }
                                         .clickable(
                                             indication = ripple(bounded = false),
                                             interactionSource = remember { MutableInteractionSource() },
@@ -535,31 +563,66 @@ fun Lyrics(
                                                 }
                                             }
                                         )
-                                        .padding(vertical = 10.dp)
+                                        .padding(vertical = 12.dp)
                                 ) {
                                     Image(
                                         painter = painterResource(R.drawable.musical_notes),
                                         contentDescription = null,
                                         colorFilter = ColorFilter.tint(noteColor),
-                                        modifier = Modifier.size(22.dp)
+                                        modifier = Modifier.size(24.dp)
                                     )
                                 }
                             } else {
-                                val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette) {
-                                    if (!isActive || entry.words.isNullOrEmpty()) {
+                                val effectiveWords = remember(entry.words, entry.isBackground) {
+                                    val words = entry.words
+                                    if (words.isNullOrEmpty()) null
+                                    else {
+                                        words.flatMapIndexed { _, word ->
+                                            if (word.text.contains('-') && word.text.length > 1 && (!word.hasTrailingSpace || words.size == 1)) {
+                                                val segments = mutableListOf<String>()
+                                                var start = 0
+                                                for (i in 0 until word.text.length) {
+                                                    if (word.text[i] == '-') {
+                                                        segments.add(word.text.substring(start, i + 1))
+                                                        start = i + 1
+                                                    }
+                                                }
+                                                if (start < word.text.length) {
+                                                    segments.add(word.text.substring(start))
+                                                }
+                                                if (segments.size > 1) {
+                                                    val totalDuration = word.endTime - word.startTime
+                                                    val segmentDuration = totalDuration / segments.size
+                                                    segments.mapIndexed { idx, segmentText ->
+                                                        WordTimestamp(
+                                                            text = segmentText,
+                                                            startTime = word.startTime + idx * segmentDuration,
+                                                            endTime = word.startTime + (idx + 1) * segmentDuration,
+                                                            hasTrailingSpace = if (idx == segments.size - 1) word.hasTrailingSpace else false
+                                                        )
+                                                    }
+                                                } else listOf(word)
+                                            } else listOf(word)
+                                        }
+                                    }
+                                }
+
+                                val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette, effectiveWords) {
+                                    if (!isActive || effectiveWords.isNullOrEmpty()) {
                                         buildAnnotatedString {
-                                            val textColor = when {
-                                                isActive -> Color.White
-                                                isPast -> Color.White.copy(alpha = 0.6f)
-                                                else -> Color.White.copy(alpha = 0.35f)
-                                            }
-                                            withStyle(SpanStyle(color = textColor)) {
+                                            withStyle(
+                                                SpanStyle(
+                                                    color = Color.White,
+                                                    fontWeight = FontWeight.Bold,
+                                                    fontStyle = if (entry.isBackground) FontStyle.Italic else FontStyle.Normal
+                                                )
+                                            ) {
                                                 append(entry.text)
                                             }
                                         }
                                     } else {
                                         buildAnnotatedString {
-                                            entry.words.forEach { w ->
+                                            effectiveWords.forEach { w ->
                                                 val wStartMs = (w.startTime * 1000).toLong()
                                                 val wEndMs = (w.endTime * 1000).toLong()
 
@@ -577,7 +640,13 @@ fun Lyrics(
                                                     else -> FontWeight.Medium
                                                 }
 
-                                                withStyle(SpanStyle(color = wordColor, fontWeight = wordWeight)) {
+                                                withStyle(
+                                                    SpanStyle(
+                                                        color = wordColor,
+                                                        fontWeight = wordWeight,
+                                                        fontStyle = if (entry.isBackground) FontStyle.Italic else FontStyle.Normal
+                                                    )
+                                                ) {
                                                     append(w.text)
                                                     if (w.hasTrailingSpace) append(" ")
                                                 }
@@ -586,28 +655,50 @@ fun Lyrics(
                                     }
                                 }
 
-                                BasicText(
-                                    text = annotatedString,
-                                    style = if (isActive) typography.m.semiBold.center else typography.s.medium.center,
+                                val lineFontSize = if (entry.isBackground) 17.sp else 24.sp
+                                val lineSpacing = if (entry.isBackground) 24.sp else 32.sp
+
+                                Column(
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .clickable(
-                                            indication = ripple(bounded = false),
-                                            interactionSource = remember { MutableInteractionSource() },
-                                            onClick = {
-                                                binder?.player?.seekTo(entry.time)
-                                                coroutineScope.launch {
-                                                    performSmoothPageScroll(index, duration = 800)
-                                                }
+                                        .padding(
+                                            horizontal = 24.dp,
+                                            vertical = if (entry.isBackground) 2.dp else 10.dp
+                                        ),
+                                    horizontalAlignment = horizontalAlignment
+                                ) {
+                                    BasicText(
+                                        text = annotatedString,
+                                        style = TextStyle(
+                                            fontSize = lineFontSize,
+                                            lineHeight = lineSpacing,
+                                            letterSpacing = (-0.5).sp,
+                                            textAlign = textAlign,
+                                            fontFamily = typography.m.fontFamily
+                                        ),
+                                        modifier = Modifier
+                                            .graphicsLayer {
+                                                scaleX = animatedScale
+                                                scaleY = animatedScale
+                                                alpha = animatedAlpha
                                             }
-                                        )
-                                        .padding(vertical = 8.dp, horizontal = 24.dp)
-                                        .animateContentSize()
-                                )
+                                            .clickable(
+                                                indication = ripple(bounded = false),
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                onClick = {
+                                                    binder?.player?.seekTo(entry.time)
+                                                    coroutineScope.launch {
+                                                        performSmoothPageScroll(index, duration = 800)
+                                                    }
+                                                }
+                                            )
+                                            .animateContentSize()
+                                    )
+                                }
                             }
                         }
                         item(key = "footer") {
-                            Spacer(modifier = Modifier.height(containerMaxHeight / 2))
+                            Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
                         }
                     }
 
@@ -650,12 +741,20 @@ fun Lyrics(
             } else {
                 BasicText(
                     text = lyrics?.fixed.orEmpty(),
-                    style = typography.s.medium.center.color(colorPalette.onOverlay),
+                    style = TextStyle(
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 28.sp,
+                        letterSpacing = (-0.5).sp,
+                        textAlign = TextAlign.Center,
+                        color = colorPalette.onOverlay,
+                        fontFamily = typography.m.fontFamily
+                    ),
                     modifier = Modifier
                         .verticalFadingEdge()
                         .verticalScroll(rememberScrollState())
                         .fillMaxWidth()
-                        .padding(vertical = containerMaxHeight / 4, horizontal = 24.dp)
+                        .padding(vertical = containerMaxHeight * 0.3f, horizontal = 24.dp)
                 )
             }
         }

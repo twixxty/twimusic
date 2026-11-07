@@ -148,7 +148,7 @@ fun DatabaseSettings() = with(DataPreferences) {
                     val dateFormat = SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault())
 
                     try {
-                        backupLauncher.launch("ViTune_backup_${dateFormat.format(Date())}.db")
+                        backupLauncher.launch("TwiMusic_backup_${dateFormat.format(Date())}.db")
                     } catch (_: ActivityNotFoundException) {
                         context.toast(errorMsg)
                     }

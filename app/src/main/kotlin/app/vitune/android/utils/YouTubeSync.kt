@@ -13,6 +13,7 @@ import app.vitune.core.ui.utils.SongBundleAccessor
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
+import com.metrolist.innertube.utils.completed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -65,14 +66,23 @@ object YouTubeSync {
         _isSyncing.value = true
         _syncStatus.value = "Fetching library..."
 
+        // Ensure YouTube instance has active auth state from preferences
+        if (YouTube.cookie.isNullOrBlank()) {
+            YouTube.cookie = AccountPreferences.innerTubeCookie
+            YouTube.visitorData = AccountPreferences.visitorData
+            YouTube.dataSyncId = AccountPreferences.dataSyncId
+            YouTube.authUser = AccountPreferences.innerTubeAuthUser
+        }
+
         try {
             var playlistCount = 0
             var songCount = 0
 
             // 1. Fetch user's YouTube Music playlists
-            val libraryResult = YouTube.library("FEmusic_liked_playlists")
-                .recoverCatching { YouTube.library("FEmusic_library_playlists").getOrThrow() }
-                .recoverCatching { YouTube.library("FEmusic_library_corpus_playlists").getOrThrow() }
+            val libraryResult = YouTube.library("FEmusic_liked_playlists").completed()
+                .recoverCatching { YouTube.library("FEmusic_library_playlists").completed().getOrThrow() }
+                .recoverCatching { YouTube.library("FEmusic_library_corpus_playlists").completed().getOrThrow() }
+                .recoverCatching { YouTube.library("FEmusic_library_landing").completed().getOrThrow() }
 
             val playlistItems = libraryResult.getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
             val existingPlaylists = Database.allPlaylists().first()
@@ -93,7 +103,7 @@ object YouTubeSync {
                             Playlist(id = newId, name = playlistItem.title, browseId = browseId, thumbnail = playlistItem.thumbnail)
                         }
 
-                    val playlistPage = YouTube.playlist(playlistItem.id).getOrNull()
+                    val playlistPage = YouTube.playlist(playlistItem.id).completed().getOrNull()
                     val songs: List<SongItem> = playlistPage?.songs.orEmpty()
                     if (songs.isNotEmpty()) {
                         Database.clearPlaylist(localPlaylist.id)
@@ -118,14 +128,17 @@ object YouTubeSync {
             // 2. Sync Liked Songs ("LM" or "VLLM")
             try {
                 _syncStatus.value = "Syncing liked songs..."
-                val likedResult = YouTube.playlist("LM").recoverCatching {
-                    YouTube.playlist("VLLM").getOrThrow()
+                val likedResult = YouTube.playlist("LM").completed().recoverCatching {
+                    YouTube.playlist("VLLM").completed().getOrThrow()
                 }
                 val likedSongs: List<SongItem> = likedResult.getOrNull()?.songs.orEmpty()
                 likedSongs.forEach { songItem ->
                     val mediaItem = songItem.asMediaItem
                     Database.insert(mediaItem)
                     Database.like(songItem.id, System.currentTimeMillis())
+                }
+                if (likedSongs.isNotEmpty()) {
+                    songCount += likedSongs.size
                 }
             } catch (e: Exception) {
                 Timber.w(e, "Failed to sync liked songs")
