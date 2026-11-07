@@ -536,15 +536,12 @@ fun Player(
                     }
                 }
 
-                AnimatedVisibility(
-                    visible = !isLyricsFullscreen,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
+                if (!isLyricsFullscreen) {
                     controlsContent(
                         Modifier
                             .padding(vertical = 8.dp)
                             .fillMaxWidth()
+                            .weight(1f)
                     )
                 }
             }

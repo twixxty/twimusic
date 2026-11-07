@@ -326,7 +326,7 @@ private fun ModernControls(
             ) {
                 if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(4f)) {
                     SeekBar(
                         binder = binder,
                         position = position,
