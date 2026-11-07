@@ -1,35 +1,19 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.kotlin.jvm)
     alias(libs.plugins.kotlin.serialization)
-}
-
-android {
-    namespace = "com.metrolist.innertube"
-    compileSdk = 37
-
-    defaultConfig {
-        minSdk = 26
-    }
-
-    compileOptions {
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_21
-        targetCompatibility = JavaVersion.VERSION_21
-    }
-}
-
-kotlin {
-    jvmToolchain(libs.versions.jvm.get().toInt())
+    alias(libs.plugins.android.lint)
 }
 
 dependencies {
     api(libs.innertubex)
-    implementation(libs.ktor.client.core)
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.json)
-    implementation(libs.ktor.client.encoding)
-    implementation(libs.timber)
+    api(libs.ktor.client.core)
+    api(libs.ktor.client.okhttp)
+    api(libs.ktor.client.content.negotiation)
+    api(libs.ktor.serialization.json)
+    api(libs.ktor.client.encoding)
+    api(libs.timber)
+}
 
-    coreLibraryDesugaring(libs.desugaring)
+kotlin {
+    jvmToolchain(libs.versions.jvm.get().toInt())
 }

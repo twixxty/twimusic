@@ -56,7 +56,8 @@
         android:supportsRtl="false"
         android:theme="@style/Theme.ViTune.NoActionBar"
         android:appCategory="audio"
-        tools:ignore="UnusedAttribute">
+        tools:ignore="UnusedAttribute"
+        tools:replace="android:label">
 
         <activity
             android:name=".MainActivity"

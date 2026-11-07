@@ -122,6 +122,7 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.request.crossfade
+import coil3.util.DebugLogger
 import app.vitune.android.utils.innertube.InnerTubeXPlayer
 import app.vitune.android.preferences.AccountPreferences
 import com.metrolist.innertube.YouTube

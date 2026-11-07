@@ -4,6 +4,7 @@ import android.webkit.CookieManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -131,29 +132,21 @@ fun AccountSettings(
                 }
             }
 
-            SettingsEntry(
+            SwitchSettingsEntry(
                 title = stringResource(R.string.use_login_for_browse),
                 text = stringResource(R.string.use_login_for_browse_description),
-                trailingContent = {
-                    Switch(
-                        isChecked = AccountPreferences.useLoginForBrowse,
-                        onCheckedChange = {
-                            AccountPreferences.useLoginForBrowse = it
-                            YouTube.useLoginForBrowse = it
-                        }
-                    )
+                isChecked = AccountPreferences.useLoginForBrowse,
+                onCheckedChange = {
+                    AccountPreferences.useLoginForBrowse = it
+                    YouTube.useLoginForBrowse = it
                 }
             )
 
-            SettingsEntry(
+            SwitchSettingsEntry(
                 title = stringResource(R.string.report_history),
                 text = stringResource(R.string.report_history_description),
-                trailingContent = {
-                    Switch(
-                        isChecked = AccountPreferences.reportHistory,
-                        onCheckedChange = { AccountPreferences.reportHistory = it }
-                    )
-                }
+                isChecked = AccountPreferences.reportHistory,
+                onCheckedChange = { AccountPreferences.reportHistory = it }
             )
         } else {
             Column(

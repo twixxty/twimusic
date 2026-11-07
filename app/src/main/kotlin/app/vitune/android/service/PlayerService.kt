@@ -1423,7 +1423,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                         .withUri(cachedUri.uri)
                         .ranged(cachedUri.meta)
                 } ?: run {
-                    val connectivityManager = applicationContext.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+                    val connectivityManager = this@PlayerService.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                     val playbackData = runBlocking(Dispatchers.IO) {
                         InnerTubeXPlayer.playerResponseForPlayback(
                             videoId = mediaId,

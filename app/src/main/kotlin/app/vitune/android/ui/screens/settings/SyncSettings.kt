@@ -269,7 +269,7 @@ fun SyncSettings(
 
         AccountSettings(
             onNavigateToLogin = { isSwitching ->
-                loginRoute(isSwitching)
+                loginRoute.global(isSwitching)
             }
         )
 
