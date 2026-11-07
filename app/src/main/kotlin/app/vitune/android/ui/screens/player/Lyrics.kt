@@ -18,6 +18,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,8 +56,16 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
+import app.vitune.android.lyrics.LyricsEntry
+import app.vitune.android.lyrics.LyricsUtils
+import app.vitune.android.lyrics.WordTimestamp
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
 import app.vitune.android.Database
@@ -176,11 +186,14 @@ fun Lyrics(
                     .distinctUntilChanged()
                     .cancellable()
                     .collect { currentLyrics ->
-                        if (
-                            !shouldUpdateLyrics ||
-                            (currentLyrics?.fixed != null && currentLyrics.synced != null)
-                        ) lyrics = currentLyrics
-                        else {
+                        val hasSufficientLyrics = currentLyrics != null && (
+                            (!shouldShowSynchronizedLyrics && currentLyrics.fixed?.isNotBlank() == true) ||
+                            (shouldShowSynchronizedLyrics && currentLyrics.synced?.isNotBlank() == true)
+                        )
+
+                        if (!shouldUpdateLyrics || hasSufficientLyrics) {
+                            lyrics = currentLyrics
+                        } else {
                             val mediaMetadata = currentMediaMetadataProvider()
                             var duration =
                                 withContext(Dispatchers.Main) { currentDurationProvider() }
@@ -203,18 +216,16 @@ fun Lyrics(
                             lyrics = null
                             error = false
 
-                            val fetched = if (currentLyrics?.fixed == null || currentLyrics.synced == null) {
-                                LyricsHelper.getLyrics(
-                                    context = context,
-                                    videoId = mediaId,
-                                    title = title,
-                                    artist = artist,
-                                    durationSeconds = (duration / 1000).toInt(),
-                                    album = album
-                                )
-                            } else null
+                            val fetched = LyricsHelper.getLyrics(
+                                context = context,
+                                videoId = mediaId,
+                                title = title,
+                                artist = artist,
+                                durationSeconds = (duration / 1000).toInt(),
+                                album = album
+                            )
 
-                            val rawLyrics = fetched?.lyrics.orEmpty()
+                            val rawLyrics = fetched.lyrics
                             val isSynced = rawLyrics.contains(Regex("\\[\\d+:\\d+"))
                             val plainLyrics = if (isSynced) {
                                 rawLyrics.lines()
@@ -223,21 +234,21 @@ fun Lyrics(
                                     .joinToString("\n")
                             } else rawLyrics
 
-                            val fixed = currentLyrics?.fixed ?: plainLyrics.ifBlank { null }
-                            val synced = currentLyrics?.synced ?: if (isSynced) rawLyrics else null
+                            val fixed = currentLyrics?.fixed?.takeIf { it.isNotBlank() } ?: plainLyrics.ifBlank { null }
+                            val synced = if (isSynced) rawLyrics else currentLyrics?.synced?.takeIf { it.isNotBlank() }
 
-                            Lyrics(
+                            val updatedLyrics = Lyrics(
                                 songId = mediaId,
                                 fixed = fixed.orEmpty(),
                                 synced = synced.orEmpty()
-                            ).also {
-                                this@withContext.ensureActive()
+                            )
+                            lyrics = updatedLyrics
+                            this@withContext.ensureActive()
 
-                                transaction {
-                                    runCatching {
-                                        currentEnsureSongInserted()
-                                        Database.upsert(it)
-                                    }
+                            transaction {
+                                runCatching {
+                                    currentEnsureSongInserted()
+                                    Database.upsert(updatedLyrics)
                                 }
                             }
                         }
@@ -367,102 +378,166 @@ fun Lyrics(
             )
         }
 
-        val lyricsState = rememberSaveable(text) {
-            val file = lyrics?.synced?.takeIf { it.isNotBlank() }?.let {
-                LrcParser.parse(it)?.toLrcFile()
+        val parsedEntries = remember(lyrics?.synced) {
+            val synced = lyrics?.synced
+            if (!synced.isNullOrBlank()) {
+                LyricsUtils.parseLyrics(synced)
+            } else {
+                emptyList()
             }
-
-            SynchronizedLyricsState(
-                sentences = file?.lines,
-                offset = file?.offset?.inWholeMilliseconds ?: 0L
-            )
         }
 
-        val synchronizedLyrics = remember(lyricsState) {
-            invalidLrc = lyricsState.sentences == null
-            lyricsState.sentences?.let {
-                SynchronizedLyrics(it.toImmutableMap()) {
-                    binder?.player?.let { player ->
-                        player.currentPosition + UPDATE_DELAY + lyricsState.offset -
-                            (lyrics?.startTime ?: 0L)
-                    } ?: 0L
-                }
+        invalidLrc = showSynchronizedLyrics && !lyrics?.synced.isNullOrBlank() && parsedEntries.isEmpty()
+
+        var currentPositionMs by remember { mutableLongStateOf(0L) }
+        LaunchedEffect(binder?.player) {
+            while (true) {
+                val player = binder?.player
+                currentPositionMs = (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
+                delay(30.milliseconds)
             }
+        }
+
+        val activeIndex = remember(parsedEntries, currentPositionMs) {
+            if (parsedEntries.isEmpty()) -1
+            else parsedEntries.indexOfLast { it.time <= currentPositionMs }
         }
 
         AnimatedContent(
-            targetState = showSynchronizedLyrics,
+            targetState = showSynchronizedLyrics && parsedEntries.isNotEmpty(),
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = ""
         ) { synchronized ->
             val lazyListState = rememberLazyListState()
+            var userScrolling by remember { mutableStateOf(false) }
+
             if (synchronized) {
-                LaunchedEffect(synchronizedLyrics, density, animatedHeight) {
-                    val currentSynchronizedLyrics = synchronizedLyrics ?: return@LaunchedEffect
-                    val centerOffset = with(density) { (-animatedHeight / 3).roundToPx() }
+                LaunchedEffect(lazyListState.isScrollInProgress) {
+                    if (lazyListState.isScrollInProgress) {
+                        userScrolling = true
+                        delay(3500.milliseconds)
+                        userScrolling = false
+                    }
+                }
 
-                    lazyListState.animateScrollToItem(
-                        index = currentSynchronizedLyrics.index + 1,
-                        scrollOffset = centerOffset
-                    )
-
-                    while (true) {
-                        delay(UPDATE_DELAY.milliseconds)
-                        if (!currentSynchronizedLyrics.update()) continue
-
+                LaunchedEffect(activeIndex, userScrolling, density, animatedHeight) {
+                    if (!userScrolling && activeIndex >= 0 && activeIndex < parsedEntries.size) {
+                        val centerOffset = with(density) { (-animatedHeight / 3).roundToPx() }
                         lazyListState.animateScrollToItem(
-                            index = currentSynchronizedLyrics.index + 1,
+                            index = activeIndex + 1,
                             scrollOffset = centerOffset
                         )
                     }
                 }
 
-                if (synchronizedLyrics != null) LazyColumn(
+                LazyColumn(
                     state = lazyListState,
-                    userScrollEnabled = false,
+                    userScrollEnabled = true,
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                     modifier = Modifier
                         .verticalFadingEdge()
-                        .fillMaxWidth()
+                        .fillMaxSize()
                 ) {
-                    item(key = "header", contentType = 0) {
-                        Spacer(modifier = Modifier.height(maxHeight))
+                    item(key = "header") {
+                        Spacer(modifier = Modifier.height(maxHeight / 2))
                     }
                     itemsIndexed(
-                        items = synchronizedLyrics.sentences.values.toImmutableList()
-                    ) { index, sentence ->
-                        val color by animateColorAsState(
-                            if (index == synchronizedLyrics.index) Color.White
-                            else colorPalette.textDisabled
-                        )
+                        items = parsedEntries,
+                        key = { index, entry -> "${entry.time}_$index" }
+                    ) { index, entry ->
+                        val isActive = index == activeIndex
+                        val isPast = index < activeIndex
 
-                        if (sentence.isBlank()) Image(
-                            painter = painterResource(R.drawable.musical_notes),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(color),
-                            modifier = Modifier
-                                .padding(vertical = 4.dp, horizontal = 32.dp)
-                                .size(typography.xs.fontSize.dp)
-                        ) else BasicText(
-                            text = sentence,
-                            style = typography.xs.center.medium.color(color),
-                            modifier = Modifier.padding(vertical = 4.dp, horizontal = 32.dp)
-                        )
+                        if (entry.text.isBlank()) {
+                            val noteColor = if (isActive) Color.White else Color.White.copy(alpha = 0.35f)
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(
+                                        indication = ripple(bounded = false),
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        onClick = { binder?.player?.seekTo(entry.time) }
+                                    )
+                                    .padding(vertical = 10.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(R.drawable.musical_notes),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(noteColor),
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        } else {
+                            val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette) {
+                                if (!isActive || entry.words.isNullOrEmpty()) {
+                                    buildAnnotatedString {
+                                        val textColor = when {
+                                            isActive -> Color.White
+                                            isPast -> Color.White.copy(alpha = 0.6f)
+                                            else -> Color.White.copy(alpha = 0.35f)
+                                        }
+                                        withStyle(SpanStyle(color = textColor)) {
+                                            append(entry.text)
+                                        }
+                                    }
+                                } else {
+                                    buildAnnotatedString {
+                                        entry.words.forEach { w ->
+                                            val wStartMs = (w.startTime * 1000).toLong()
+                                            val wEndMs = (w.endTime * 1000).toLong()
+
+                                            val wordColor = when {
+                                                currentPositionMs >= wEndMs -> Color.White
+                                                currentPositionMs in wStartMs..wEndMs -> colorPalette.accent
+                                                else -> Color.White.copy(alpha = 0.4f)
+                                            }
+                                            val wordWeight = when {
+                                                currentPositionMs in wStartMs..wEndMs -> FontWeight.Bold
+                                                currentPositionMs >= wEndMs -> FontWeight.SemiBold
+                                                else -> FontWeight.Normal
+                                            }
+
+                                            withStyle(SpanStyle(color = wordColor, fontWeight = wordWeight)) {
+                                                append(w.text)
+                                                if (w.hasTrailingSpace) append(" ")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            BasicText(
+                                text = annotatedString,
+                                style = if (isActive) typography.m.semiBold.center else typography.s.medium.center,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable(
+                                        indication = ripple(bounded = false),
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        onClick = { binder?.player?.seekTo(entry.time) }
+                                    )
+                                    .padding(vertical = 8.dp, horizontal = 24.dp)
+                                    .animateContentSize()
+                            )
+                        }
                     }
-                    item(key = "footer", contentType = 0) {
-                        Spacer(modifier = Modifier.height(maxHeight))
+                    item(key = "footer") {
+                        Spacer(modifier = Modifier.height(maxHeight / 2))
                     }
                 }
-            } else BasicText(
-                text = lyrics?.fixed.orEmpty(),
-                style = typography.xs.center.medium.color(colorPalette.onOverlay),
-                modifier = Modifier
-                    .verticalFadingEdge()
-                    .verticalScroll(rememberScrollState())
-                    .fillMaxWidth()
-                    .padding(vertical = maxHeight / 4, horizontal = 32.dp)
-            )
+            } else {
+                BasicText(
+                    text = lyrics?.fixed.orEmpty(),
+                    style = typography.s.medium.center.color(colorPalette.onOverlay),
+                    modifier = Modifier
+                        .verticalFadingEdge()
+                        .verticalScroll(rememberScrollState())
+                        .fillMaxWidth()
+                        .padding(vertical = maxHeight / 4, horizontal = 24.dp)
+                )
+            }
         }
 
         if (text == null && !error) Column(

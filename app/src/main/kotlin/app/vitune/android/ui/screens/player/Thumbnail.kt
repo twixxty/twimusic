@@ -153,58 +153,50 @@ fun Thumbnail(
             ),
             label = ""
         )
-        val blurRadius by animateDpAsState(
-            targetValue = if (isShowingLyrics || error != null || isShowingStatsForNerds) 8.dp else 0.dp,
-            animationSpec = tween(500),
-            label = ""
-        )
-
         if (currentWindow != null) Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .aspectRatio(1f)
                 .clip(if (isInPip) RectangleShape else thumbnailShape)
+                .background(colorPalette.background0)
                 .shadow(
                     elevation = shadowElevation,
                     shape = thumbnailShape,
                     clip = false
                 )
         ) {
-            var height by remember { mutableIntStateOf(0) }
+            androidx.compose.animation.AnimatedVisibility(
+                visible = !isShowingLyrics && !isShowingStatsForNerds && error == null,
+                enter = fadeIn(tween(300)),
+                exit = fadeOut(tween(300))
+            ) {
+                AsyncImage(
+                    model = currentWindow.mediaItem.mediaMetadata.artworkUri
+                        ?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
+                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
+                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                    contentDescription = null,
+                    contentScale = contentScale,
+                    modifier = Modifier
+                        .pointerInput(Unit) {
+                            detectTapGestures(
+                                onTap = { onShowLyrics(true) },
+                                onLongPress = { onShowStatsForNerds(true) },
+                                onDoubleTap = {
+                                    if (likedAt == null) setLikedAt(System.currentTimeMillis())
 
-            AsyncImage(
-                model = currentWindow.mediaItem.mediaMetadata.artworkUri
-                    ?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
-                placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                error = painterResource(id = R.drawable.ic_launcher_foreground),
-                contentDescription = null,
-                contentScale = contentScale,
-                modifier = Modifier
-                    .pointerInput(Unit) {
-                        detectTapGestures(
-                            onTap = { onShowLyrics(true) },
-                            onLongPress = { onShowStatsForNerds(true) },
-                            onDoubleTap = {
-                                if (likedAt == null) setLikedAt(System.currentTimeMillis())
-
-                                coroutineScope.launch {
-                                    val spec = tween<Float>(durationMillis = 500)
-                                    transitionState.animateTo(true, spec)
-                                    transitionState.animateTo(false, spec)
+                                    coroutineScope.launch {
+                                        val spec = tween<Float>(durationMillis = 500)
+                                        transitionState.animateTo(true, spec)
+                                        transitionState.animateTo(false, spec)
+                                    }
                                 }
-                            }
-                        )
-                    }
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .background(colorPalette.background0)
-                    .let {
-                        if (blurRadius == 0.dp) it else it.blur(radius = blurRadius)
-                    }
-                    .animateContentSize()
-                    .onGloballyPositioned { coords ->
-                        coords.size.height.let { if (it > 0) height = it }
-                    }
-            )
+                            )
+                        }
+                        .fillMaxSize()
+                        .background(colorPalette.background0)
+                )
+            }
 
             Lyrics(
                 mediaId = currentWindow.mediaItem.mediaId,
@@ -214,7 +206,7 @@ fun Thumbnail(
                 mediaMetadataProvider = currentWindow.mediaItem::mediaMetadata,
                 durationProvider = { binder?.player?.duration ?: C.TIME_UNSET },
                 onOpenDialog = onOpenDialog,
-                modifier = Modifier.height(height.px.dp),
+                modifier = Modifier.fillMaxSize(),
                 shouldShowSynchronizedLyrics = shouldShowSynchronizedLyrics,
                 setShouldShowSynchronizedLyrics = setShouldShowSynchronizedLyrics,
                 showControls = showLyricsControls
@@ -224,7 +216,7 @@ fun Thumbnail(
                 mediaId = currentWindow.mediaItem.mediaId,
                 isDisplayed = isShowingStatsForNerds && error == null,
                 onDismiss = { onShowStatsForNerds(false) },
-                modifier = Modifier.height(height.px.dp)
+                modifier = Modifier.fillMaxSize()
             )
 
             Image(
@@ -264,7 +256,7 @@ fun Thumbnail(
                     }
                 },
                 onDismiss = { binder?.player?.prepare() },
-                modifier = Modifier.height(height.px.dp)
+                modifier = Modifier.fillMaxSize()
             )
         }
     }

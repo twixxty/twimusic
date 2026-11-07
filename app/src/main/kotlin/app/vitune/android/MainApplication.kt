@@ -544,8 +544,10 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
         }
         if (AccountPreferences.dataSyncId.isNotBlank()) {
             YouTube.dataSyncId = AccountPreferences.dataSyncId
+            app.vitune.providers.innertube.Innertube.dataSyncId = AccountPreferences.dataSyncId
         }
         YouTube.authUser = AccountPreferences.innerTubeAuthUser
+        app.vitune.providers.innertube.Innertube.authUser = AccountPreferences.innerTubeAuthUser
         YouTube.useLoginForBrowse = AccountPreferences.useLoginForBrowse
 
         MonetCompat.debugLog = BuildConfig.DEBUG

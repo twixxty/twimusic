@@ -379,6 +379,12 @@ interface DatabaseAccessor {
     @Query("SELECT * FROM Playlist WHERE id = :id")
     fun playlist(id: Long): Flow<Playlist?>
 
+    @Query("SELECT * FROM Playlist WHERE browseId = :browseId LIMIT 1")
+    fun playlistByBrowseId(browseId: String): Flow<Playlist?>
+
+    @Query("SELECT * FROM Playlist")
+    fun allPlaylists(): Flow<List<Playlist>>
+
     @RewriteQueriesToDropUnusedColumns
     @Transaction
     @Query(

@@ -105,16 +105,6 @@ fun LyricsDialog(
                     }
                 )
         ) {
-            if (currentWindow.mediaItem.mediaMetadata.artworkUri != null) AsyncImage(
-                model = currentWindow.mediaItem.mediaMetadata.artworkUri?.thumbnail((maxHeight - 64.dp).px),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(colorPalette.background0)
-                    .blur(radius = 8.dp)
-            )
-
             Lyrics(
                 mediaId = currentWindow.mediaItem.mediaId,
                 isDisplayed = true,
@@ -123,7 +113,7 @@ fun LyricsDialog(
                 durationProvider = player::getDuration,
                 ensureSongInserted = { Database.insert(currentWindow.mediaItem) },
                 onMenuLaunch = onDismiss,
-                modifier = Modifier.height(maxHeight),
+                modifier = Modifier.fillMaxSize(),
                 shouldKeepScreenAwake = false, // otherwise the keepScreenOn flag resets after dialog closes
                 shouldUpdateLyrics = false
             )

@@ -17,13 +17,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -32,6 +35,7 @@ import app.vitune.android.R
 import app.vitune.android.preferences.AccountPreferences
 import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.Switch
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.android.utils.bold
 import app.vitune.android.utils.color
 import app.vitune.android.utils.medium
@@ -40,16 +44,21 @@ import app.vitune.android.utils.semiBold
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.surface
 import com.metrolist.innertube.YouTube
+import kotlinx.coroutines.launch
 
 @Composable
 fun AccountSettings(
     onNavigateToLogin: (isSwitchingChannel: Boolean) -> Unit
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isLoggedIn by remember { mutableStateOf(AccountPreferences.isLoggedIn) }
     var accountName by remember { mutableStateOf(AccountPreferences.accountName) }
     var accountHandle by remember { mutableStateOf(AccountPreferences.accountChannelHandle) }
     var accountEmail by remember { mutableStateOf(AccountPreferences.accountEmail) }
+    val isSyncing by YouTubeSync.isSyncing.collectAsState()
+    val syncStatus by YouTubeSync.syncStatus.collectAsState()
 
     SettingsGroup(title = stringResource(R.string.youtube_account)) {
         if (isLoggedIn) {
@@ -101,6 +110,19 @@ fun AccountSettings(
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
+
+                SecondaryTextButton(
+                    text = if (isSyncing) syncStatus.ifBlank { "Syncing..." } else "Sync Library with YouTube Music",
+                    enabled = !isSyncing,
+                    onClick = {
+                        coroutineScope.launch {
+                            YouTubeSync.syncAll(context)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

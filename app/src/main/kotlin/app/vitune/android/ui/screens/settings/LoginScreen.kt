@@ -139,61 +139,67 @@ fun LoginScreen(
     suspend fun extractAuthData(webView: WebView?): AuthData? {
         val view = webView ?: return null
         var hasAuthCookie = false
-        var hasVisitorData = false
 
         repeat(20) {
-            val cookie = CookieManager.getInstance().getCookie("https://music.youtube.com").orEmpty()
-            val cookieMap = runCatching { parseCookieString(cookie) }.getOrDefault(emptyMap())
-            val visitorDataDeferred = CompletableDeferred<String?>()
-            val dataSyncIdDeferred = CompletableDeferred<String?>()
-            val authUserDeferred = CompletableDeferred<String?>()
+            val cm = CookieManager.getInstance()
+            val rawCookie = listOfNotNull(
+                cm.getCookie("https://music.youtube.com"),
+                cm.getCookie("https://youtube.com"),
+                cm.getCookie("https://www.youtube.com"),
+                cm.getCookie(".youtube.com")
+            ).joinToString("; ")
 
-            jsInterface.onVisitorDataReceived = { visitorData ->
-                if (!visitorDataDeferred.isCompleted) visitorDataDeferred.complete(visitorData)
-            }
-            jsInterface.onDataSyncIdReceived = { dataSyncId ->
-                if (!dataSyncIdDeferred.isCompleted) dataSyncIdDeferred.complete(dataSyncId)
-            }
-            jsInterface.onAuthUserReceived = { authUser ->
-                if (!authUserDeferred.isCompleted) authUserDeferred.complete(authUser)
-            }
+            val cookieMap = runCatching { parseCookieString(rawCookie) }.getOrDefault(emptyMap())
+            hasAuthCookie = "SAPISID" in cookieMap || "__Secure-3PAPISID" in cookieMap || "__Secure-1PAPISID" in cookieMap
 
-            view.loadUrl(
-                "javascript:Android.onRetrieveVisitorData(" +
-                    "window.yt&&window.yt.config_?window.yt.config_.VISITOR_DATA:null)",
-            )
-            view.loadUrl(
-                "javascript:Android.onRetrieveDataSyncId(" +
-                    "window.yt&&window.yt.config_?window.yt.config_.DATASYNC_ID:null)",
-            )
-            view.loadUrl(
-                "javascript:Android.onRetrieveAuthUser(" +
-                    "window.yt&&window.yt.config_?String(window.yt.config_.SESSION_INDEX||0):'0')",
-            )
+            if (hasAuthCookie) {
+                val jsResultDeferred = CompletableDeferred<String?>()
+                withContext(Dispatchers.Main) {
+                    view.evaluateJavascript("""
+                        (function() {
+                            try {
+                                var v = (window.ytcfg && typeof window.ytcfg.get === 'function' ? window.ytcfg.get('VISITOR_DATA') : null)
+                                    || (window.yt && window.yt.config_ ? window.yt.config_.VISITOR_DATA : null);
+                                var d = (window.ytcfg && typeof window.ytcfg.get === 'function' ? window.ytcfg.get('DATASYNC_ID') : null)
+                                    || (window.yt && window.yt.config_ ? window.yt.config_.DATASYNC_ID : null);
+                                var a = (window.ytcfg && typeof window.ytcfg.get === 'function' ? String(window.ytcfg.get('SESSION_INDEX') || 0) : null)
+                                    || (window.yt && window.yt.config_ ? String(window.yt.config_.SESSION_INDEX || 0) : '0');
+                                return JSON.stringify({visitorData: v, dataSyncId: d, authUser: a});
+                            } catch(e) {
+                                return null;
+                            }
+                        })()
+                    """.trimIndent()) { result ->
+                        jsResultDeferred.complete(result)
+                    }
+                }
 
-            val pageAuthData = withTimeoutOrNull(1000) {
-                WebAuthData(
-                    visitorData = visitorDataDeferred.await(),
-                    dataSyncId = dataSyncIdDeferred.await(),
-                    authUser = authUserDeferred.await().orEmpty(),
-                )
-            }
-            hasAuthCookie = "SAPISID" in cookieMap
-            val visitorData = pageAuthData?.visitorData
-            hasVisitorData = !visitorData.isNullOrBlank()
+                val json = withTimeoutOrNull(2000) { jsResultDeferred.await() }
+                var visitorData: String? = null
+                var dataSyncId: String? = null
+                var authUser = "0"
 
-            if (hasAuthCookie && pageAuthData != null && !visitorData.isNullOrBlank()) {
+                if (!json.isNullOrBlank() && json != "null") {
+                    runCatching {
+                        val cleanedJson = json.removeSurrounding("\"").replace("\\\"", "\"").replace("\\\\", "\\")
+                        val obj = kotlinx.serialization.json.Json.parseToJsonElement(cleanedJson) as? kotlinx.serialization.json.JsonObject
+                        visitorData = obj?.get("visitorData")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                        dataSyncId = obj?.get("dataSyncId")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
+                        authUser = obj?.get("authUser")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull } ?: "0"
+                    }
+                }
+
                 return AuthData(
-                    cookie = cookie,
-                    visitorData = visitorData,
-                    dataSyncId = pageAuthData.dataSyncId.orEmpty().substringBefore("||"),
-                    authUser = pageAuthData.authUser.filter(Char::isDigit).ifBlank { "0" },
+                    cookie = rawCookie,
+                    visitorData = visitorData ?: YouTube.visitorData.orEmpty(),
+                    dataSyncId = dataSyncId.orEmpty().substringBefore("||"),
+                    authUser = authUser.filter(Char::isDigit).ifBlank { "0" },
                 )
             }
             delay(500)
         }
 
-        Timber.w("Login: Timed out waiting for YouTube session (authCookie=$hasAuthCookie, visitorData=$hasVisitorData)")
+        Timber.w("Login: Timed out waiting for YouTube session (authCookie=$hasAuthCookie)")
         return null
     }
 
@@ -217,8 +223,15 @@ fun LoginScreen(
 
                 app.vitune.providers.innertube.Innertube.cookie = authData.cookie
                 app.vitune.providers.innertube.Innertube.visitorData = authData.visitorData
+                app.vitune.providers.innertube.Innertube.dataSyncId = authData.dataSyncId
+                app.vitune.providers.innertube.Innertube.authUser = authData.authUser
 
                 CookieManager.getInstance().flush()
+
+                coroutineScope.launch {
+                    app.vitune.android.utils.YouTubeSync.syncAll(context)
+                }
+
                 onDismiss()
             }
         } catch (throwable: Exception) {

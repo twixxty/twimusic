@@ -38,6 +38,21 @@ internal val json = Json {
 object Innertube {
     var cookie: String? = null
     var visitorData: String? = null
+    var dataSyncId: String? = null
+    var authUser: String = "0"
+
+    private fun getSapisidHash(cookieStr: String, origin: String): String? {
+        val sapisid = cookieStr.split(";")
+            .map { it.trim().split("=") }
+            .firstOrNull { it.size >= 2 && (it[0] == "SAPISID" || it[0] == "__Secure-3PAPISID" || it[0] == "__Secure-1PAPISID") }
+            ?.get(1) ?: return null
+        val time = System.currentTimeMillis() / 1000
+        val payload = "$time $sapisid $origin"
+        val digest = java.security.MessageDigest.getInstance("SHA-1")
+            .digest(payload.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        return "SAPISIDHASH ${time}_$digest"
+    }
 
     private val OriginInterceptor = createClientPlugin("OriginInterceptor") {
         client.sendPipeline.intercept(HttpSendPipeline.State) {
@@ -48,8 +63,17 @@ object Innertube {
                 set("host", host)
                 set("x-origin", origin)
                 set("origin", origin)
-                cookie?.let { set("cookie", it) }
+                cookie?.let { cookieStr ->
+                    set("cookie", cookieStr)
+                    getSapisidHash(cookieStr, origin)?.let { authHeader ->
+                        set("authorization", authHeader)
+                    }
+                }
                 visitorData?.let { set("x-goog-visitor-id", it) }
+                if (authUser.isNotBlank() && authUser != "0") {
+                    set("x-goog-authuser", authUser)
+                }
+                dataSyncId?.let { set("x-goog-pageid", it) }
             }
         }
     }
