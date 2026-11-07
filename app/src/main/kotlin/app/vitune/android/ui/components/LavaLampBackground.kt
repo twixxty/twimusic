@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import android.graphics.ColorMatrix
 import android.graphics.ColorMatrixColorFilter
 import android.graphics.Paint
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -14,8 +17,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,15 +31,18 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 /**
  * Animated Lava Lamp background ported from Accord's BlendView.
- * Uses saturated quarters of the current album artwork rotating in a frame
- * with heavy blur to create fluid, morphing, Apple Music-style dynamic background.
+ * Uses saturated quarters of the current album artwork rotating in a dynamically sized
+ * frame with heavy blur to create a fluid, morphing, Apple Music-style dynamic background
+ * that never clips or gets cut off.
  */
 @Composable
 fun LavaLampBackground(
@@ -81,36 +87,52 @@ fun LavaLampBackground(
         label = "lavaLampRotation"
     )
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .background(fallbackColor)
             .clipToBounds()
     ) {
+        val maxDim = maxOf(maxWidth, maxHeight)
+        val frameSize = maxDim * 1.6f
+        val blobSize = frameSize * 0.55f
+
         if (processedBitmaps != null) {
             val (enhanced, topLeft, bottomRight) = processedBitmaps
 
-            // Blur container for the morphing blobs
+            // Blur container for the morphing blobs with overscan scale to prevent edge cutoffs
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .scale(1.3f)
-                    .blur(blurRadius)
+                    .scale(1.25f)
+                    .then(
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            Modifier.graphicsLayer {
+                                val rPx = blurRadius.toPx()
+                                renderEffect = RenderEffect
+                                    .createBlurEffect(rPx, rPx, Shader.TileMode.MIRROR)
+                                    .asComposeRenderEffect()
+                            }
+                        } else {
+                            Modifier.blur(blurRadius)
+                        }
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                // Base background layer
+                // Base background layer scaled to cover the full viewport
                 Image(
                     bitmap = enhanced,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .scale(1.2f)
+                        .scale(1.4f)
                 )
 
-                // Rotating frame
+                // Rotating frame centered and sized to diagonal to prevent clipping at any rotation angle
                 Box(
                     modifier = Modifier
-                        .fillMaxSize()
+                        .size(frameSize)
                         .rotate(-rotationBase * 0.6f)
                 ) {
                     // Top-left quarter rotating clockwise
@@ -119,11 +141,10 @@ fun LavaLampBackground(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(320.dp)
+                            .size(blobSize)
                             .align(Alignment.TopStart)
-                            .offset(x = (-30).dp, y = (-30).dp)
                             .rotate(rotationBase * 1.2f)
-                            .scale(2.2f)
+                            .scale(1.8f)
                     )
 
                     // Bottom-right quarter rotating clockwise at different speed
@@ -132,11 +153,10 @@ fun LavaLampBackground(
                         contentDescription = null,
                         contentScale = ContentScale.Crop,
                         modifier = Modifier
-                            .size(320.dp)
+                            .size(blobSize)
                             .align(Alignment.BottomEnd)
-                            .offset(x = 30.dp, y = 30.dp)
                             .rotate(rotationBase * 0.67f)
-                            .scale(2.2f)
+                            .scale(1.8f)
                     )
                 }
             }
@@ -155,8 +175,8 @@ fun LavaLampBackground(
                 .background(
                     Brush.verticalGradient(
                         0.0f to Color.Transparent,
-                        0.65f to Color.Transparent,
-                        1.0f to Color.Black.copy(alpha = 0.55f)
+                        0.60f to Color.Transparent,
+                        1.0f to Color.Black.copy(alpha = 0.50f)
                     )
                 )
         )

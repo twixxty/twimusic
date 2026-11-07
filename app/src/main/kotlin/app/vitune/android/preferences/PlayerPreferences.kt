@@ -50,6 +50,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var showRemaining by boolean(false)
     var lyricsKeepScreenAwake by boolean(false)
     var lyricsShowSystemBars by boolean(true)
+    var lyricsTextPosition by enum(LyricsTextPosition.Left)
+    var pureViTuneUI by boolean(false)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)
@@ -120,5 +122,11 @@ object PlayerPreferences : GlobalPreferencesHolder() {
             preset = PresetReverb.PRESET_PLATE,
             displayName = { stringResource(R.string.reverb_plate) }
         )
+    }
+
+    enum class LyricsTextPosition {
+        Left,
+        Center,
+        Right
     }
 }

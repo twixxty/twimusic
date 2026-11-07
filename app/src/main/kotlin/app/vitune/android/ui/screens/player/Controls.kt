@@ -314,34 +314,25 @@ private fun ModernControls(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        AnimatedVisibility(
+            visible = !isShowingLyrics,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-            Column(modifier = Modifier.weight(4f)) {
-                AnimatedVisibility(
-                    visible = !isShowingLyrics,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     SeekBar(
                         binder = binder,
                         position = position,
                         media = media
                     )
                 }
-            }
-
-            if (onToggleLyrics != null) {
-                IconButton(
-                    icon = R.drawable.musical_notes,
-                    color = if (isShowingLyrics) LocalAppearance.current.colorPalette.accent else LocalAppearance.current.colorPalette.text,
-                    onClick = onToggleLyrics,
-                    modifier = Modifier.size(24.dp)
-                )
             }
         }
 

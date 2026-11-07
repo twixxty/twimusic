@@ -398,4 +398,12 @@
     <string name="login_stage_auth">Authenticating with Google…</string>
     <string name="login_stage_channels">Loading YouTube channels…</string>
     <string name="login_stage_finishing">Finalizing sign in…</string>
+    <string name="search_lyrics_providers">Search across lyrics providers</string>
+    <string name="copy_lyrics">Copy lyrics to clipboard</string>
+    <string name="lyrics_copied">Lyrics copied to clipboard</string>
+    <string name="lyrics_text_position">Lyrics text alignment</string>
+    <string name="pure_vitune_mode">Pure ViTune Mode</string>
+    <string name="pure_vitune_mode_description">Revert player and lyrics UI changes back to the original classic ViTune</string>
+    <string name="choose_lyrics_result">Select lyrics result</string>
+    <string name="searching_providers">Searching providers…</string>
 </resources>

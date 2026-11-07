@@ -2,6 +2,7 @@ package app.vitune.android.ui.components
 
 import android.graphics.BlurMaskFilter
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -27,9 +28,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
+import app.vitune.android.preferences.PlayerPreferences
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -118,18 +122,30 @@ fun MetrolistLyricsLine(
     val lyricsTextSize = if (item.isBackground) 17f else 25f
     val lyricsLineSpacing = 1.35f
 
+    val defaultAlignment = when (PlayerPreferences.lyricsTextPosition) {
+        PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start
+        PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally
+        PlayerPreferences.LyricsTextPosition.Right -> Alignment.End
+    }
+
+    val defaultTextAlign = when (PlayerPreferences.lyricsTextPosition) {
+        PlayerPreferences.LyricsTextPosition.Left -> TextAlign.Left
+        PlayerPreferences.LyricsTextPosition.Center -> TextAlign.Center
+        PlayerPreferences.LyricsTextPosition.Right -> TextAlign.Right
+    }
+
     val agentAlignment = when {
         item.agent == "v1" -> Alignment.Start
         item.agent == "v2" -> Alignment.End
         item.isBackground -> Alignment.CenterHorizontally
-        else -> Alignment.CenterHorizontally
+        else -> defaultAlignment
     }
 
     val agentTextAlign = when {
         item.agent == "v1" -> TextAlign.Left
         item.agent == "v2" -> TextAlign.Right
         item.isBackground -> TextAlign.Center
-        else -> TextAlign.Center
+        else -> defaultTextAlign
     }
 
     val inactiveAlpha = if (item.isBackground) 0.08f else 0.22f
@@ -148,9 +164,19 @@ fun MetrolistLyricsLine(
         }
     } else inactiveAlpha
 
+    val targetBlur = if (!isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
+        0 -> 0.dp
+        1 -> 2.dp
+        2 -> 4.dp
+        else -> 6.dp
+    }
+    val animatedBlur by animateDpAsState(targetBlur, tween(300), label = "lyricsLineBlur")
+
     val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
     val animatedScale by animateFloatAsState(if (isActiveLine) 1.04f else 1.0f, tween(300), label = "lyricsLineScale")
 
+    // Luminous soft white with subtle 15% accent tint instead of overwhelming raw neon color
+    val activeTextColor = lerp(Color.White, expressiveAccent, 0.15f)
     val lineColor = Color.White.copy(alpha = if (item.isBackground) focusedAlpha else animatedAlpha)
 
     val mainTextRaw = item.text
@@ -203,6 +229,7 @@ fun MetrolistLyricsLine(
                 scaleX = animatedScale
                 scaleY = animatedScale
             }
+            .blur(animatedBlur)
             .padding(
                 horizontal = 24.dp,
                 vertical = if (item.isBackground) 4.dp else 10.dp
@@ -226,6 +253,7 @@ fun MetrolistLyricsLine(
                     player = player,
                     lyricStyle = lyricStyle,
                     lineColor = lineColor,
+                    activeTextColor = activeTextColor,
                     expressiveAccent = expressiveAccent,
                     isBackground = item.isBackground,
                     focusedAlpha = focusedAlpha,
@@ -235,7 +263,7 @@ fun MetrolistLyricsLine(
                 Text(
                     text = mainText,
                     style = lyricStyle.copy(
-                        color = if (isActiveLine) expressiveAccent else lineColor
+                        color = if (isActiveLine) activeTextColor else lineColor
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -253,6 +281,7 @@ private fun WordLevelLyrics(
     player: Player?,
     lyricStyle: TextStyle,
     lineColor: Color,
+    activeTextColor: Color,
     expressiveAccent: Color,
     isBackground: Boolean,
     focusedAlpha: Float,
@@ -474,11 +503,11 @@ private fun WordLevelLyrics(
                         if (found) {
                             if (isWordSung) {
                                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                                    drawText(layoutResult, color = expressiveAccent)
+                                    drawText(layoutResult, color = activeTextColor)
                                 }
                             } else if (isWordActive && sungFactor > 0f) {
                                 clipRect(left = left, top = top, right = right, bottom = bottom) {
-                                    drawText(layoutResult, color = expressiveAccent.copy(alpha = focusedAlpha + (1f - focusedAlpha) * sungFactor))
+                                    drawText(layoutResult, color = activeTextColor.copy(alpha = focusedAlpha + (1f - focusedAlpha) * sungFactor))
                                 }
                             }
                         }
@@ -679,14 +708,14 @@ private fun WordLevelLyrics(
                             }
                         }
                         val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
-                        drawText(letterLayouts[i], color = expressiveAccent.copy(alpha = if (wordIdx == -1) focusedAlpha else baseAlpha))
+                        drawText(letterLayouts[i], color = activeTextColor.copy(alpha = if (wordIdx == -1) focusedAlpha else baseAlpha))
                         if (!isWordSung && charLp > 0f && charLp < 1f) {
                             val fXL = charBounds.width * charLp
                             val eW = (charBounds.width * 0.45f).coerceAtLeast(1f)
                             val sWL = (fXL - eW).coerceAtLeast(0f)
                             if (sWL > 0f) {
                                 clipRect(left = 0f, top = 0f, right = sWL, bottom = charBounds.height) {
-                                    drawText(letterLayouts[i], color = expressiveAccent)
+                                    drawText(letterLayouts[i], color = activeTextColor)
                                 }
                             }
                             for (j in 0 until 12) {
@@ -694,7 +723,7 @@ private fun WordLevelLyrics(
                                 val end = (sWL + ((j + 1) * eW / 12f) + 0.5f).coerceAtMost(fXL)
                                 if (end > start) {
                                     clipRect(left = start, top = 0f, right = end, bottom = charBounds.height) {
-                                        drawText(letterLayouts[i], color = expressiveAccent.copy(alpha = 1f - (j + 0.5f) / 12f))
+                                        drawText(letterLayouts[i], color = activeTextColor.copy(alpha = 1f - (j + 0.5f) / 12f))
                                     }
                                 }
                             }

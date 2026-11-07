@@ -2,7 +2,7 @@ package app.vitune.android.utils
 
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -15,9 +15,13 @@ fun PlayerService.Binder?.collectProvidedBitmapAsState(
 ): Bitmap? {
     var state by remember(this, key) { mutableStateOf<Bitmap?>(null) }
 
-    LaunchedEffect(this, key) {
-        this@collectProvidedBitmapAsState?.setBitmapListener {
+    DisposableEffect(this, key) {
+        val listener: (Bitmap?) -> Unit = {
             state = it
+        }
+        this@collectProvidedBitmapAsState?.addListener(listener)
+        onDispose {
+            this@collectProvidedBitmapAsState?.removeListener(listener)
         }
     }
 

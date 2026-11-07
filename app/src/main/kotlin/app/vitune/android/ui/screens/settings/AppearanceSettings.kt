@@ -195,6 +195,20 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 onCheckedChange = { PlayerPreferences.lyricsShowSystemBars = it }
             )
 
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.lyrics_text_position),
+                selectedValue = PlayerPreferences.lyricsTextPosition,
+                onValueSelect = { PlayerPreferences.lyricsTextPosition = it },
+                valueText = { it.name }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.pure_vitune_mode),
+                text = stringResource(R.string.pure_vitune_mode_description),
+                isChecked = PlayerPreferences.pureViTuneUI,
+                onCheckedChange = { PlayerPreferences.pureViTuneUI = it }
+            )
+
             SwitchSettingsEntry(
                 title = stringResource(R.string.pip),
                 text = stringResource(R.string.pip_description),

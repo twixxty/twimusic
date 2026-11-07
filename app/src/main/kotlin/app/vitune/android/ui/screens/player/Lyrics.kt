@@ -2,7 +2,13 @@ package app.vitune.android.ui.screens.player
 
 import android.app.SearchManager
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import androidx.compose.foundation.layout.heightIn
+import app.vitune.android.lyrics.LyricsProviderRegistry
+import app.vitune.android.preferences.LyricsPreferences
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -158,7 +164,9 @@ fun Lyrics(
     },
     shouldKeepScreenAwake: Boolean = PlayerPreferences.lyricsKeepScreenAwake,
     shouldUpdateLyrics: Boolean = true,
-    showControls: Boolean = true
+    showControls: Boolean = true,
+    isFullscreen: Boolean = false,
+    onToggleFullscreen: (() -> Unit)? = null
 ) = AnimatedVisibility(
     visible = isDisplayed,
     enter = fadeIn(),
@@ -315,34 +323,40 @@ fun Lyrics(
         }
     )
 
-    if (picking && shouldShowSynchronizedLyrics) {
-        var query by rememberSaveable {
-            mutableStateOf(
-                currentMediaMetadataProvider().title?.toString().orEmpty().let {
-                    if (mediaId.startsWith(LOCAL_KEY_PREFIX)) it
-                        .substringBeforeLast('.')
-                        .trim()
-                    else it
-                }
-            )
+    if (picking) {
+        val meta = currentMediaMetadataProvider()
+        val songTitle = meta.title?.toString().orEmpty().let {
+            if (mediaId.startsWith(LOCAL_KEY_PREFIX)) it
+                .substringBeforeLast('.')
+                .trim()
+            else it
         }
+        val songArtist = meta.artist?.toString().orEmpty()
+        val durationSecs = (currentDurationProvider() / 1000).toInt()
 
-        LrcLibSearchDialog(
-            query = query,
-            setQuery = { query = it },
+        MultiProviderSearchDialog(
+            initialTitle = songTitle,
+            initialArtist = songArtist,
+            duration = durationSecs,
+            mediaId = mediaId,
             onDismiss = { picking = false },
-            onPick = {
+            onPick = { result ->
                 runCatching {
                     transaction {
                         Database.upsert(
                             Lyrics(
                                 songId = mediaId,
-                                fixed = lyrics?.fixed,
-                                synced = it.syncedLyrics
+                                fixed = if (result.isSynced) lyrics?.fixed else result.lyrics,
+                                synced = if (result.isSynced) result.lyrics else lyrics?.synced
                             )
                         )
                     }
                 }
+                if (result.isSynced) {
+                    setShouldShowSynchronizedLyrics(true)
+                }
+                context.toast("Applied lyrics from ${result.provider}")
+                picking = false
             }
         )
     }
@@ -574,23 +588,49 @@ fun Lyrics(
                                     )
                                 }
                             } else {
-                                MetrolistLyricsLine(
-                                    index = index,
-                                    item = entry,
-                                    isSynced = true,
-                                    isActiveLine = isActive,
-                                    currentPositionState = currentPositionMs,
-                                    player = binder?.player,
-                                    expressiveAccent = colorPalette.accent,
-                                    displayedCurrentLineIndex = activeIndex,
-                                    isAutoScrollEnabled = isAutoScrollEnabled,
-                                    onClick = {
-                                        binder?.player?.seekTo(entry.time)
-                                        coroutineScope.launch {
-                                            performSmoothPageScroll(index, duration = 800)
+                                if (PlayerPreferences.pureViTuneUI) {
+                                    val textColor = if (isActive) colorPalette.onOverlay else colorPalette.onOverlay.copy(alpha = 0.5f)
+                                    BasicText(
+                                        text = entry.text,
+                                        style = TextStyle(
+                                            fontSize = 20.sp,
+                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                            color = textColor,
+                                            textAlign = TextAlign.Center
+                                        ),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable(
+                                                indication = ripple(bounded = false),
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                onClick = {
+                                                    binder?.player?.seekTo(entry.time)
+                                                    coroutineScope.launch {
+                                                        performSmoothPageScroll(index, duration = 800)
+                                                    }
+                                                }
+                                            )
+                                            .padding(vertical = 10.dp, horizontal = 24.dp)
+                                    )
+                                } else {
+                                    MetrolistLyricsLine(
+                                        index = index,
+                                        item = entry,
+                                        isSynced = true,
+                                        isActiveLine = isActive,
+                                        currentPositionState = currentPositionMs,
+                                        player = binder?.player,
+                                        expressiveAccent = colorPalette.accent,
+                                        displayedCurrentLineIndex = activeIndex,
+                                        isAutoScrollEnabled = isAutoScrollEnabled,
+                                        onClick = {
+                                            binder?.player?.seekTo(entry.time)
+                                            coroutineScope.launch {
+                                                performSmoothPageScroll(index, duration = 800)
+                                            }
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                         item(key = "footer") {
@@ -668,9 +708,10 @@ fun Lyrics(
         }
 
         if (showControls) {
-            if (onOpenDialog != null) Image(
-                painter = painterResource(R.drawable.expand),
-                contentDescription = null,
+            val expandAction = onToggleFullscreen ?: onOpenDialog
+            if (expandAction != null) Image(
+                painter = painterResource(if (isFullscreen) R.drawable.contract else R.drawable.expand),
+                contentDescription = if (isFullscreen) "Exit fullscreen" else "Fullscreen lyrics",
                 colorFilter = ColorFilter.tint(colorPalette.onOverlay),
                 modifier = Modifier
                     .padding(all = 4.dp)
@@ -678,7 +719,7 @@ fun Lyrics(
                         indication = ripple(bounded = false),
                         interactionSource = remember { MutableInteractionSource() },
                         onClick = {
-                            onOpenDialog()
+                            expandAction()
                         }
                     )
                     .padding(all = 8.dp)
@@ -714,6 +755,15 @@ fun Lyrics(
                                     )
 
                                     MenuEntry(
+                                        icon = R.drawable.search,
+                                        text = stringResource(R.string.search_lyrics_providers),
+                                        onClick = {
+                                            menuState.hide()
+                                            picking = true
+                                        }
+                                    )
+
+                                    MenuEntry(
                                         icon = R.drawable.pencil,
                                         text = stringResource(R.string.edit_lyrics),
                                         onClick = {
@@ -722,9 +772,48 @@ fun Lyrics(
                                         }
                                     )
 
+                                    MenuEntry(
+                                        icon = R.drawable.copy,
+                                        text = stringResource(R.string.copy_lyrics),
+                                        enabled = !text.isNullOrBlank(),
+                                        onClick = {
+                                            menuState.hide()
+                                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                            val plainText = if (showSynchronizedLyrics && text != null) {
+                                                text.lines().map { line ->
+                                                    line.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").trim()
+                                                }.filter { it.isNotBlank() }.joinToString("\n")
+                                            } else {
+                                                text.orEmpty()
+                                            }
+                                            clipboard.setPrimaryClip(ClipData.newPlainText("Lyrics", plainText))
+                                            context.toast(context.getString(R.string.lyrics_copied))
+                                        }
+                                    )
+
+                                    if (shouldShowSynchronizedLyrics) {
+                                        MenuEntry(
+                                            icon = R.drawable.play_skip_forward,
+                                            text = stringResource(R.string.set_lyrics_start_offset),
+                                            secondaryText = stringResource(
+                                                R.string.set_lyrics_start_offset_description
+                                            ),
+                                            enabled = lyrics != null,
+                                            onClick = {
+                                                menuState.hide()
+                                                lyrics?.let {
+                                                    val startTime = binder?.player?.currentPosition
+                                                    query {
+                                                        Database.upsert(it.copy(startTime = startTime))
+                                                    }
+                                                }
+                                            }
+                                        )
+                                    }
+
                                     val errorMsg = stringResource(R.string.no_browser_installed)
                                     MenuEntry(
-                                        icon = R.drawable.search,
+                                        icon = R.drawable.globe,
                                         text = stringResource(R.string.search_lyrics_online),
                                         onClick = {
                                             menuState.hide()
@@ -771,33 +860,6 @@ fun Lyrics(
                                             }
                                         }
                                     )
-
-                                    if (shouldShowSynchronizedLyrics) {
-                                        MenuEntry(
-                                            icon = R.drawable.download,
-                                            text = stringResource(R.string.pick_from_lrclib),
-                                            onClick = {
-                                                menuState.hide()
-                                                picking = true
-                                            }
-                                        )
-                                        MenuEntry(
-                                            icon = R.drawable.play_skip_forward,
-                                            text = stringResource(R.string.set_lyrics_start_offset),
-                                            secondaryText = stringResource(
-                                                R.string.set_lyrics_start_offset_description
-                                            ),
-                                            onClick = {
-                                                menuState.hide()
-                                                lyrics?.let {
-                                                    val startTime = binder?.player?.currentPosition
-                                                    query {
-                                                        Database.upsert(it.copy(startTime = startTime))
-                                                    }
-                                                }
-                                            }
-                                        )
-                                    }
                                 }
                             }
                         }
@@ -892,5 +954,249 @@ fun LrcLibSearchDialog(
                 })"
             }
         )
+    }
+}
+
+data class LyricsSearchResult(
+    val provider: String,
+    val title: String,
+    val artist: String,
+    val durationSeconds: Int = -1,
+    val lyrics: String,
+    val isSynced: Boolean
+)
+
+@Composable
+fun MultiProviderSearchDialog(
+    initialTitle: String,
+    initialArtist: String,
+    duration: Int,
+    mediaId: String,
+    onDismiss: () -> Unit,
+    onPick: (LyricsSearchResult) -> Unit,
+    modifier: Modifier = Modifier
+) = DefaultDialog(
+    onDismiss = onDismiss,
+    horizontalPadding = 0.dp,
+    modifier = modifier
+) {
+    val (colorPalette, typography) = LocalAppearance.current
+    val context = LocalContext.current
+
+    var query by rememberSaveable {
+        mutableStateOf(if (initialArtist.isNotBlank()) "$initialTitle $initialArtist" else initialTitle)
+    }
+    val results = remember { mutableStateListOf<LyricsSearchResult>() }
+    var loading by remember { mutableStateOf(false) }
+
+    LaunchedEffect(query) {
+        val q = query.trim()
+        if (q.isBlank()) {
+            results.clear()
+            loading = false
+            return@LaunchedEffect
+        }
+
+        loading = true
+        results.clear()
+        delay(600.milliseconds)
+
+        val parts = q.split(" - ", limit = 2)
+        val (parsedTitle, parsedArtist) = if (parts.size == 2) {
+            parts[0].trim() to parts[1].trim()
+        } else {
+            q to initialArtist
+        }
+
+        withContext(Dispatchers.IO) {
+            // 1. Search LrcLib for tracks
+            runCatching {
+                LrcLib.lyrics(query = q, synced = true)?.getOrNull()?.let { tracks ->
+                    val lrclibResults = tracks.mapNotNull { track ->
+                        val synced = track.syncedLyrics
+                        val plain = track.plainLyrics
+                        if (!synced.isNullOrBlank()) {
+                            LyricsSearchResult(
+                                provider = "LrcLib",
+                                title = track.trackName,
+                                artist = track.artistName,
+                                durationSeconds = track.duration.toInt(),
+                                lyrics = synced,
+                                isSynced = true
+                            )
+                        } else if (!plain.isNullOrBlank()) {
+                            LyricsSearchResult(
+                                provider = "LrcLib",
+                                title = track.trackName,
+                                artist = track.artistName,
+                                durationSeconds = track.duration.toInt(),
+                                lyrics = plain,
+                                isSynced = false
+                            )
+                        } else null
+                    }
+                    withContext(Dispatchers.Main) {
+                        results.addAll(lrclibResults)
+                    }
+                }
+            }
+
+            // 2. Query other registered providers
+            val providers = LyricsProviderRegistry.getOrderedProviders(LyricsPreferences.lyricsProviderOrder)
+                .filter { it.name != "LrcLib" && it.isEnabled(context) }
+
+            for (provider in providers) {
+                runCatching {
+                    val lyricText = provider.getLyrics(
+                        context = context,
+                        id = mediaId,
+                        title = parsedTitle,
+                        artist = parsedArtist,
+                        duration = duration,
+                        album = null
+                    ).getOrNull()
+
+                    if (!lyricText.isNullOrBlank()) {
+                        val isSynced = lyricText.contains(Regex("""\[\d+:\d+(\.\d+)?\]"""))
+                        withContext(Dispatchers.Main) {
+                            results.add(
+                                LyricsSearchResult(
+                                    provider = provider.name,
+                                    title = parsedTitle,
+                                    artist = if (parsedArtist.isNotBlank()) parsedArtist else provider.name,
+                                    durationSeconds = duration,
+                                    lyrics = lyricText,
+                                    isSynced = isSynced
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        loading = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp)
+    ) {
+        BasicText(
+            text = stringResource(R.string.search_lyrics_providers),
+            style = typography.m.semiBold.color(colorPalette.text),
+            modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp)
+        )
+
+        TextField(
+            value = query,
+            onValueChange = { query = it },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            maxLines = 1,
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (loading && results.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 24.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else if (!loading && results.isEmpty()) {
+            BasicText(
+                text = stringResource(R.string.no_lyrics_found),
+                style = typography.s.semiBold.center.color(colorPalette.textSecondary),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(all = 24.dp)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 350.dp)
+            ) {
+                items(results.size) { i ->
+                    val item = results[i]
+                    val previewLines = item.lyrics
+                        .lines()
+                        .map { it.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").trim() }
+                        .filter { it.isNotBlank() }
+                        .take(2)
+                        .joinToString(" • ")
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(
+                                indication = ripple(bounded = true),
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = { onPick(item) }
+                            )
+                            .padding(horizontal = 24.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                BasicText(
+                                    text = item.provider,
+                                    style = typography.xxs.semiBold.color(colorPalette.onAccent),
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(colorPalette.accent)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                                if (item.isSynced) {
+                                    BasicText(
+                                        text = "SYNCED",
+                                        style = typography.xxs.semiBold.color(colorPalette.accent),
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(colorPalette.accent.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                                if (item.durationSeconds > 0) {
+                                    val mins = item.durationSeconds / 60
+                                    val secs = item.durationSeconds % 60
+                                    BasicText(
+                                        text = "%d:%02d".format(mins, secs),
+                                        style = typography.xxs.color(colorPalette.textSecondary)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            BasicText(
+                                text = "${item.artist} - ${item.title}",
+                                style = typography.s.semiBold.color(colorPalette.text),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+
+                            if (previewLines.isNotBlank()) {
+                                BasicText(
+                                    text = previewLines,
+                                    style = typography.xs.color(colorPalette.textSecondary),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

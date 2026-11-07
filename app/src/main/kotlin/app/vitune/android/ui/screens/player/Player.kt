@@ -5,8 +5,10 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.blur
 import app.vitune.android.ui.components.LavaLampBackground
@@ -353,6 +355,11 @@ fun Player(
     ) {
         var isShowingStatsForNerds by rememberSaveable { mutableStateOf(false) }
         var isShowingLyricsDialog by rememberSaveable { mutableStateOf(false) }
+        var isLyricsFullscreen by rememberSaveable { mutableStateOf(false) }
+
+        if (!isShowingLyrics) {
+            isLyricsFullscreen = false
+        }
 
         if (isShowingLyricsDialog) LyricsDialog(onDismiss = { isShowingLyricsDialog = false })
 
@@ -435,7 +442,9 @@ fun Player(
                     modifier = innerModifier,
                     shouldShowSynchronizedLyrics = isShowingSynchronizedLyrics,
                     setShouldShowSynchronizedLyrics = { isShowingSynchronizedLyrics = it },
-                    showControls = true
+                    showControls = true,
+                    isFullscreen = isLyricsFullscreen,
+                    onToggleFullscreen = { isLyricsFullscreen = !isLyricsFullscreen }
                 )
             }
         }
@@ -450,25 +459,38 @@ fun Player(
                 label = "coverArtOverlayAlpha"
             )
 
-            LavaLampBackground(
-                bitmap = sampleBitmap,
-                blurRadius = if (isShowingLyrics) 80.dp else 65.dp,
-                overlayAlpha = darkOverlayAlpha,
-                fallbackColor = colorPalette.background0,
-                modifier = Modifier.fillMaxSize()
-            )
+            if (PlayerPreferences.pureViTuneUI) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.5f to colorPalette.background1,
+                                1f to colorPalette.background0
+                            )
+                        )
+                )
+            } else {
+                LavaLampBackground(
+                    bitmap = sampleBitmap,
+                    blurRadius = if (isShowingLyrics) 80.dp else 65.dp,
+                    overlayAlpha = darkOverlayAlpha,
+                    fallbackColor = colorPalette.background0,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
 
             if (isLandscape) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = containerModifier
                     .fillMaxSize()
-                    .padding(top = 32.dp)
+                    .padding(top = if (isLyricsFullscreen) 12.dp else 32.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .weight(0.66f)
-                        .padding(bottom = 16.dp)
+                        .weight(if (isLyricsFullscreen) 1f else 0.66f)
+                        .padding(bottom = if (isLyricsFullscreen) 0.dp else 16.dp)
                 ) {
                     AnimatedContent(
                         targetState = isShowingLyrics,
@@ -483,21 +505,23 @@ fun Player(
                     }
                 }
 
-                controlsContent(
-                    Modifier
-                        .padding(vertical = 8.dp)
-                        .fillMaxHeight()
-                        .weight(1f)
-                )
+                if (!isLyricsFullscreen) {
+                    controlsContent(
+                        Modifier
+                            .padding(vertical = 8.dp)
+                            .fillMaxHeight()
+                            .weight(1f)
+                    )
+                }
             } else Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = containerModifier
                     .fillMaxSize()
-                    .padding(top = 54.dp)
+                    .padding(top = if (isLyricsFullscreen) 16.dp else 54.dp)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(if (isShowingLyrics) 2.2f else 1.25f)
+                    modifier = Modifier.weight(if (isLyricsFullscreen) 1f else if (isShowingLyrics) 2.2f else 1.25f)
                 ) {
                     AnimatedContent(
                         targetState = isShowingLyrics,
@@ -512,12 +536,17 @@ fun Player(
                     }
                 }
 
-                controlsContent(
-                    Modifier
-                        .padding(vertical = 8.dp)
-                        .fillMaxWidth()
-                        .weight(1f)
-                )
+                AnimatedVisibility(
+                    visible = !isLyricsFullscreen,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    controlsContent(
+                        Modifier
+                            .padding(vertical = 8.dp)
+                            .fillMaxWidth()
+                    )
+                }
             }
         }
 

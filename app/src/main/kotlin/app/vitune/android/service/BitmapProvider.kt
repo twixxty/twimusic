@@ -22,20 +22,20 @@ class BitmapProvider(
     var lastUri: Uri? = null
         private set
 
+    private val listeners = java.util.concurrent.CopyOnWriteArraySet<(Bitmap?) -> Unit>()
+
     @set:Synchronized
     private var lastBitmap: Bitmap? = null
         get() = field?.takeUnless { it.isRecycled }
         set(value) {
             field = value
-            listener?.invoke(value)
+            listeners.forEach { it.invoke(value) }
         }
     private var lastIsSystemInDarkMode = false
     private var currentTask: Disposable? = null
 
     private lateinit var defaultBitmap: Bitmap
     val bitmap get() = lastBitmap ?: defaultBitmap
-
-    private var listener: ((Bitmap?) -> Unit)? = null
 
     init {
         setDefaultBitmap()
@@ -99,8 +99,18 @@ class BitmapProvider(
         oldTask?.dispose()
     }
 
+    fun addListener(callback: (Bitmap?) -> Unit) {
+        listeners.add(callback)
+        callback.invoke(lastBitmap)
+    }
+
+    fun removeListener(callback: (Bitmap?) -> Unit) {
+        listeners.remove(callback)
+    }
+
     fun setListener(callback: ((Bitmap?) -> Unit)?) {
-        listener = callback
-        listener?.invoke(lastBitmap)
+        if (callback != null) {
+            addListener(callback)
+        }
     }
 }
