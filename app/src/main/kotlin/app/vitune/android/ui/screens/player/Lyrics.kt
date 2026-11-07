@@ -98,6 +98,7 @@ import app.vitune.android.query
 import app.vitune.android.service.LOCAL_KEY_PREFIX
 import app.vitune.android.transaction
 import app.vitune.android.ui.components.LocalMenuState
+import app.vitune.android.ui.components.MetrolistLyricsLine
 import app.vitune.android.ui.components.themed.CircularProgressIndicator
 import app.vitune.android.ui.components.themed.DefaultDialog
 import app.vitune.android.ui.components.themed.Menu
@@ -573,128 +574,23 @@ fun Lyrics(
                                     )
                                 }
                             } else {
-                                val effectiveWords = remember(entry.words, entry.isBackground) {
-                                    val words = entry.words
-                                    if (words.isNullOrEmpty()) null
-                                    else {
-                                        words.flatMapIndexed { _, word ->
-                                            if (word.text.contains('-') && word.text.length > 1 && (!word.hasTrailingSpace || words.size == 1)) {
-                                                val segments = mutableListOf<String>()
-                                                var start = 0
-                                                for (i in 0 until word.text.length) {
-                                                    if (word.text[i] == '-') {
-                                                        segments.add(word.text.substring(start, i + 1))
-                                                        start = i + 1
-                                                    }
-                                                }
-                                                if (start < word.text.length) {
-                                                    segments.add(word.text.substring(start))
-                                                }
-                                                if (segments.size > 1) {
-                                                    val totalDuration = word.endTime - word.startTime
-                                                    val segmentDuration = totalDuration / segments.size
-                                                    segments.mapIndexed { idx, segmentText ->
-                                                        WordTimestamp(
-                                                            text = segmentText,
-                                                            startTime = word.startTime + idx * segmentDuration,
-                                                            endTime = word.startTime + (idx + 1) * segmentDuration,
-                                                            hasTrailingSpace = if (idx == segments.size - 1) word.hasTrailingSpace else false
-                                                        )
-                                                    }
-                                                } else listOf(word)
-                                            } else listOf(word)
+                                MetrolistLyricsLine(
+                                    index = index,
+                                    item = entry,
+                                    isSynced = true,
+                                    isActiveLine = isActive,
+                                    currentPositionState = currentPositionMs,
+                                    player = binder?.player,
+                                    expressiveAccent = colorPalette.accent,
+                                    displayedCurrentLineIndex = activeIndex,
+                                    isAutoScrollEnabled = isAutoScrollEnabled,
+                                    onClick = {
+                                        binder?.player?.seekTo(entry.time)
+                                        coroutineScope.launch {
+                                            performSmoothPageScroll(index, duration = 800)
                                         }
                                     }
-                                }
-
-                                val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette, effectiveWords) {
-                                    if (!isActive || effectiveWords.isNullOrEmpty()) {
-                                        buildAnnotatedString {
-                                            withStyle(
-                                                SpanStyle(
-                                                    color = Color.White,
-                                                    fontWeight = FontWeight.Bold,
-                                                    fontStyle = if (entry.isBackground) FontStyle.Italic else FontStyle.Normal
-                                                )
-                                            ) {
-                                                append(entry.text)
-                                            }
-                                        }
-                                    } else {
-                                        buildAnnotatedString {
-                                            effectiveWords.forEach { w ->
-                                                val wStartMs = (w.startTime * 1000).toLong()
-                                                val wEndMs = (w.endTime * 1000).toLong()
-
-                                                val isWordActive = currentPositionMs in wStartMs..wEndMs
-                                                val hasWordPassed = currentPositionMs > wEndMs
-
-                                                val wordColor = when {
-                                                    isWordActive -> colorPalette.accent
-                                                    hasWordPassed -> Color.White
-                                                    else -> Color.White.copy(alpha = 0.35f)
-                                                }
-                                                val wordWeight = when {
-                                                    isWordActive -> FontWeight.ExtraBold
-                                                    hasWordPassed -> FontWeight.Bold
-                                                    else -> FontWeight.Medium
-                                                }
-
-                                                withStyle(
-                                                    SpanStyle(
-                                                        color = wordColor,
-                                                        fontWeight = wordWeight,
-                                                        fontStyle = if (entry.isBackground) FontStyle.Italic else FontStyle.Normal
-                                                    )
-                                                ) {
-                                                    append(w.text)
-                                                    if (w.hasTrailingSpace) append(" ")
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-
-                                val lineFontSize = if (entry.isBackground) 17.sp else 24.sp
-                                val lineSpacing = if (entry.isBackground) 24.sp else 32.sp
-
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(
-                                            horizontal = 24.dp,
-                                            vertical = if (entry.isBackground) 2.dp else 10.dp
-                                        ),
-                                    horizontalAlignment = horizontalAlignment
-                                ) {
-                                    BasicText(
-                                        text = annotatedString,
-                                        style = TextStyle(
-                                            fontSize = lineFontSize,
-                                            lineHeight = lineSpacing,
-                                            letterSpacing = (-0.5).sp,
-                                            textAlign = textAlign,
-                                            fontFamily = typography.m.fontFamily
-                                        ),
-                                        modifier = Modifier
-                                            .graphicsLayer {
-                                                scaleX = animatedScale
-                                                scaleY = animatedScale
-                                                alpha = animatedAlpha
-                                            }
-                                            .clickable(
-                                                indication = ripple(bounded = false),
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                onClick = {
-                                                    binder?.player?.seekTo(entry.time)
-                                                    coroutineScope.launch {
-                                                        performSmoothPageScroll(index, duration = 800)
-                                                    }
-                                                }
-                                            )
-                                            .animateContentSize()
-                                    )
-                                }
+                                )
                             }
                         }
                         item(key = "footer") {

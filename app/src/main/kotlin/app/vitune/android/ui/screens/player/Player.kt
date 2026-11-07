@@ -9,11 +9,8 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.blur
-import app.vitune.android.canvas.AppleMusicMotionartworkProvider
-import app.vitune.android.canvas.Motionartwork
-import app.vitune.android.canvas.MotionartworkPlayer
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import app.vitune.android.ui.components.LavaLampBackground
+import app.vitune.android.utils.collectProvidedBitmapAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -365,13 +362,6 @@ fun Player(
         )
 
         val containerModifier = Modifier
-            .clip(shape)
-            .background(
-                Brush.verticalGradient(
-                    0.5f to colorPalette.background1,
-                    1f to colorPalette.background0
-                )
-            )
             .padding(
                 windowInsets
                     .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
@@ -415,20 +405,7 @@ fun Player(
             }
         }
 
-        var motionArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
-
-        LaunchedEffect(mediaItem?.mediaId) {
-            val title = mediaItem?.mediaMetadata?.title?.toString()
-            val artist = mediaItem?.mediaMetadata?.artist?.toString()
-            val album = mediaItem?.mediaMetadata?.albumTitle?.toString()
-            if (!title.isNullOrBlank() && !artist.isNullOrBlank()) {
-                withContext(Dispatchers.IO) {
-                    motionArtwork = AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album)
-                }
-            } else {
-                motionArtwork = null
-            }
-        }
+        val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
 
         val controlsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             Controls(
@@ -463,98 +440,58 @@ fun Player(
             }
         }
 
-        if (isLandscape) Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = containerModifier.padding(top = 32.dp)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(shape)
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .weight(0.66f)
-                    .padding(bottom = 16.dp)
-            ) {
-                AnimatedContent(
-                    targetState = isShowingLyrics,
-                    label = "ArtworkOrLyricsLandscape",
-                    transitionSpec = { fadeIn() togetherWith fadeOut() }
-                ) { showLyrics ->
-                    if (showLyrics) {
-                        lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                    } else {
-                        thumbnailContent(Modifier.padding(horizontal = 16.dp))
-                    }
-                }
-            }
-
-            controlsContent(
-                Modifier
-                    .padding(vertical = 8.dp)
-                    .fillMaxHeight()
-                    .weight(1f)
-            )
-        } else Box(
-            modifier = containerModifier
-        ) {
-            val blurRadius by animateDpAsState(
-                targetValue = if (isShowingLyrics) 60.dp else 0.dp,
-                label = "coverArtBlur"
-            )
             val darkOverlayAlpha by animateFloatAsState(
-                targetValue = if (isShowingLyrics) 0.55f else 0.08f,
+                targetValue = if (isShowingLyrics) 0.55f else 0.35f,
                 label = "coverArtOverlayAlpha"
             )
 
-            // Backdrop cover art layer fading into the background at bottom
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .fillMaxHeight(0.70f)
-                    .align(Alignment.TopCenter)
+            LavaLampBackground(
+                bitmap = sampleBitmap,
+                blurRadius = if (isShowingLyrics) 80.dp else 65.dp,
+                overlayAlpha = darkOverlayAlpha,
+                fallbackColor = colorPalette.background0,
+                modifier = Modifier.fillMaxSize()
+            )
+
+            if (isLandscape) Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = containerModifier
+                    .fillMaxSize()
+                    .padding(top = 32.dp)
             ) {
-                if (motionArtwork?.preferredAnimationUrl != null) {
-                    MotionartworkPlayer(
-                        primaryUrl = motionArtwork?.preferredAnimationUrl,
-                        isPlaying = shouldBePlaying,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(blurRadius)
-                    )
-                } else {
-                    AsyncImage(
-                        model = mediaItem?.mediaMetadata?.artworkUri?.thumbnail((Dimensions.thumbnails.player.song).px),
-                        contentDescription = null,
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .blur(blurRadius)
-                    )
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .weight(0.66f)
+                        .padding(bottom = 16.dp)
+                ) {
+                    AnimatedContent(
+                        targetState = isShowingLyrics,
+                        label = "ArtworkOrLyricsLandscape",
+                        transitionSpec = { fadeIn() togetherWith fadeOut() }
+                    ) { showLyrics ->
+                        if (showLyrics) {
+                            lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                        } else {
+                            thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                        }
+                    }
                 }
 
-                // Vertical gradient mask: artwork clear at top, dissolves into background0 at bottom
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                0.0f to Color.Transparent,
-                                0.40f to Color.Transparent,
-                                0.72f to colorPalette.background0.copy(alpha = 0.85f),
-                                1.0f to colorPalette.background0
-                            )
-                        )
+                controlsContent(
+                    Modifier
+                        .padding(vertical = 8.dp)
+                        .fillMaxHeight()
+                        .weight(1f)
                 )
-
-                // Dark contrast overlay for high-contrast lyrics text readability
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = darkOverlayAlpha))
-                )
-            }
-
-            Column(
+            } else Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
+                modifier = containerModifier
                     .fillMaxSize()
                     .padding(top = 54.dp)
             ) {
@@ -570,15 +507,7 @@ fun Player(
                         if (showLyrics) {
                             lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                         } else {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .clickable(
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        indication = null,
-                                        onClick = { isShowingLyrics = true }
-                                    )
-                            )
+                            thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                         }
                     }
                 }
