@@ -166,7 +166,7 @@ fun Thumbnail(
                 )
         ) {
             androidx.compose.animation.AnimatedVisibility(
-                visible = !isShowingLyrics && !isShowingStatsForNerds && error == null,
+                visible = !isShowingStatsForNerds && error == null,
                 enter = fadeIn(tween(300)),
                 exit = fadeOut(tween(300))
             ) {
@@ -197,20 +197,6 @@ fun Thumbnail(
                         .background(colorPalette.background0)
                 )
             }
-
-            Lyrics(
-                mediaId = currentWindow.mediaItem.mediaId,
-                isDisplayed = isShowingLyrics && error == null,
-                onDismiss = { onShowLyrics(false) },
-                ensureSongInserted = { Database.insert(currentWindow.mediaItem) },
-                mediaMetadataProvider = currentWindow.mediaItem::mediaMetadata,
-                durationProvider = { binder?.player?.duration ?: C.TIME_UNSET },
-                onOpenDialog = onOpenDialog,
-                modifier = Modifier.fillMaxSize(),
-                shouldShowSynchronizedLyrics = shouldShowSynchronizedLyrics,
-                setShouldShowSynchronizedLyrics = setShouldShowSynchronizedLyrics,
-                showControls = showLyricsControls
-            )
 
             StatsForNerds(
                 mediaId = currentWindow.mediaItem.mediaId,

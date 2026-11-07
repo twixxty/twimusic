@@ -41,10 +41,15 @@ import app.vitune.android.utils.color
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
+import android.widget.Toast
+import androidx.compose.runtime.saveable.rememberSaveable
+import app.vitune.android.ui.components.themed.TextFieldDialog
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.surface
 import com.metrolist.innertube.YouTube
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 fun AccountSettings(
@@ -59,6 +64,54 @@ fun AccountSettings(
     var accountEmail by remember { mutableStateOf(AccountPreferences.accountEmail) }
     val isSyncing by YouTubeSync.isSyncing.collectAsState()
     val syncStatus by YouTubeSync.syncStatus.collectAsState()
+
+    var showTokenDialog by rememberSaveable { mutableStateOf(false) }
+
+    fun processTokenLogin(token: String) {
+        val cleanToken = token.trim()
+        val cookie = if (!cleanToken.contains("=") && !cleanToken.contains(";")) {
+            "SAPISID=$cleanToken"
+        } else {
+            cleanToken
+        }
+        coroutineScope.launch(Dispatchers.IO) {
+            YouTube.cookie = cookie
+            app.vitune.providers.innertube.Innertube.cookie = cookie
+            val accountInfo = runCatching { YouTube.accountInfo().getOrNull() }.getOrNull()
+            withContext(Dispatchers.Main) {
+                AccountPreferences.innerTubeCookie = cookie
+                if (accountInfo != null) {
+                    AccountPreferences.accountName = accountInfo.name
+                    AccountPreferences.accountEmail = accountInfo.email.orEmpty()
+                    AccountPreferences.accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                    accountName = accountInfo.name
+                    accountHandle = accountInfo.channelHandle.orEmpty()
+                    accountEmail = accountInfo.email.orEmpty()
+                } else {
+                    val fallbackName = "YouTube Account"
+                    AccountPreferences.accountName = fallbackName
+                    accountName = fallbackName
+                }
+                isLoggedIn = true
+                Toast.makeText(context, "Account token saved", Toast.LENGTH_SHORT).show()
+            }
+            YouTubeSync.syncAll(context)
+        }
+    }
+
+    if (showTokenDialog) {
+        TextFieldDialog(
+            hintText = "Paste YouTube Music cookie or SAPISID token",
+            singleLine = false,
+            maxLines = 6,
+            isTextInputValid = { it.isNotBlank() },
+            onDismiss = { showTokenDialog = false },
+            onAccept = { token ->
+                showTokenDialog = false
+                processTokenLogin(token)
+            }
+        )
+    }
 
     SettingsGroup(title = stringResource(R.string.youtube_account)) {
         if (isLoggedIn) {
@@ -134,6 +187,11 @@ fun AccountSettings(
                         modifier = Modifier.weight(1f)
                     )
                     SecondaryTextButton(
+                        text = "Token Login",
+                        onClick = { showTokenDialog = true },
+                        modifier = Modifier.weight(1f)
+                    )
+                    SecondaryTextButton(
                         text = stringResource(R.string.log_out),
                         onClick = {
                             AccountPreferences.clear()
@@ -192,6 +250,12 @@ fun AccountSettings(
                 SecondaryTextButton(
                     text = stringResource(R.string.sign_in_youtube),
                     onClick = { onNavigateToLogin(false) },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                SecondaryTextButton(
+                    text = "Add Account by Token / Cookie",
+                    onClick = { showTokenDialog = true },
                     modifier = Modifier.fillMaxWidth()
                 )
             }

@@ -12,15 +12,26 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.unit.Velocity
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -410,122 +421,227 @@ fun Lyrics(
             label = ""
         ) { synchronized ->
             val lazyListState = rememberLazyListState()
-            var userScrolling by remember { mutableStateOf(false) }
+            val coroutineScope = rememberCoroutineScope()
+            var isAnimating by remember { mutableStateOf(false) }
+            var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
+            var lastPreviewTime by remember { mutableLongStateOf(0L) }
 
             if (synchronized) {
-                LaunchedEffect(lazyListState.isScrollInProgress) {
-                    if (lazyListState.isScrollInProgress) {
-                        userScrolling = true
-                        delay(3500.milliseconds)
-                        userScrolling = false
+                LaunchedEffect(lastPreviewTime) {
+                    if (lastPreviewTime != 0L) {
+                        delay(4000.milliseconds)
+                        isAutoScrollEnabled = true
+                        lastPreviewTime = 0L
                     }
                 }
 
-                LaunchedEffect(activeIndex, userScrolling, density, animatedHeight) {
-                    if (!userScrolling && activeIndex >= 0 && activeIndex < parsedEntries.size) {
-                        val centerOffset = with(density) { (-animatedHeight / 3).roundToPx() }
-                        lazyListState.animateScrollToItem(
-                            index = activeIndex + 1,
-                            scrollOffset = centerOffset
-                        )
-                    }
-                }
-
-                LazyColumn(
-                    state = lazyListState,
-                    userScrollEnabled = true,
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                    modifier = Modifier
-                        .verticalFadingEdge()
-                        .fillMaxSize()
+                suspend fun performSmoothPageScroll(
+                    targetIndex: Int,
+                    duration: Int = 800
                 ) {
-                    item(key = "header") {
-                        Spacer(modifier = Modifier.height(maxHeight / 2))
-                    }
-                    itemsIndexed(
-                        items = parsedEntries,
-                        key = { index, entry -> "${entry.time}_$index" }
-                    ) { index, entry ->
-                        val isActive = index == activeIndex
-                        val isPast = index < activeIndex
-
-                        if (entry.text.isBlank()) {
-                            val noteColor = if (isActive) Color.White else Color.White.copy(alpha = 0.35f)
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(
-                                        indication = ripple(bounded = false),
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = { binder?.player?.seekTo(entry.time) }
-                                    )
-                                    .padding(vertical = 10.dp)
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.musical_notes),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(noteColor),
-                                    modifier = Modifier.size(22.dp)
+                    if (isAnimating) return
+                    if (parsedEntries.isEmpty()) return
+                    val listTargetIndex = (targetIndex + 1).coerceIn(0, parsedEntries.size + 1)
+                    isAnimating = true
+                    try {
+                        val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listTargetIndex }
+                        if (itemInfo != null) {
+                            val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
+                            val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+                            val itemCenter = itemInfo.offset + itemInfo.size / 2
+                            val offset = itemCenter - center
+                            if (kotlin.math.abs(offset) > 10) {
+                                lazyListState.animateScrollBy(
+                                    value = offset.toFloat(),
+                                    animationSpec = tween(durationMillis = duration, easing = FastOutSlowInEasing)
                                 )
                             }
                         } else {
-                            val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette) {
-                                if (!isActive || entry.words.isNullOrEmpty()) {
-                                    buildAnnotatedString {
-                                        val textColor = when {
-                                            isActive -> Color.White
-                                            isPast -> Color.White.copy(alpha = 0.6f)
-                                            else -> Color.White.copy(alpha = 0.35f)
-                                        }
-                                        withStyle(SpanStyle(color = textColor)) {
-                                            append(entry.text)
-                                        }
-                                    }
-                                } else {
-                                    buildAnnotatedString {
-                                        entry.words.forEach { w ->
-                                            val wStartMs = (w.startTime * 1000).toLong()
-                                            val wEndMs = (w.endTime * 1000).toLong()
+                            lazyListState.scrollToItem(listTargetIndex)
+                        }
+                    } finally {
+                        isAnimating = false
+                    }
+                }
 
-                                            val wordColor = when {
-                                                currentPositionMs >= wEndMs -> Color.White
-                                                currentPositionMs in wStartMs..wEndMs -> colorPalette.accent
-                                                else -> Color.White.copy(alpha = 0.4f)
-                                            }
-                                            val wordWeight = when {
-                                                currentPositionMs in wStartMs..wEndMs -> FontWeight.Bold
-                                                currentPositionMs >= wEndMs -> FontWeight.SemiBold
-                                                else -> FontWeight.Normal
-                                            }
+                LaunchedEffect(activeIndex, isAutoScrollEnabled) {
+                    if (isAutoScrollEnabled && activeIndex >= 0 && activeIndex < parsedEntries.size) {
+                        performSmoothPageScroll(activeIndex, duration = 800)
+                    }
+                }
 
-                                            withStyle(SpanStyle(color = wordColor, fontWeight = wordWeight)) {
-                                                append(w.text)
-                                                if (w.hasTrailingSpace) append(" ")
+                val nestedScrollConnection = remember {
+                    object : NestedScrollConnection {
+                        override fun onPostScroll(
+                            consumed: Offset,
+                            available: Offset,
+                            source: NestedScrollSource
+                        ): Offset {
+                            if (source == NestedScrollSource.UserInput) {
+                                isAutoScrollEnabled = false
+                                lastPreviewTime = System.currentTimeMillis()
+                            }
+                            return super.onPostScroll(consumed, available, source)
+                        }
+
+                        override suspend fun onPostFling(
+                            consumed: Velocity,
+                            available: Velocity
+                        ): Velocity {
+                            isAutoScrollEnabled = false
+                            lastPreviewTime = System.currentTimeMillis()
+                            return super.onPostFling(consumed, available)
+                        }
+                    }
+                }
+
+                Box(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(
+                        state = lazyListState,
+                        userScrollEnabled = true,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                        modifier = Modifier
+                            .verticalFadingEdge()
+                            .nestedScroll(nestedScrollConnection)
+                            .fillMaxSize()
+                    ) {
+                        item(key = "header") {
+                            Spacer(modifier = Modifier.height(maxHeight / 2))
+                        }
+                        itemsIndexed(
+                            items = parsedEntries,
+                            key = { index, entry -> "${entry.time}_$index" }
+                        ) { index, entry ->
+                            val isActive = index == activeIndex
+                            val isPast = index < activeIndex
+
+                            if (entry.text.isBlank()) {
+                                val noteColor = if (isActive) Color.White else Color.White.copy(alpha = 0.35f)
+                                Box(
+                                    contentAlignment = Alignment.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            indication = ripple(bounded = false),
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            onClick = {
+                                                binder?.player?.seekTo(entry.time)
+                                                coroutineScope.launch {
+                                                    performSmoothPageScroll(index, duration = 800)
+                                                }
+                                            }
+                                        )
+                                        .padding(vertical = 10.dp)
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.musical_notes),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(noteColor),
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                            } else {
+                                val annotatedString = remember(entry, isActive, currentPositionMs, colorPalette) {
+                                    if (!isActive || entry.words.isNullOrEmpty()) {
+                                        buildAnnotatedString {
+                                            val textColor = when {
+                                                isActive -> Color.White
+                                                isPast -> Color.White.copy(alpha = 0.6f)
+                                                else -> Color.White.copy(alpha = 0.35f)
+                                            }
+                                            withStyle(SpanStyle(color = textColor)) {
+                                                append(entry.text)
+                                            }
+                                        }
+                                    } else {
+                                        buildAnnotatedString {
+                                            entry.words.forEach { w ->
+                                                val wStartMs = (w.startTime * 1000).toLong()
+                                                val wEndMs = (w.endTime * 1000).toLong()
+
+                                                val isWordActive = currentPositionMs in wStartMs..wEndMs
+                                                val hasWordPassed = currentPositionMs > wEndMs
+
+                                                val wordColor = when {
+                                                    isWordActive -> colorPalette.accent
+                                                    hasWordPassed -> Color.White
+                                                    else -> Color.White.copy(alpha = 0.35f)
+                                                }
+                                                val wordWeight = when {
+                                                    isWordActive -> FontWeight.ExtraBold
+                                                    hasWordPassed -> FontWeight.Bold
+                                                    else -> FontWeight.Medium
+                                                }
+
+                                                withStyle(SpanStyle(color = wordColor, fontWeight = wordWeight)) {
+                                                    append(w.text)
+                                                    if (w.hasTrailingSpace) append(" ")
+                                                }
                                             }
                                         }
                                     }
                                 }
-                            }
 
-                            BasicText(
-                                text = annotatedString,
-                                style = if (isActive) typography.m.semiBold.center else typography.s.medium.center,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable(
-                                        indication = ripple(bounded = false),
-                                        interactionSource = remember { MutableInteractionSource() },
-                                        onClick = { binder?.player?.seekTo(entry.time) }
-                                    )
-                                    .padding(vertical = 8.dp, horizontal = 24.dp)
-                                    .animateContentSize()
-                            )
+                                BasicText(
+                                    text = annotatedString,
+                                    style = if (isActive) typography.m.semiBold.center else typography.s.medium.center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable(
+                                            indication = ripple(bounded = false),
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            onClick = {
+                                                binder?.player?.seekTo(entry.time)
+                                                coroutineScope.launch {
+                                                    performSmoothPageScroll(index, duration = 800)
+                                                }
+                                            }
+                                        )
+                                        .padding(vertical = 8.dp, horizontal = 24.dp)
+                                        .animateContentSize()
+                                )
+                            }
+                        }
+                        item(key = "footer") {
+                            Spacer(modifier = Modifier.height(maxHeight / 2))
                         }
                     }
-                    item(key = "footer") {
-                        Spacer(modifier = Modifier.height(maxHeight / 2))
+
+                    androidx.compose.animation.AnimatedVisibility(
+                        visible = !isAutoScrollEnabled,
+                        enter = fadeIn() + slideInVertically { it },
+                        exit = fadeOut() + slideOutVertically { it },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = 12.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(colorPalette.accent)
+                                .clickable {
+                                    isAutoScrollEnabled = true
+                                    lastPreviewTime = 0L
+                                    coroutineScope.launch {
+                                        performSmoothPageScroll(activeIndex, duration = 800)
+                                    }
+                                }
+                                .padding(horizontal = 14.dp, vertical = 6.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(R.drawable.sync),
+                                contentDescription = null,
+                                colorFilter = ColorFilter.tint(colorPalette.onAccent),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            BasicText(
+                                text = "Sync",
+                                style = typography.xs.semiBold.color(colorPalette.onAccent)
+                            )
+                        }
                     }
                 }
             } else {

@@ -14,7 +14,7 @@ object AccountPreferences : GlobalPreferencesHolder() {
     var reportHistory by boolean(true)
 
     val isLoggedIn: Boolean
-        get() = innerTubeCookie.isNotBlank() && "SAPISID" in innerTubeCookie
+        get() = innerTubeCookie.isNotBlank() && ("SAPISID" in innerTubeCookie || "SID" in innerTubeCookie || innerTubeCookie.length > 20)
 
     fun clear() {
         innerTubeCookie = ""

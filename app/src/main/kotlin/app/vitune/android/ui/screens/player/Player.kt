@@ -418,6 +418,22 @@ fun Player(
             )
         }
 
+        val lyricsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
+            Lyrics(
+                mediaId = mediaItem.mediaId,
+                isDisplayed = true,
+                onDismiss = { isShowingLyrics = false },
+                ensureSongInserted = { Database.insert(mediaItem) },
+                mediaMetadataProvider = { mediaItem.mediaMetadata },
+                durationProvider = { duration },
+                onOpenDialog = { isShowingLyricsDialog = true },
+                modifier = innerModifier,
+                shouldShowSynchronizedLyrics = isShowingSynchronizedLyrics,
+                setShouldShowSynchronizedLyrics = { isShowingSynchronizedLyrics = it },
+                showControls = true
+            )
+        }
+
         if (isLandscape) Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = containerModifier.padding(top = 32.dp)
@@ -428,7 +444,17 @@ fun Player(
                     .weight(0.66f)
                     .padding(bottom = 16.dp)
             ) {
-                thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                AnimatedContent(
+                    targetState = isShowingLyrics,
+                    label = "ArtworkOrLyricsLandscape",
+                    transitionSpec = { fadeIn() togetherWith fadeOut() }
+                ) { showLyrics ->
+                    if (showLyrics) {
+                        lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                    } else {
+                        thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                    }
+                }
             }
 
             controlsContent(
@@ -445,7 +471,17 @@ fun Player(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier.weight(1.25f)
             ) {
-                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                AnimatedContent(
+                    targetState = isShowingLyrics,
+                    label = "ArtworkOrLyrics",
+                    transitionSpec = { fadeIn() togetherWith fadeOut() }
+                ) { showLyrics ->
+                    if (showLyrics) {
+                        lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                    } else {
+                        thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                    }
+                }
             }
 
             controlsContent(
@@ -552,14 +588,25 @@ fun Player(
             layoutState = playerBottomSheetState,
             binder = binder,
             beforeContent = {
-                if (playerLayout == PlayerPreferences.PlayerLayout.New) IconButton(
-                    onClick = { trackLoopEnabled = !trackLoopEnabled },
-                    icon = R.drawable.infinite,
-                    enabled = trackLoopEnabled,
+                IconButton(
+                    icon = R.drawable.lyrics,
+                    color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
+                    onClick = { isShowingLyrics = !isShowingLyrics },
                     modifier = Modifier
                         .padding(vertical = 8.dp)
                         .size(20.dp)
-                ) else Spacer(modifier = Modifier.width(20.dp))
+                )
+                if (playerLayout == PlayerPreferences.PlayerLayout.New) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    IconButton(
+                        onClick = { trackLoopEnabled = !trackLoopEnabled },
+                        icon = R.drawable.infinite,
+                        enabled = trackLoopEnabled,
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .size(20.dp)
+                    )
+                }
             },
             afterContent = {
                 IconButton(
