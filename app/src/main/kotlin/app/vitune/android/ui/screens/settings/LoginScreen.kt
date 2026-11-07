@@ -183,9 +183,9 @@ fun LoginScreen(
                     runCatching {
                         val cleanedJson = json.removeSurrounding("\"").replace("\\\"", "\"").replace("\\\\", "\\")
                         val obj = kotlinx.serialization.json.Json.parseToJsonElement(cleanedJson) as? kotlinx.serialization.json.JsonObject
-                        visitorData = obj?.get("visitorData")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
-                        dataSyncId = obj?.get("dataSyncId")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull }
-                        authUser = obj?.get("authUser")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.contentOrNull } ?: "0"
+                        visitorData = obj?.get("visitorData")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeUnless { c -> c == "null" } }
+                        dataSyncId = obj?.get("dataSyncId")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeUnless { c -> c == "null" } }
+                        authUser = obj?.get("authUser")?.let { (it as? kotlinx.serialization.json.JsonPrimitive)?.content?.takeUnless { c -> c == "null" } } ?: "0"
                     }
                 }
 

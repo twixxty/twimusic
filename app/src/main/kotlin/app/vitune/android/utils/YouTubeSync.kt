@@ -9,7 +9,6 @@ import app.vitune.android.Database
 import app.vitune.android.models.Playlist
 import app.vitune.android.models.SongPlaylistMap
 import app.vitune.android.preferences.AccountPreferences
-import app.vitune.android.transaction
 import app.vitune.core.ui.utils.SongBundleAccessor
 import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.PlaylistItem
@@ -26,6 +25,9 @@ object YouTubeSync {
     private val _isSyncing = MutableStateFlow(false)
     val isSyncing: StateFlow<Boolean> = _isSyncing.asStateFlow()
 
+    private val _syncStatus = MutableStateFlow("")
+    val syncStatus: StateFlow<String> = _syncStatus.asStateFlow()
+
     private val _lastSyncTime = MutableStateFlow<Long?>(null)
     val lastSyncTime: StateFlow<Long?> = _lastSyncTime.asStateFlow()
 
@@ -39,7 +41,7 @@ object YouTubeSync {
                     .setTitle(title)
                     .setArtist(artists.joinToString(", ") { it.name })
                     .setAlbumTitle(album?.name)
-                    .setArtworkUri(thumbnail?.toUri())
+                    .setArtworkUri(thumbnail.toUri())
                     .setExtras(
                         SongBundleAccessor.bundle {
                             albumId = album?.id
@@ -61,6 +63,7 @@ object YouTubeSync {
             return@withContext Result.success("Sync already in progress")
         }
         _isSyncing.value = true
+        _syncStatus.value = "Fetching library..."
 
         try {
             var playlistCount = 0
@@ -74,39 +77,36 @@ object YouTubeSync {
             val playlistItems = libraryResult.getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
             val existingPlaylists = Database.allPlaylists().first()
 
-            playlistItems.forEach { playlistItem ->
+            playlistItems.forEachIndexed { index, playlistItem ->
                 try {
+                    _syncStatus.value = "Syncing playlist ${index + 1}/${playlistItems.size}..."
                     val browseId = "VL${playlistItem.id}"
                     val localPlaylist = existingPlaylists.find { it.browseId == browseId || it.name == playlistItem.title }
                         ?: run {
-                            val newId = transaction {
-                                Database.insert(
-                                    Playlist(
-                                        name = playlistItem.title,
-                                        browseId = browseId,
-                                        thumbnail = playlistItem.thumbnail
-                                    )
+                            val newId = Database.insert(
+                                Playlist(
+                                    name = playlistItem.title,
+                                    browseId = browseId,
+                                    thumbnail = playlistItem.thumbnail
                                 )
-                            }
+                            ).takeIf { it > 0 } ?: (Database.playlistByBrowseId(browseId).first()?.id ?: 0L)
                             Playlist(id = newId, name = playlistItem.title, browseId = browseId, thumbnail = playlistItem.thumbnail)
                         }
 
                     val playlistPage = YouTube.playlist(playlistItem.id).getOrNull()
-                    val songs = playlistPage?.songsPage?.items.orEmpty()
+                    val songs: List<SongItem> = playlistPage?.songs.orEmpty()
                     if (songs.isNotEmpty()) {
-                        transaction {
-                            Database.clearPlaylist(localPlaylist.id)
-                            val mediaItems = songs.map { it.asMediaItem }
-                            mediaItems.forEach { Database.insert(it) }
-                            val maps = mediaItems.mapIndexed { idx, item ->
-                                SongPlaylistMap(
-                                    songId = item.mediaId,
-                                    playlistId = localPlaylist.id,
-                                    position = idx
-                                )
-                            }
-                            Database.insertSongPlaylistMaps(maps)
+                        Database.clearPlaylist(localPlaylist.id)
+                        val mediaItems = songs.map { it.asMediaItem }
+                        mediaItems.forEach { Database.insert(it) }
+                        val maps = mediaItems.mapIndexed { idx, item ->
+                            SongPlaylistMap(
+                                songId = item.mediaId,
+                                playlistId = localPlaylist.id,
+                                position = idx
+                            )
                         }
+                        Database.insertSongPlaylistMaps(maps)
                         playlistCount++
                         songCount += songs.size
                     }
@@ -117,15 +117,15 @@ object YouTubeSync {
 
             // 2. Sync Liked Songs ("LM" or "VLLM")
             try {
+                _syncStatus.value = "Syncing liked songs..."
                 val likedResult = YouTube.playlist("LM").recoverCatching {
                     YouTube.playlist("VLLM").getOrThrow()
                 }
-                likedResult.getOrNull()?.songsPage?.items?.forEach { songItem ->
+                val likedSongs: List<SongItem> = likedResult.getOrNull()?.songs.orEmpty()
+                likedSongs.forEach { songItem ->
                     val mediaItem = songItem.asMediaItem
-                    transaction {
-                        Database.insert(mediaItem)
-                        Database.like(songItem.id, System.currentTimeMillis())
-                    }
+                    Database.insert(mediaItem)
+                    Database.like(songItem.id, System.currentTimeMillis())
                 }
             } catch (e: Exception) {
                 Timber.w(e, "Failed to sync liked songs")
@@ -149,6 +149,7 @@ object YouTubeSync {
             Result.failure(e)
         } finally {
             _isSyncing.value = false
+            _syncStatus.value = ""
         }
     }
 }
