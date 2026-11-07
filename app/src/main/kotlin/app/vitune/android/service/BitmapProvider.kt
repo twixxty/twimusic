@@ -67,7 +67,7 @@ class BitmapProvider(
         onDone: (Bitmap) -> Unit = { }
     ) {
         if (lastUri == uri) {
-            listener?.invoke(lastBitmap)
+            listeners.forEach { it.invoke(lastBitmap) }
             return
         }
 
