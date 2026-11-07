@@ -24,7 +24,11 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
@@ -32,8 +36,6 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -346,8 +348,9 @@ fun Lyrics(
             .fillMaxSize()
             .background(colorPalette.overlay)
     ) {
+        val containerMaxHeight = this.maxHeight
         val animatedHeight by animateDpAsState(
-            targetValue = this.maxHeight, // `this` needed, thanks Android Lint!
+            targetValue = containerMaxHeight,
             label = ""
         )
 
@@ -507,7 +510,7 @@ fun Lyrics(
                             .fillMaxSize()
                     ) {
                         item(key = "header") {
-                            Spacer(modifier = Modifier.height(maxHeight / 2))
+                            Spacer(modifier = Modifier.height(containerMaxHeight / 2))
                         }
                         itemsIndexed(
                             items = parsedEntries,
@@ -604,7 +607,7 @@ fun Lyrics(
                             }
                         }
                         item(key = "footer") {
-                            Spacer(modifier = Modifier.height(maxHeight / 2))
+                            Spacer(modifier = Modifier.height(containerMaxHeight / 2))
                         }
                     }
 
@@ -652,7 +655,7 @@ fun Lyrics(
                         .verticalFadingEdge()
                         .verticalScroll(rememberScrollState())
                         .fillMaxWidth()
-                        .padding(vertical = maxHeight / 4, horizontal = 24.dp)
+                        .padding(vertical = containerMaxHeight / 4, horizontal = 24.dp)
                 )
             }
         }

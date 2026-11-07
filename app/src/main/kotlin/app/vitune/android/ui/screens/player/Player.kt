@@ -419,19 +419,22 @@ fun Player(
         }
 
         val lyricsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
-            Lyrics(
-                mediaId = mediaItem.mediaId,
-                isDisplayed = true,
-                onDismiss = { isShowingLyrics = false },
-                ensureSongInserted = { Database.insert(mediaItem) },
-                mediaMetadataProvider = { mediaItem.mediaMetadata },
-                durationProvider = { duration },
-                onOpenDialog = { isShowingLyricsDialog = true },
-                modifier = innerModifier,
-                shouldShowSynchronizedLyrics = isShowingSynchronizedLyrics,
-                setShouldShowSynchronizedLyrics = { isShowingSynchronizedLyrics = it },
-                showControls = true
-            )
+            val currentMedia = mediaItem
+            if (currentMedia != null) {
+                Lyrics(
+                    mediaId = currentMedia.mediaId,
+                    isDisplayed = true,
+                    onDismiss = { isShowingLyrics = false },
+                    ensureSongInserted = { Database.insert(currentMedia) },
+                    mediaMetadataProvider = { currentMedia.mediaMetadata },
+                    durationProvider = { duration },
+                    onOpenDialog = { isShowingLyricsDialog = true },
+                    modifier = innerModifier,
+                    shouldShowSynchronizedLyrics = isShowingSynchronizedLyrics,
+                    setShouldShowSynchronizedLyrics = { isShowingSynchronizedLyrics = it },
+                    showControls = true
+                )
+            }
         }
 
         if (isLandscape) Row(
