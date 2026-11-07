@@ -89,7 +89,20 @@ android {
     }
 
     packaging {
-        resources.excludes.add("META-INF/**/*")
+        resources {
+            excludes.add("META-INF/CONTRIBUTORS.md")
+            excludes.add("META-INF/*.md")
+            excludes.add("META-INF/*.MD")
+            excludes.add("META-INF/*.txt")
+            excludes.add("META-INF/LICENSE*")
+            excludes.add("META-INF/NOTICE*")
+            excludes.add("META-INF/INDEX.LIST")
+            excludes.add("META-INF/DEPENDENCIES")
+            excludes.add("META-INF/*")
+            excludes.add("META-INF/**/*")
+            pickFirsts.add("META-INF/**")
+            merges.add("META-INF/services/**")
+        }
         jniLibs.useLegacyPackaging = true
     }
 
