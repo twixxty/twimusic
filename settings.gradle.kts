@@ -9,6 +9,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://jitpack.io")
+        maven("https://maven.aliyun.com/repository/public")
         maven("https://git.bartoostveen.nl/api/packages/bart/maven")
     }
 }
