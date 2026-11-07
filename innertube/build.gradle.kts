@@ -12,7 +12,6 @@ dependencies {
     api(libs.ktor.serialization.json)
     api(libs.ktor.client.encoding)
     api(libs.okhttp)
-    api(libs.timber)
 }
 
 kotlin {
