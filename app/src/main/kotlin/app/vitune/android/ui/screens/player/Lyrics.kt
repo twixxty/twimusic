@@ -90,6 +90,10 @@ import app.vitune.core.ui.onOverlayShimmer
 import app.vitune.core.ui.overlay
 import app.vitune.core.ui.utils.dp
 import app.vitune.android.lyrics.LyricsHelper
+import app.vitune.providers.lrclib.LrcLib
+import app.vitune.providers.lrclib.LrcParser
+import app.vitune.providers.lrclib.models.Track
+import app.vitune.providers.lrclib.toLrcFile
 import com.valentinilk.shimmer.shimmer
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableMap

@@ -175,7 +175,7 @@ dependencies {
 
     implementation(projects.providers.github)
     implementation(projects.providers.innertube)
-    implementation(projects.innertube)
+    implementation(project(":innertube-core"))
     implementation(libs.ktor.client.core)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.ktor.client.content.negotiation)

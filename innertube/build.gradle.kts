@@ -11,6 +11,7 @@ dependencies {
     api(libs.ktor.client.content.negotiation)
     api(libs.ktor.serialization.json)
     api(libs.ktor.client.encoding)
+    api(libs.okhttp)
     api(libs.timber)
 }
 
