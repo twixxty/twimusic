@@ -353,7 +353,7 @@ fun Lyrics(
                 detectTapGestures(onTap = { onDismiss() })
             }
             .fillMaxSize()
-            .background(colorPalette.overlay)
+            .background(Color.Transparent)
     ) {
         val containerMaxHeight = this.maxHeight
         val animatedHeight by animateDpAsState(

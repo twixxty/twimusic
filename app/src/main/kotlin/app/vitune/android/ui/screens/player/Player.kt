@@ -3,9 +3,17 @@ package app.vitune.android.ui.screens.player
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.blur
+import app.vitune.android.canvas.AppleMusicMotionartworkProvider
+import app.vitune.android.canvas.Motionartwork
+import app.vitune.android.canvas.MotionartworkPlayer
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,6 +56,7 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
@@ -406,6 +415,21 @@ fun Player(
             }
         }
 
+        var motionArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
+
+        LaunchedEffect(mediaItem?.mediaId) {
+            val title = mediaItem?.mediaMetadata?.title?.toString()
+            val artist = mediaItem?.mediaMetadata?.artist?.toString()
+            val album = mediaItem?.mediaMetadata?.albumTitle?.toString()
+            if (!title.isNullOrBlank() && !artist.isNullOrBlank()) {
+                withContext(Dispatchers.IO) {
+                    motionArtwork = AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album)
+                }
+            } else {
+                motionArtwork = null
+            }
+        }
+
         val controlsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             Controls(
                 media = mediaItem?.toUiMedia(duration),
@@ -414,6 +438,8 @@ fun Player(
                 setLikedAt = { likedAt = it },
                 shouldBePlaying = shouldBePlaying,
                 position = position,
+                isShowingLyrics = isShowingLyrics,
+                onToggleLyrics = { isShowingLyrics = !isShowingLyrics },
                 modifier = innerModifier
             )
         }
@@ -466,33 +492,104 @@ fun Player(
                     .fillMaxHeight()
                     .weight(1f)
             )
-        } else Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = containerModifier.padding(top = 54.dp)
+        } else Box(
+            modifier = containerModifier
         ) {
+            val blurRadius by animateDpAsState(
+                targetValue = if (isShowingLyrics) 60.dp else 0.dp,
+                label = "coverArtBlur"
+            )
+            val darkOverlayAlpha by animateFloatAsState(
+                targetValue = if (isShowingLyrics) 0.55f else 0.08f,
+                label = "coverArtOverlayAlpha"
+            )
+
+            // Backdrop cover art layer fading into the background at bottom
             Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.weight(1.25f)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .fillMaxHeight(0.70f)
+                    .align(Alignment.TopCenter)
             ) {
-                AnimatedContent(
-                    targetState = isShowingLyrics,
-                    label = "ArtworkOrLyrics",
-                    transitionSpec = { fadeIn() togetherWith fadeOut() }
-                ) { showLyrics ->
-                    if (showLyrics) {
-                        lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                    } else {
-                        thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
-                    }
+                if (motionArtwork?.preferredAnimationUrl != null) {
+                    MotionartworkPlayer(
+                        primaryUrl = motionArtwork?.preferredAnimationUrl,
+                        isPlaying = shouldBePlaying,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(blurRadius)
+                    )
+                } else {
+                    AsyncImage(
+                        model = mediaItem?.mediaMetadata?.artworkUri?.thumbnail((Dimensions.thumbnails.player.song).px),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .blur(blurRadius)
+                    )
                 }
+
+                // Vertical gradient mask: artwork clear at top, dissolves into background0 at bottom
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to Color.Transparent,
+                                0.40f to Color.Transparent,
+                                0.72f to colorPalette.background0.copy(alpha = 0.85f),
+                                1.0f to colorPalette.background0
+                            )
+                        )
+                )
+
+                // Dark contrast overlay for high-contrast lyrics text readability
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = darkOverlayAlpha))
+                )
             }
 
-            controlsContent(
-                Modifier
-                    .padding(vertical = 8.dp)
-                    .fillMaxWidth()
-                    .weight(1f)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 54.dp)
+            ) {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.weight(if (isShowingLyrics) 2.2f else 1.25f)
+                ) {
+                    AnimatedContent(
+                        targetState = isShowingLyrics,
+                        label = "ArtworkOrLyrics",
+                        transitionSpec = { fadeIn() togetherWith fadeOut() }
+                    ) { showLyrics ->
+                        if (showLyrics) {
+                            lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { isShowingLyrics = true }
+                                    )
+                            )
+                        }
+                    }
+                }
+
+                controlsContent(
+                    Modifier
+                        .padding(vertical = 8.dp)
+                        .fillMaxWidth()
+                        .weight(1f)
+                )
+            }
         }
 
         var audioDialogOpen by rememberSaveable { mutableStateOf(false) }

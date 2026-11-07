@@ -168,7 +168,7 @@ fun accentColorOf(
     ColorSource.Default -> defaultAccentColor
 
     ColorSource.Dynamic -> sampleBitmap?.let { dynamicAccentColorOf(it, isDark) }
-        ?: defaultAccentColor
+        ?: materialAccentColor?.hsl ?: defaultAccentColor
 
     ColorSource.MaterialYou -> materialAccentColor?.hsl ?: defaultAccentColor
 }

@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -148,7 +149,53 @@ fun SeekBar(
                 isActive = isActive
             )
         }
+
+        PlayerPreferences.SeekBarStyle.Squiggly -> {
+            SquigglySeekBarBody(
+                position = scrubbingPosition ?: animatedPosition.toLong(),
+                duration = media.duration,
+                isPlaying = isActive,
+                color = color,
+                backgroundColor = backgroundColor,
+                showDuration = alwaysShowDuration || scrubbingPosition != null,
+                onSeek = { targetMs ->
+                    binder.player.seekTo(targetMs)
+                },
+                modifier = modifier
+            )
+        }
     }
+}
+
+@Composable
+private fun SquigglySeekBarBody(
+    position: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    color: Color,
+    backgroundColor: Color,
+    showDuration: Boolean,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) = Column {
+    var localPosition by remember(position) { mutableFloatStateOf(position.toFloat()) }
+
+    SquigglySlider(
+        value = localPosition,
+        onValueChange = { localPosition = it },
+        onValueChangeFinished = { onSeek(localPosition.toLong()) },
+        valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+        activeColor = color,
+        inactiveColor = backgroundColor.copy(alpha = 0.35f),
+        isPlaying = isPlaying,
+        modifier = modifier
+    )
+
+    Duration(
+        position = localPosition.toLong(),
+        duration = duration,
+        show = showDuration
+    )
 }
 
 @Composable

@@ -44,7 +44,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var horizontalSwipeToRemoveItem by boolean(false)
 
     var playerLayout by enum(PlayerLayout.New)
-    var seekBarStyle by enum(SeekBarStyle.Wavy)
+    var seekBarStyle by enum(SeekBarStyle.Squiggly)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
@@ -67,7 +67,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class SeekBarStyle(val displayName: @Composable () -> String) {
         Static(displayName = { stringResource(R.string.static_seek_bar_name) }),
-        Wavy(displayName = { stringResource(R.string.wavy_seek_bar_name) })
+        Wavy(displayName = { stringResource(R.string.wavy_seek_bar_name) }),
+        Squiggly(displayName = { "Squiggly" })
     }
 
     @Suppress("unused")

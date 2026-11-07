@@ -2,13 +2,16 @@ package app.vitune.android.ui.screens.player
 
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -83,6 +86,8 @@ fun Controls(
     shouldBePlaying: Boolean,
     position: Long,
     modifier: Modifier = Modifier,
+    isShowingLyrics: Boolean = false,
+    onToggleLyrics: (() -> Unit)? = null,
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout
 ) {
     val shouldBePlayingTransition = updateTransition(
@@ -105,6 +110,8 @@ fun Controls(
             likedAt = likedAt,
             setLikedAt = setLikedAt,
             playButtonRadius = playButtonRadius,
+            isShowingLyrics = isShowingLyrics,
+            onToggleLyrics = onToggleLyrics,
             modifier = modifier
         )
 
@@ -116,6 +123,8 @@ fun Controls(
             likedAt = likedAt,
             setLikedAt = setLikedAt,
             playButtonRadius = playButtonRadius,
+            isShowingLyrics = isShowingLyrics,
+            onToggleLyrics = onToggleLyrics,
             modifier = modifier
         )
     }
@@ -130,7 +139,9 @@ private fun ClassicControls(
     likedAt: Long?,
     setLikedAt: (Long?) -> Unit,
     playButtonRadius: Dp,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isShowingLyrics: Boolean = false,
+    onToggleLyrics: (() -> Unit)? = null
 ) = with(PlayerPreferences) {
     val (colorPalette) = LocalAppearance.current
 
@@ -143,12 +154,18 @@ private fun ClassicControls(
         Spacer(modifier = Modifier.weight(1f))
         MediaInfo(media)
         Spacer(modifier = Modifier.weight(1f))
-        SeekBar(
-            binder = binder,
-            position = position,
-            media = media,
-            alwaysShowDuration = true
-        )
+        AnimatedVisibility(
+            visible = !isShowingLyrics,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
+        ) {
+            SeekBar(
+                binder = binder,
+                position = position,
+                media = media,
+                alwaysShowDuration = true
+            )
+        }
         Spacer(modifier = Modifier.weight(1f))
 
         Row(
@@ -217,6 +234,17 @@ private fun ClassicControls(
                     .weight(1f)
                     .size(24.dp)
             )
+
+            if (onToggleLyrics != null) {
+                IconButton(
+                    icon = R.drawable.musical_notes,
+                    color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
+                    onClick = onToggleLyrics,
+                    modifier = Modifier
+                        .weight(1f)
+                        .size(24.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -233,6 +261,8 @@ private fun ModernControls(
     setLikedAt: (Long?) -> Unit,
     playButtonRadius: Dp,
     modifier: Modifier = Modifier,
+    isShowingLyrics: Boolean = false,
+    onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp
 ) {
     val previousButtonContent: @Composable RowScope.() -> Unit = {
@@ -284,19 +314,34 @@ private fun ModernControls(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        AnimatedVisibility(
+            visible = !isShowingLyrics,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically()
         ) {
-            if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-            Column(modifier = Modifier.weight(4f)) {
-                SeekBar(
-                    binder = binder,
-                    position = position,
-                    media = media
-                )
+                Column(modifier = Modifier.weight(4f)) {
+                    SeekBar(
+                        binder = binder,
+                        position = position,
+                        media = media
+                    )
+                }
+
+                if (onToggleLyrics != null) {
+                    IconButton(
+                        icon = R.drawable.musical_notes,
+                        color = if (isShowingLyrics) LocalAppearance.current.colorPalette.accent else LocalAppearance.current.colorPalette.text,
+                        onClick = onToggleLyrics,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
