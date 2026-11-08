@@ -5,8 +5,11 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.animation.expandVertically
@@ -41,10 +44,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.ripple
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
@@ -295,23 +301,133 @@ private fun ModernControls(
         MediaInfo(media)
         Spacer(modifier = Modifier.weight(1f))
 
+        val playInteractionSource = remember { MutableInteractionSource() }
+        val isPlayPressed by playInteractionSource.collectIsPressedAsState()
+
+        val nextInteractionSource = remember { MutableInteractionSource() }
+        val isNextPressed by nextInteractionSource.collectIsPressedAsState()
+
+        val topPrevInteractionSource = remember { MutableInteractionSource() }
+        val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
+
+        val expressiveSpring = spring<Float>(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        )
+
+        val hasTopPrev = PlayerPreferences.showLike
+        val basePlayWeight = if (hasTopPrev) 3f else 4f
+        val baseNextWeight = 1f
+        val basePrevWeight = 1f
+
+        val targetPlayWeight = when {
+            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.5f else 0.4f)
+            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.45f).coerceAtLeast(1.5f)
+            else -> basePlayWeight
+        }
+
+        val targetNextWeight = when {
+            isNextPressed -> baseNextWeight + 0.45f
+            isPlayPressed -> (baseNextWeight - 0.35f).coerceAtLeast(0.5f)
+            else -> baseNextWeight
+        }
+
+        val targetPrevWeight = when {
+            isTopPrevPressed -> basePrevWeight + 0.45f
+            isPlayPressed -> (basePrevWeight - 0.35f).coerceAtLeast(0.5f)
+            else -> basePrevWeight
+        }
+
+        val playWeight by animateFloatAsState(targetPlayWeight, expressiveSpring, label = "playWeight")
+        val nextWeight by animateFloatAsState(targetNextWeight, expressiveSpring, label = "nextWeight")
+        val prevWeight by animateFloatAsState(targetPrevWeight, expressiveSpring, label = "prevWeight")
+
+        val playScale by animateFloatAsState(
+            targetValue = when {
+                isPlayPressed -> 0.98f
+                isNextPressed || isTopPrevPressed -> 0.92f
+                else -> 1f
+            },
+            animationSpec = expressiveSpring,
+            label = "playScale"
+        )
+
+        val nextScale by animateFloatAsState(
+            targetValue = when {
+                isNextPressed -> 0.98f
+                isPlayPressed -> 0.86f
+                else -> 1f
+            },
+            animationSpec = expressiveSpring,
+            label = "nextScale"
+        )
+
+        val prevScale by animateFloatAsState(
+            targetValue = when {
+                isTopPrevPressed -> 0.98f
+                isPlayPressed -> 0.86f
+                else -> 1f
+            },
+            animationSpec = expressiveSpring,
+            label = "prevScale"
+        )
+
+        val expressiveSpringDp = spring<Dp>(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessMediumLow
+        )
+
+        val currentPlayRadius by animateDpAsState(
+            targetValue = if (isPlayPressed) (playButtonRadius - 4.dp).coerceAtLeast(12.dp) else playButtonRadius,
+            animationSpec = expressiveSpringDp,
+            label = "playRadius"
+        )
+        val currentNextRadius by animateDpAsState(
+            targetValue = if (isNextPressed) 24.dp else 32.dp,
+            animationSpec = expressiveSpringDp,
+            label = "nextRadius"
+        )
+        val currentPrevRadius by animateDpAsState(
+            targetValue = if (isTopPrevPressed) 24.dp else 32.dp,
+            animationSpec = expressiveSpringDp,
+            label = "prevRadius"
+        )
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (PlayerPreferences.showLike) 4.dp else 8.dp)
+            horizontalArrangement = Arrangement.spacedBy(if (hasTopPrev) 4.dp else 8.dp)
         ) {
-            if (PlayerPreferences.showLike) previousButtonContent()
+            if (hasTopPrev) {
+                SkipButton(
+                    iconId = R.drawable.play_skip_back,
+                    onClick = binder.player::forceSeekToPrevious,
+                    modifier = Modifier
+                        .height(controlHeight)
+                        .weight(prevWeight),
+                    interactionSource = topPrevInteractionSource,
+                    scale = prevScale,
+                    shape = currentPrevRadius.roundedShape
+                )
+            }
             PlayButton(
-                radius = playButtonRadius,
+                radius = currentPlayRadius,
                 shouldBePlaying = shouldBePlaying,
                 modifier = Modifier
                     .height(controlHeight)
-                    .weight(if (PlayerPreferences.showLike) 3f else 4f)
+                    .weight(playWeight),
+                interactionSource = playInteractionSource,
+                scale = playScale
             )
             SkipButton(
                 iconId = R.drawable.play_skip_forward,
                 onClick = binder.player::forceSeekToNext,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .height(controlHeight)
+                    .weight(nextWeight),
+                interactionSource = nextInteractionSource,
+                scale = nextScale,
+                shape = currentNextRadius.roundedShape
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
@@ -346,47 +462,76 @@ private fun SkipButton(
     @DrawableRes iconId: Int,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    offsetOnPress: Dp = DefaultOffset
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    scale: Float = 1f,
+    shape: Shape = 32.dp.roundedShape,
+    offsetOnPress: Dp = 0.dp
 ) {
-    val interactionSource = remember { MutableInteractionSource() }
+    val (colorPalette) = LocalAppearance.current
     val pressed by interactionSource.collectIsPressedAsState()
     val offset by animateDpAsState(
         targetValue = if (pressed) offsetOnPress else 0.dp,
-        label = ""
+        label = "skipOffset"
     )
 
-    BigIconButton(
-        iconId = iconId,
+    Box(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .let {
+                if (offsetOnPress != 0.dp) {
+                    it.offset { IntOffset(x = offset.roundToPx(), y = 0) }
+                } else it
+            }
+            .clip(shape)
             .clickable(
                 interactionSource = interactionSource,
-                indication = null,
+                indication = ripple(bounded = true),
                 onClick = onClick
             )
-            .offset {
-                IntOffset(x = offset.roundToPx(), y = 0)
-            }
-    )
+            .background(colorPalette.background2)
+            .height(64.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(iconId),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            colorFilter = ColorFilter.tint(colorPalette.text)
+        )
+    }
 }
 
 @Composable
 private fun PlayButton(
     radius: Dp,
     shouldBePlaying: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    scale: Float = 1f
 ) {
     val (colorPalette) = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
 
     Box(
         modifier = modifier
-            .clip(radius.roundedShape)
-            .clickable {
-                if (shouldBePlaying) binder?.player?.pause() else {
-                    if (binder?.player?.playbackState == Player.STATE_IDLE) binder.player.prepare()
-                    binder?.player?.play()
-                }
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
             }
+            .clip(radius.roundedShape)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = ripple(bounded = true),
+                onClick = {
+                    if (shouldBePlaying) binder?.player?.pause() else {
+                        if (binder?.player?.playbackState == Player.STATE_IDLE) binder.player.prepare()
+                        binder?.player?.play()
+                    }
+                }
+            )
             .background(colorPalette.accent)
     ) {
         AnimatedPlayPauseButton(
