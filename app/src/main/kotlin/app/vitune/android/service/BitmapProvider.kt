@@ -71,6 +71,7 @@ class BitmapProvider(
     ) {
         if (lastUri == uri && (lastBitmap != null || uri == null)) {
             listener?.invoke(lastBitmap)
+            onDone(bitmap)
             return
         }
 
@@ -81,6 +82,9 @@ class BitmapProvider(
             onDone(bitmap)
             return
         }
+
+        // Clear stale bitmap immediately so notification/lockscreen don't show previous song's art
+        lastBitmap = null
 
         val oldTask = currentTask
         currentTask = context.applicationContext.imageLoader.enqueue(

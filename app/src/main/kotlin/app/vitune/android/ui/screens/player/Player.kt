@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState

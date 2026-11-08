@@ -530,8 +530,14 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         with(bitmapProvider) {
             when {
-                mediaItem == null -> load(null)
-                else -> load(mediaItem.mediaMetadata.artworkUri)
+                mediaItem == null -> load(null) {
+                    maybeShowSongCoverInLockScreen()
+                    updateNotification()
+                }
+                else -> load(mediaItem.mediaMetadata.artworkUri) {
+                    maybeShowSongCoverInLockScreen()
+                    updateNotification()
+                }
             }
         }
 

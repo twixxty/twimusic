@@ -210,34 +210,44 @@ fun LoginScreen(
         YouTube.dataSyncId = authData.dataSyncId
         YouTube.authUser = authData.authUser
 
+        // Save credentials immediately — don't block on accountInfo()
+        withContext(Dispatchers.Main) {
+            AccountPreferences.innerTubeCookie = authData.cookie
+            AccountPreferences.visitorData = authData.visitorData
+            AccountPreferences.dataSyncId = authData.dataSyncId
+            AccountPreferences.innerTubeAuthUser = authData.authUser
+
+            app.vitune.providers.innertube.Innertube.cookie = authData.cookie
+            app.vitune.providers.innertube.Innertube.visitorData = authData.visitorData
+            app.vitune.providers.innertube.Innertube.dataSyncId = authData.dataSyncId
+            app.vitune.providers.innertube.Innertube.authUser = authData.authUser
+
+            CookieManager.getInstance().flush()
+        }
+
+        // Fetch account info in background — if it fails, we still have a valid session
         try {
             val accountInfo = YouTube.accountInfo().getOrThrow()
             withContext(Dispatchers.Main) {
-                AccountPreferences.innerTubeCookie = authData.cookie
-                AccountPreferences.visitorData = authData.visitorData
-                AccountPreferences.dataSyncId = authData.dataSyncId
-                AccountPreferences.innerTubeAuthUser = authData.authUser
                 AccountPreferences.accountName = accountInfo.name
                 AccountPreferences.accountEmail = accountInfo.email.orEmpty()
                 AccountPreferences.accountChannelHandle = accountInfo.channelHandle.orEmpty()
-
-                app.vitune.providers.innertube.Innertube.cookie = authData.cookie
-                app.vitune.providers.innertube.Innertube.visitorData = authData.visitorData
-                app.vitune.providers.innertube.Innertube.dataSyncId = authData.dataSyncId
-                app.vitune.providers.innertube.Innertube.authUser = authData.authUser
-
-                CookieManager.getInstance().flush()
-
-                coroutineScope.launch {
-                    app.vitune.android.utils.YouTubeSync.syncAll(context)
-                }
-
-                onDismiss()
             }
         } catch (throwable: Exception) {
-            Timber.e(throwable, "Login: Failed to validate or save account info")
-            errorMessage = throwable.message ?: context.getString(R.string.login_failed)
-            loginStage = LoginStage.Authenticating
+            Timber.w(throwable, "Login: Could not fetch account info, using fallback name")
+            withContext(Dispatchers.Main) {
+                if (AccountPreferences.accountName.isBlank()) {
+                    AccountPreferences.accountName = "YouTube Account"
+                }
+            }
+        }
+
+        // Kick off background sync and dismiss
+        withContext(Dispatchers.Main) {
+            coroutineScope.launch {
+                app.vitune.android.utils.YouTubeSync.syncAll(context)
+            }
+            onDismiss()
         }
     }
 
@@ -336,7 +346,10 @@ fun LoginScreen(
                                 override fun onPageFinished(view: WebView, url: String?) {
                                     val pageUri = url?.let(Uri::parse)
                                     if (pageUri?.scheme == "https" && pageUri.host == "music.youtube.com") {
-                                        handleAuthenticatedPage()
+                                        val cookie = CookieManager.getInstance().getCookie("https://music.youtube.com").orEmpty()
+                                        if (cookie.contains("SAPISID") || cookie.contains("__Secure-3PAPISID") || cookie.contains("__Secure-1PAPISID")) {
+                                            handleAuthenticatedPage()
+                                        }
                                     }
                                 }
                             }
@@ -349,7 +362,21 @@ fun LoginScreen(
                             }
                             addJavascriptInterface(jsInterface, "Android")
                             webViewRef = this
-                            loadUrl("https://music.youtube.com")
+                            if (isSwitchingChannel) {
+                                val cm = CookieManager.getInstance()
+                                cm.setAcceptCookie(true)
+                                com.metrolist.innertube.utils.parseCookieString(YouTube.cookie.orEmpty()).forEach { (name, value) ->
+                                    cm.setCookie("https://music.youtube.com", "$name=$value; Domain=.youtube.com; Path=/; Secure")
+                                }
+                                cm.flush()
+                            }
+                            loadUrl(
+                                if (isSwitchingChannel) {
+                                    "https://music.youtube.com"
+                                } else {
+                                    "https://accounts.google.com/ServiceLogin?continue=https%3A%2F%2Fmusic.youtube.com"
+                                }
+                            )
                         }
                     }
                 )

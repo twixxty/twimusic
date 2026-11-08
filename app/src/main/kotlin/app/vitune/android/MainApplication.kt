@@ -125,6 +125,7 @@ import coil3.request.crossfade
 import coil3.util.DebugLogger
 import app.vitune.android.utils.innertube.InnerTubeXPlayer
 import app.vitune.android.preferences.AccountPreferences
+import app.vitune.android.utils.YouTubeSync
 import com.metrolist.innertube.YouTube
 import com.kieronquinn.monetcompat.core.MonetActivityAccessException
 import com.kieronquinn.monetcompat.core.MonetCompat
@@ -567,6 +568,14 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 
         MonetCompat.enablePaletteCompat()
         ServiceNotifications.createAll()
+
+        // Auto-sync library on startup when logged in (delayed to not block app start)
+        if (AccountPreferences.isLoggedIn) {
+            CoroutineScope(Dispatchers.IO).launch {
+                kotlinx.coroutines.delay(5_000L) // 5 second delay after startup
+                YouTubeSync.syncAll()
+            }
+        }
     }
 
     override fun newImageLoader(context: PlatformContext) = ImageLoader.Builder(this)
