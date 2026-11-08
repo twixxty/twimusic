@@ -635,7 +635,7 @@ fun Lyrics(
                                         item = entry,
                                         isSynced = true,
                                         isActiveLine = isActive,
-                                        currentPositionState = if (isActive) currentPositionMs else 0L,
+                                        currentPositionState = currentPositionMs,
                                         player = binder?.player,
                                         expressiveAccent = colorPalette.accent,
                                         displayedCurrentLineIndex = activeIndex,

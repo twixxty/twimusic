@@ -1,13 +1,16 @@
 package app.vitune.android.ui.components
 
 import android.graphics.BlurMaskFilter
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.asComposeRenderEffect
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
@@ -31,7 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -165,20 +167,19 @@ fun MetrolistLyricsLine(
     } else inactiveAlpha
 
     val enableBlur = PlayerPreferences.lyricsLineBlur
-    val animatedBlur = if (enableBlur) {
-        val targetBlur = if (!isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
-            0 -> 0.dp
-            1 -> 2.dp
-            2 -> 4.dp
-            else -> 6.dp
+    val blurRadiusPx = if (enableBlur && !isActiveLine && isSynced && isAutoScrollEnabled) {
+        when (distance) {
+            0 -> 0f
+            1 -> 6f
+            2 -> 12f
+            else -> 18f
         }
-        animateDpAsState(targetBlur, tween(300), label = "lyricsLineBlur").value
-    } else 0.dp
+    } else 0f
 
     val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
     val animatedScale by animateFloatAsState(if (isActiveLine) 1.04f else 1.0f, tween(300), label = "lyricsLineScale")
 
-    val activeTextColor = expressiveAccent
+    val activeTextColor = lerp(Color.White, expressiveAccent, 0.15f)
     val lineColor = Color.White.copy(alpha = if (item.isBackground) focusedAlpha else animatedAlpha)
 
     val mainTextRaw = item.text
@@ -198,27 +199,7 @@ fun MetrolistLyricsLine(
         )
     )
 
-    val effectiveWords = if (item.words?.isNotEmpty() == true) {
-        item.words
-    } else if (mainText.isNotBlank()) {
-        remember(mainText, item.time) {
-            val words = mainText.split(Regex("\\s+")).filter { it.isNotBlank() }
-            if (words.isEmpty()) null
-            else {
-                val totalDurationSec = (words.size * 0.40).coerceIn(1.2, 5.0)
-                val wordDurationSec = totalDurationSec / words.size
-                val startTimeSec = item.time / 1000.0
-                words.mapIndexed { idx, wordText ->
-                    WordTimestamp(
-                        text = wordText,
-                        startTime = startTimeSec + (idx * wordDurationSec),
-                        endTime = startTimeSec + ((idx + 1) * wordDurationSec),
-                        hasTrailingSpace = idx < words.size - 1
-                    )
-                }
-            }
-        }
-    } else null
+    val effectiveWords = item.words
 
     Box(
         modifier = modifier
@@ -233,8 +214,14 @@ fun MetrolistLyricsLine(
             .graphicsLayer {
                 scaleX = animatedScale
                 scaleY = animatedScale
+                if (enableBlur && blurRadiusPx > 0f && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    renderEffect = RenderEffect
+                        .createBlurEffect(blurRadiusPx, blurRadiusPx, Shader.TileMode.CLAMP)
+                        .asComposeRenderEffect()
+                } else {
+                    renderEffect = null
+                }
             }
-            .then(if (enableBlur && animatedBlur > 0.dp) Modifier.blur(animatedBlur) else Modifier)
             .padding(
                 horizontal = 24.dp,
                 vertical = if (item.isBackground) 4.dp else 10.dp
@@ -249,7 +236,7 @@ fun MetrolistLyricsLine(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = agentAlignment
         ) {
-            if (isSynced && effectiveWords != null && (isActiveLine || distance <= 1) && mainText.isNotBlank()) {
+            if (isSynced && effectiveWords != null && isActiveLine && mainText.isNotBlank()) {
                 WordLevelLyrics(
                     mainText = mainText,
                     words = effectiveWords,
@@ -563,6 +550,7 @@ private fun WordLevelLyrics(
                     // Main subpixel gradient wipe and draw
                     for (i in 0 until clusterCount) {
                         if (i !in clusterCharOffsets.indices || i !in letterLayouts.indices) continue
+                        if (graphemeClusters[i].all { it.isWhitespace() }) continue
                         val charOffset = clusterCharOffsets[i].coerceIn(0, maxTextOffset)
                         val charBounds = layoutResult.getBoundingBox(charOffset)
                         val wordIdx = if (i in wordIdxMap.indices) wordIdxMap[i] else -1
@@ -668,8 +656,9 @@ private fun WordLevelLyrics(
                                     }
                                 }
                             }
-                            val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
-                            drawText(letterLayouts[i], color = if (wordIdx == -1) lineColor.copy(alpha = focusedAlpha) else activeTextColor.copy(alpha = baseAlpha))
+                            val isCharSung = isWordSung || charLp > 0.99f
+                            val charColor = if (isCharSung) activeTextColor else lineColor.copy(alpha = focusedAlpha)
+                            drawText(letterLayouts[i], color = charColor)
                             if (!isWordSung && charLp > 0f && charLp < 1f) {
                                 val fXL = (charBounds.width * charLp).coerceIn(0f, charBounds.width)
                                 val eW = (charBounds.width * 0.45f).coerceAtLeast(1f)
@@ -693,7 +682,7 @@ private fun WordLevelLyrics(
                     }
                 }
             } catch (e: Throwable) {
-                drawText(layoutResult, color = if (isActiveLine) activeTextColor else lineColor)
+                drawText(layoutResult, color = lineColor)
             }
         }
     }

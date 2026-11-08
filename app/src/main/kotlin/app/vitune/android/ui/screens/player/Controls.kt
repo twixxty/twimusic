@@ -314,6 +314,7 @@ private fun ModernControls(
                 modifier = Modifier.weight(1f)
             )
         }
+        Spacer(modifier = Modifier.weight(1f))
         AnimatedVisibility(
             visible = !isShowingLyrics,
             enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
@@ -326,7 +327,7 @@ private fun ModernControls(
             ) {
                 if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(4f)) {
                     SeekBar(
                         binder = binder,
                         position = position,
