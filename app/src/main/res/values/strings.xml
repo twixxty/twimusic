@@ -401,6 +401,7 @@
     <string name="search_lyrics_providers">Search across lyrics providers</string>
     <string name="copy_lyrics">Copy lyrics to clipboard</string>
     <string name="lyrics_copied">Lyrics copied to clipboard</string>
+    <string name="lyrics_text_position">Lyrics text alignment</string>
     <string name="player_background_style">Player background style</string>
     <string name="background_lava_lamp">Lava Lamp (Fluid animated)</string>
     <string name="background_gradient">Gradient</string>
