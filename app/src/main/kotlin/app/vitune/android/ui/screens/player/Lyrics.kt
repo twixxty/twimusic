@@ -540,15 +540,6 @@ fun Lyrics(
                         ) { index, entry ->
                             val isActive = index == activeIndex
                             val distance = abs(index - activeIndex)
-                            val targetAlpha = when {
-                                isActive -> 1.0f
-                                distance == 1 -> 0.35f
-                                distance == 2 -> 0.22f
-                                distance == 3 -> 0.15f
-                                else -> 0.08f
-                            }.let { if (entry.isBackground && !isActive) 0.08f else it }
-                            val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lineAlpha")
-                            val animatedScale by animateFloatAsState(if (isActive) 1.03f else 1.0f, tween(300), label = "lineScale")
 
                             val defaultAlignment = when (PlayerPreferences.lyricsTextPosition) {
                                 PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start to TextAlign.Left
@@ -564,6 +555,15 @@ fun Lyrics(
                             }
 
                             if (entry.text.isBlank()) {
+                                val targetAlpha = when {
+                                    isActive -> 1.0f
+                                    distance == 1 -> 0.35f
+                                    distance == 2 -> 0.22f
+                                    distance == 3 -> 0.15f
+                                    else -> 0.08f
+                                }.let { if (entry.isBackground && !isActive) 0.08f else it }
+                                val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lineAlpha")
+                                val animatedScale by animateFloatAsState(if (isActive) 1.03f else 1.0f, tween(300), label = "lineScale")
                                 val noteColor = if (isActive) colorPalette.accent else Color.White.copy(alpha = 0.35f)
                                 Box(
                                     contentAlignment = when {

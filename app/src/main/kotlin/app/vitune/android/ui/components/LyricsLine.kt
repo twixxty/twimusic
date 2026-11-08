@@ -160,13 +160,15 @@ fun MetrolistLyricsLine(
     } else inactiveAlpha
 
     val enableBlur = PlayerPreferences.lyricsLineBlur
-    val targetBlur = if (!enableBlur || !isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
-        0 -> 0.dp
-        1 -> 2.dp
-        2 -> 4.dp
-        else -> 6.dp
-    }
-    val animatedBlur by animateDpAsState(targetBlur, tween(300), label = "lyricsLineBlur")
+    val animatedBlur = if (enableBlur) {
+        val targetBlur = if (!isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
+            0 -> 0.dp
+            1 -> 2.dp
+            2 -> 4.dp
+            else -> 6.dp
+        }
+        animateDpAsState(targetBlur, tween(300), label = "lyricsLineBlur").value
+    } else 0.dp
 
     val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
     val animatedScale by animateFloatAsState(if (isActiveLine) 1.04f else 1.0f, tween(300), label = "lyricsLineScale")

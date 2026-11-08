@@ -1169,8 +1169,6 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         val poiTimestamp get() = this@PlayerService.poiTimestamp
 
-        fun addListener(callback: (Bitmap?) -> Unit) = bitmapProvider.addListener(callback)
-        fun removeListener(callback: (Bitmap?) -> Unit) = bitmapProvider.removeListener(callback)
         fun setBitmapListener(listener: ((Bitmap?) -> Unit)?) = bitmapProvider.setListener(listener)
 
         @kotlin.OptIn(FlowPreview::class)
