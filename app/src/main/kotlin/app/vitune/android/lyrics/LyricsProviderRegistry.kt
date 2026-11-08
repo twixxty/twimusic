@@ -7,17 +7,39 @@ package app.vitune.android.lyrics
 
 object LyricsProviderRegistry {
     private val providerMap = mapOf(
-        "BetterLyrics" to BetterLyricsProvider,
+        "Musixmatch" to MusixmatchLyricsProvider,
+        "YouLyPlus" to YouLyPlusLyricsProvider,
         "Paxsenix" to PaxsenixLyricsProvider,
+        "BetterLyrics" to BetterLyricsProvider,
         "LrcLib" to LrcLibLyricsProvider,
         "KuGou" to KuGouLyricsProvider,
-        "LyricsPlus" to LyricsPlusProvider,
-        "Zemer" to ZemerLyricsProvider,
+        "Unison" to UnisonLyricsProvider,
+        "BiniLyrics" to BiniLyricsProvider,
+        "Spotify" to SpotifyLyricsProvider,
+        "LrcRed" to LrcRedLyricsProvider,
         "YouTubeSubtitle" to YouTubeSubtitleLyricsProvider,
         "YouTube" to YouTubeLyricsProvider,
+        "YouTubeMusic" to YouTubeLyricsProvider,
+        "LyricsPlus" to LyricsPlusProvider,
+        "Zemer" to ZemerLyricsProvider,
     )
 
-    val providerNames = providerMap.keys.toList()
+    val providerNames = listOf(
+        "Musixmatch",
+        "YouLyPlus",
+        "Paxsenix",
+        "BetterLyrics",
+        "LrcLib",
+        "KuGou",
+        "Unison",
+        "BiniLyrics",
+        "Spotify",
+        "LrcRed",
+        "YouTubeSubtitle",
+        "YouTube",
+        "LyricsPlus",
+        "Zemer",
+    )
 
     fun getProviderByName(name: String): LyricsProvider? = providerMap[name]
 
@@ -37,18 +59,25 @@ object LyricsProviderRegistry {
     }
 
     fun getDefaultProviderOrder(): List<String> = listOf(
+        "Musixmatch",
+        "YouLyPlus",
+        "Paxsenix",
         "BetterLyrics",
         "LrcLib",
         "KuGou",
-        "Paxsenix",
-        "LyricsPlus",
-        "Zemer",
+        "Unison",
+        "BiniLyrics",
+        "Spotify",
+        "LrcRed",
         "YouTubeSubtitle",
         "YouTube",
+        "LyricsPlus",
+        "Zemer",
     )
 
     fun getOrderedProviders(orderString: String): List<LyricsProvider> {
         val order = deserializeProviderOrder(orderString)
-        return order.mapNotNull { getProviderByName(it) }
+        val seen = mutableSetOf<LyricsProvider>()
+        return order.mapNotNull { getProviderByName(it) }.filter { seen.add(it) }
     }
 }

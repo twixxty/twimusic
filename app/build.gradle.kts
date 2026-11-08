@@ -165,6 +165,8 @@ dependencies {
     implementation(libs.exoplayer)
     implementation(libs.exoplayer.workmanager)
     implementation(libs.media3.session)
+    implementation(libs.media3.ui)
+    implementation(libs.media3.hls)
     implementation(libs.media)
 
     implementation(libs.workmanager)

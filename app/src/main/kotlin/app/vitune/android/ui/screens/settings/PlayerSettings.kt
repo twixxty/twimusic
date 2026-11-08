@@ -73,6 +73,13 @@ fun PlayerSettings() = with(PlayerPreferences) {
                 isChecked = skipOnError,
                 onCheckedChange = { skipOnError = it }
             )
+
+            SwitchSettingsEntry(
+                title = "Canvas & Motion Artwork",
+                text = "Show animated video canvases and Motion Artwork in player",
+                isChecked = enableCanvas,
+                onCheckedChange = { enableCanvas = it }
+            )
         }
         SettingsGroup(title = stringResource(R.string.audio)) {
             AnimatedVisibility(visible = changed) {

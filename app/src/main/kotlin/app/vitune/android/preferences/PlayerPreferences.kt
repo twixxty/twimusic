@@ -55,6 +55,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsAnimationStyle by enum(LyricsAnimationStyle.Metrolist)
     var lyricsLineBlur by boolean(false)
     var showLyricsFullscreenButton by boolean(true)
+    var enableCanvas by boolean(true)
+    var canvasLoadOnlyWifi by boolean(false)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)

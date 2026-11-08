@@ -18,6 +18,18 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.blur
 import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
+import app.vitune.android.canvas.BackgroundVideoView
+import app.vitune.android.canvas.Motionartwork
+import app.vitune.android.canvas.MotionartworkPlaybackCache
+import app.vitune.android.canvas.AppleMusicMotionartworkProvider
+import app.vitune.android.canvas.ViviMusicMotionartworkProvider
+import app.vitune.android.canvas.TidalMotionartworkProvider
+import app.vitune.android.canvas.SpotifyCanvasProvider
+import app.vitune.android.canvas.validateMotionartworkMatch
+import app.vitune.android.spotify.Spotify
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Locale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -144,6 +156,72 @@ fun Player(
         )
     }
     var shouldBePlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
+
+    var canvasArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
+    var spotifyCanvasUrl by remember(mediaItem?.mediaId) { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(mediaItem?.mediaId, PlayerPreferences.enableCanvas) {
+        val item = mediaItem ?: return@LaunchedEffect
+        if (!PlayerPreferences.enableCanvas) {
+            canvasArtwork = null
+            spotifyCanvasUrl = null
+            return@LaunchedEffect
+        }
+
+        val currentId = item.mediaId
+        val title = item.mediaMetadata.title?.toString() ?: ""
+        val artist = item.mediaMetadata.artist?.toString() ?: ""
+        val album = item.mediaMetadata.albumTitle?.toString() ?: ""
+
+        MotionartworkPlaybackCache.get(currentId)?.let { cached ->
+            canvasArtwork = cached
+            return@LaunchedEffect
+        }
+
+        withContext(Dispatchers.IO) {
+            val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
+
+            val appleArtwork = runCatching {
+                AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
+                    ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+            }.getOrNull()
+
+            val tidalArtwork = if (appleArtwork == null) {
+                runCatching {
+                    TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+                        ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                }.getOrNull()
+            } else null
+
+            val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
+                runCatching {
+                    ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
+                        ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                }.getOrNull()
+            } else null
+
+            val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
+            if (resolvedArtwork != null) {
+                MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
+                withContext(Dispatchers.Main) {
+                    canvasArtwork = resolvedArtwork
+                }
+            } else {
+                val token = Spotify.getValidToken()
+                if (token != null) {
+                    val spTrackId = Spotify.searchTrackRest("$title $artist")
+                    if (spTrackId != null) {
+                        val spCanvas = SpotifyCanvasProvider.getCanvasUrl(spTrackId, token).getOrNull()
+                        if (spCanvas != null) {
+                            withContext(Dispatchers.Main) {
+                                spotifyCanvasUrl = spCanvas
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     var likedAt by remember(mediaItem) {
         mutableStateOf(
@@ -493,6 +571,23 @@ fun Player(
                             .background(colorPalette.background0)
                     )
                 }
+            }
+
+            val canvasVideoUrl = (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
+                ?.takeIf { PlayerPreferences.enableCanvas }
+            val isPlayingState = binder?.player?.isPlaying == true
+
+            if (!canvasVideoUrl.isNullOrBlank()) {
+                BackgroundVideoView(
+                    videoUrl = canvasVideoUrl,
+                    isPlaying = isPlayingState,
+                    modifier = Modifier.fillMaxSize()
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = darkOverlayAlpha))
+                )
             }
 
             if (isLandscape) BoxWithConstraints(

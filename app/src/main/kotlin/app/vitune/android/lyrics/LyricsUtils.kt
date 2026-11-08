@@ -1399,6 +1399,17 @@ object LyricsUtils {
         return "АаЕеЄєИиІіЇїОоУуЮюЯяЫыЭэ".contains(char)
     }
 
+    enum class SyncType {
+        WORD, LINE, NONE
+    }
+
+    fun getSyncType(lyrics: String): SyncType {
+        if (lyrics.isBlank()) return SyncType.NONE
+        if (isWordSynced(lyrics)) return SyncType.WORD
+        if (isLineSynced(lyrics)) return SyncType.LINE
+        return SyncType.NONE
+    }
+
     fun isWordSynced(lyrics: String): Boolean {
         return (lyrics.contains("<") && lyrics.contains(">") && (lyrics.contains("|") || lyrics.contains(":"))) ||
                 lyrics.contains(RICH_SYNC_WORD_REGEX)
