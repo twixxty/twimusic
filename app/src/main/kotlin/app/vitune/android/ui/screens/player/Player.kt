@@ -3,11 +3,15 @@ package app.vitune.android.ui.screens.player
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.draw.blur
@@ -490,22 +494,43 @@ fun Player(
                 }
             }
 
+            val animatedTopPadding by animateDpAsState(
+                targetValue = if (isLyricsFullscreen) 16.dp else 54.dp,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "playerTopPadding"
+            )
+            val animatedWeight by animateFloatAsState(
+                targetValue = if (isLyricsFullscreen) 1f else if (isShowingLyrics) 2.2f else 1.25f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "playerWeight"
+            )
+            val animatedLandscapeTopPadding by animateDpAsState(
+                targetValue = if (isLyricsFullscreen) 12.dp else 32.dp,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "playerLandscapeTopPadding"
+            )
+            val animatedLandscapeWeight by animateFloatAsState(
+                targetValue = if (isLyricsFullscreen) 1f else 0.66f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "playerLandscapeWeight"
+            )
+
             if (isLandscape) Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = containerModifier
                     .fillMaxSize()
-                    .padding(top = if (isLyricsFullscreen) 12.dp else 32.dp)
+                    .padding(top = animatedLandscapeTopPadding)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
-                        .weight(if (isLyricsFullscreen) 1f else 0.66f)
+                        .weight(animatedLandscapeWeight)
                         .padding(bottom = if (isLyricsFullscreen) 0.dp else 16.dp)
                 ) {
                     AnimatedContent(
                         targetState = isShowingLyrics,
                         label = "ArtworkOrLyricsLandscape",
-                        transitionSpec = { fadeIn() togetherWith fadeOut() }
+                        transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
                     ) { showLyrics ->
                         if (showLyrics) {
                             lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
@@ -515,28 +540,33 @@ fun Player(
                     }
                 }
 
-                if (!isLyricsFullscreen) {
+                AnimatedVisibility(
+                    visible = !isLyricsFullscreen,
+                    enter = expandHorizontally(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
+                            fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)),
+                    exit = shrinkHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                           fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                ) {
                     controlsContent(
                         Modifier
                             .padding(vertical = 8.dp)
                             .fillMaxHeight()
-                            .weight(1f)
                     )
                 }
             } else Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = containerModifier
                     .fillMaxSize()
-                    .padding(top = if (isLyricsFullscreen) 16.dp else 54.dp)
+                    .padding(top = animatedTopPadding)
             ) {
                 Box(
                     contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(if (isLyricsFullscreen) 1f else if (isShowingLyrics) 2.2f else 1.25f)
+                    modifier = Modifier.weight(animatedWeight)
                 ) {
                     AnimatedContent(
                         targetState = isShowingLyrics,
                         label = "ArtworkOrLyrics",
-                        transitionSpec = { fadeIn() togetherWith fadeOut() }
+                        transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
                     ) { showLyrics ->
                         if (showLyrics) {
                             lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
@@ -546,12 +576,17 @@ fun Player(
                     }
                 }
 
-                if (!isLyricsFullscreen) {
+                AnimatedVisibility(
+                    visible = !isLyricsFullscreen,
+                    enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
+                            fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)),
+                    exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
+                           fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                ) {
                     controlsContent(
                         Modifier
                             .padding(vertical = 8.dp)
                             .fillMaxWidth()
-                            .weight(1f)
                     )
                 }
             }

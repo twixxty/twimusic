@@ -464,28 +464,31 @@ fun Lyrics(
                     targetIndex: Int,
                     duration: Int = 800
                 ) {
-                    if (isAnimating) return
                     if (parsedEntries.isEmpty()) return
                     val listTargetIndex = (targetIndex + 1).coerceIn(0, parsedEntries.size + 1)
-                    isAnimating = true
-                    try {
-                        val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listTargetIndex }
-                        if (itemInfo != null) {
-                            val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
-                            val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
-                            val itemCenter = itemInfo.offset + itemInfo.size / 2
-                            val offset = itemCenter - center
-                            if (kotlin.math.abs(offset) > 10) {
+                    val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
+                    val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listTargetIndex }
+                    val itemHeight = itemInfo?.size ?: (density.density * 50).toInt()
+                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+
+                    if (itemInfo != null) {
+                        val itemCenter = itemInfo.offset + itemInfo.size / 2
+                        val offset = itemCenter - center
+                        if (kotlin.math.abs(offset) > 4) {
+                            try {
                                 lazyListState.animateScrollBy(
                                     value = offset.toFloat(),
                                     animationSpec = tween(durationMillis = duration, easing = FastOutSlowInEasing)
                                 )
-                            }
-                        } else {
-                            lazyListState.scrollToItem(listTargetIndex)
+                            } catch (_: Throwable) {}
                         }
-                    } finally {
-                        isAnimating = false
+                    } else {
+                        try {
+                            lazyListState.animateScrollToItem(
+                                index = listTargetIndex,
+                                scrollOffset = -((viewportHeight / 2) - (itemHeight / 2))
+                            )
+                        } catch (_: Throwable) {}
                     }
                 }
 
@@ -725,8 +728,13 @@ fun Lyrics(
             }
         }
 
-        if (showControls) {
-            val expandAction = onToggleFullscreen ?: onOpenDialog
+        androidx.compose.animation.AnimatedVisibility(
+            visible = showControls,
+            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(300, easing = FastOutSlowInEasing))
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                val expandAction = onToggleFullscreen ?: onOpenDialog
             if (PlayerPreferences.showLyricsFullscreenButton && expandAction != null) Image(
                 painter = painterResource(if (isFullscreen) R.drawable.contract else R.drawable.expand),
                 contentDescription = if (isFullscreen) "Exit fullscreen" else "Fullscreen lyrics",
@@ -886,6 +894,7 @@ fun Lyrics(
                     .size(20.dp)
                     .align(Alignment.BottomEnd)
             )
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ package app.vitune.android.ui.screens.player
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateDpAsState
@@ -156,8 +157,8 @@ private fun ClassicControls(
         Spacer(modifier = Modifier.weight(1f))
         AnimatedVisibility(
             visible = !isShowingLyrics,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
+            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
         ) {
             SeekBar(
                 binder = binder,
@@ -316,8 +317,8 @@ private fun ModernControls(
         Spacer(modifier = Modifier.weight(1f))
         AnimatedVisibility(
             visible = !isShowingLyrics,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
+            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
