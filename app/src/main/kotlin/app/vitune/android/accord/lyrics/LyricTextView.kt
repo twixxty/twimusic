@@ -273,10 +273,23 @@ class LyricTextView(
         invalidate()
     }
 
+    fun markCompleted() {
+        cancelLiftupReturnAnimator()
+        val synced = syncedLyric
+        if (synced != null && synced.list.isNotEmpty()) {
+            animationUnit = synced.list.lastIndex
+            animationFraction = 1f
+            calculateTargetPosition(animationUnit)
+            liftupProgress?.fill(0f)
+            invalidate()
+        }
+    }
+
     fun animateLiftupProgressToRest(durationMs: Long, delayMs: Long) {
         val progress = liftupProgress
         if (progress == null || animationUnit < 0 || progress.all { it == 0f }) {
-            resetPlayback()
+            liftupProgress?.fill(0f)
+            invalidate()
             return
         }
 
@@ -301,7 +314,8 @@ class LyricTextView(
                 override fun onAnimationEnd(animation: Animator) {
                     if (!wasCancelled) {
                         liftupReturnAnimator = null
-                        resetPlayback(cancelReturnAnimator = false)
+                        liftupProgress?.fill(0f)
+                        invalidate()
                     }
                 }
 

@@ -237,13 +237,15 @@ class LyricViewGroup @JvmOverloads constructor(
             val rawEnd = lineEndTimes.getOrElse(i) {
                 if (i + 1 < lineStartTimes.size) lineStartTimes[i + 1] else start + 4000L
             }
-            // Seamless handoff: eliminate dead-zone gap between sequential lines
-            val end = if (i + 1 < lineStartTimes.size && rawEnd < lineStartTimes[i + 1]) {
-                lineStartTimes[i + 1]
+            // Seamless handoff: eliminate dead-zone gap between sequential lines without boundary collision
+            val hasNextSequential = i + 1 < lineStartTimes.size && rawEnd <= lineStartTimes[i + 1]
+            val end = if (hasNextSequential) lineStartTimes[i + 1] else rawEnd
+            val isActive = if (hasNextSequential) {
+                positionMs >= start && positionMs < end
             } else {
-                rawEnd
+                positionMs in start..end
             }
-            if (positionMs in start..end) {
+            if (isActive) {
                 active.add(i)
             }
         }
@@ -383,12 +385,17 @@ class LyricViewGroup @JvmOverloads constructor(
             val lyricTextView = child as? LyricTextView ?: return@forEachIndexed
             val isActive = childIndex in currentActiveIndices
             if (childIndex == previousLineIndex && shouldAnimate && !isActive) {
+                lyricTextView.markCompleted()
                 lyricTextView.animateLiftupProgressToRest(
                     durationMs = SCROLL_ANIMATION_DURATION_MS,
                     delayMs = 0L
                 )
             } else if (!isActive && childIndex !in activeWindowStart..activeWindowEnd) {
-                lyricTextView.resetPlayback()
+                if (childIndex > index) {
+                    lyricTextView.resetPlayback()
+                } else {
+                    lyricTextView.markCompleted()
+                }
             }
             lyricTextView.setLineActive(isActive)
 
