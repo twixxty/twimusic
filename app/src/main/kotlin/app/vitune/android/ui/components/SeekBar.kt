@@ -152,7 +152,7 @@ fun SeekBar(
 
         PlayerPreferences.SeekBarStyle.Squiggly -> {
             SquigglySeekBarBody(
-                position = scrubbingPosition ?: animatedPosition.toLong(),
+                position = scrubbingPosition ?: position,
                 duration = media.duration,
                 isPlaying = isActive,
                 color = color,
@@ -306,7 +306,7 @@ private fun WavySeekBarBody(
     val currentScrubberHeight by transition.animateDp(label = "") { if (it) 20.dp else 15.dp }
 
     val fraction = (position - range.start) / (range.endInclusive - range.start).toFloat()
-    val progress by rememberInfiniteTransition(label = "").animateFloat(
+    val progress = rememberInfiniteTransition(label = "").animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(tween(2000, easing = LinearEasing)),
@@ -358,7 +358,7 @@ private fun WavySeekBarBody(
                 drawPath(
                     path = wavePath(
                         size = size,
-                        progress = progress
+                        progress = progress.value
                     ),
                     color = color,
                     style = Stroke(

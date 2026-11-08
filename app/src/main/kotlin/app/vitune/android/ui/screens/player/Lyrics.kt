@@ -431,7 +431,7 @@ fun Lyrics(
             while (true) {
                 val player = binder?.player
                 currentPositionMs = (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                delay(30.milliseconds)
+                delay(100.milliseconds)
             }
         }
 
@@ -632,7 +632,7 @@ fun Lyrics(
                                         item = entry,
                                         isSynced = true,
                                         isActiveLine = isActive,
-                                        currentPositionState = currentPositionMs,
+                                        currentPositionState = if (isActive) currentPositionMs else 0L,
                                         player = binder?.player,
                                         expressiveAccent = colorPalette.accent,
                                         displayedCurrentLineIndex = activeIndex,

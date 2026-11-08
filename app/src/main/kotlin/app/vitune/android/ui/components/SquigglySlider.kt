@@ -1,7 +1,11 @@
 package app.vitune.android.ui.components
 
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -10,14 +14,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -28,9 +29,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 @Composable
 fun SquigglySlider(
@@ -51,50 +49,35 @@ fun SquigglySlider(
     val duration = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1f)
     val position = (currentValue - valueRange.start).coerceIn(0f, duration)
 
-    var phaseOffset by remember { mutableFloatStateOf(0f) }
-    var heightFraction by remember { mutableFloatStateOf(if (isPlaying) 1f else 0f) }
-
-    val scope = rememberCoroutineScope()
-
     val waveLength = 70f
     val lineAmplitude = 5f
     val phaseSpeed = 24f
 
-    LaunchedEffect(isPlaying, isDragging) {
-        scope.launch {
-            val shouldFlatten = !isPlaying || isDragging
-            val targetHeight = if (shouldFlatten) 0f else 1f
-            val animDuration = if (shouldFlatten) 150 else 200
-            val startDelay = if (shouldFlatten) 0L else 30L
-
-            delay(startDelay)
-
-            val animator = Animatable(heightFraction)
-            animator.animateTo(
-                targetValue = targetHeight,
-                animationSpec = tween(
-                    durationMillis = animDuration,
-                    easing = LinearEasing,
+    val infiniteTransition = rememberInfiniteTransition(label = "squiggly")
+    val phaseOffset = if (isPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = waveLength,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = ((waveLength / phaseSpeed) * 1000).toInt(),
+                    easing = LinearEasing
                 ),
-            ) {
-                heightFraction = this.value
-            }
-        }
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "phaseOffset"
+        )
+    } else {
+        remember { mutableFloatStateOf(0f) }
     }
 
-    LaunchedEffect(isPlaying) {
-        if (!isPlaying) return@LaunchedEffect
+    val heightFraction by animateFloatAsState(
+        targetValue = if (!isPlaying || isDragging) 0f else 1f,
+        animationSpec = tween(durationMillis = 200, easing = LinearEasing),
+        label = "heightFraction"
+    )
 
-        var lastFrameTime = withFrameMillis { it }
-        while (isActive) {
-            withFrameMillis { frameTimeMillis ->
-                val deltaTime = (frameTimeMillis - lastFrameTime) / 1000f
-                phaseOffset += deltaTime * phaseSpeed
-                phaseOffset %= waveLength
-                lastFrameTime = frameTimeMillis
-            }
-        }
-    }
+    val cachedPath = remember { Path() }
 
     Box(
         modifier = modifier
@@ -154,11 +137,11 @@ fun SquigglySlider(
             }
 
             // Build wavy path for the played segment
-            val path = Path()
-            val waveStart = -phaseOffset - waveLength / 2f
+            cachedPath.reset()
+            val waveStart = -phaseOffset.value - waveLength / 2f
             val waveEnd = totalProgressPx
 
-            path.moveTo(waveStart, centerY)
+            cachedPath.moveTo(waveStart, centerY)
 
             var currentX = waveStart
             var waveSign = 1f
@@ -171,7 +154,7 @@ fun SquigglySlider(
                 val midX = currentX + dist / 2f
                 val nextAmp = computeAmplitude(waveSign)
 
-                path.cubicTo(
+                cachedPath.cubicTo(
                     midX,
                     centerY + currentAmp,
                     midX,
@@ -195,7 +178,7 @@ fun SquigglySlider(
                     bottom = centerY + clipTop,
                 ) {
                     drawPath(
-                        path = path,
+                        path = cachedPath,
                         color = activeColor,
                         style = Stroke(width = strokeWidth, cap = StrokeCap.Round),
                     )
