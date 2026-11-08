@@ -517,6 +517,18 @@ val LocalCredentialManager = staticCompositionLocalOf { Dependencies.credentialM
 
 class MainApplication : Application(), SingletonImageLoader.Factory, Configuration.Provider {
     override fun onCreate() {
+        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
+        Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+            try {
+                val sw = java.io.StringWriter()
+                throwable.printStackTrace(java.io.PrintWriter(sw))
+                val crashText = "CRASH on thread ${thread.name}:\n$sw"
+                java.io.File("/storage/emulated/0/Download/twimusic_crash.txt").writeText(crashText)
+                java.io.File(filesDir, "twimusic_crash.txt").writeText(crashText)
+            } catch (ignored: Throwable) {}
+            defaultHandler?.uncaughtException(thread, throwable)
+        }
+
         StrictMode.setVmPolicy(
             VmPolicy.Builder()
                 .let {
