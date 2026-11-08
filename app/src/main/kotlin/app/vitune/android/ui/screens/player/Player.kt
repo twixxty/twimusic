@@ -459,25 +459,35 @@ fun Player(
                 label = "coverArtOverlayAlpha"
             )
 
-            if (PlayerPreferences.pureViTuneUI) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                0.5f to colorPalette.background1,
-                                1f to colorPalette.background0
+            when (playerBackgroundStyle) {
+                PlayerPreferences.PlayerBackgroundStyle.LavaLamp -> {
+                    LavaLampBackground(
+                        bitmap = sampleBitmap,
+                        blurRadius = if (isShowingLyrics) 70.dp else 50.dp,
+                        overlayAlpha = darkOverlayAlpha,
+                        fallbackColor = colorPalette.background0,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+                PlayerPreferences.PlayerBackgroundStyle.Gradient -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.verticalGradient(
+                                    0.5f to colorPalette.background1,
+                                    1f to colorPalette.background0
+                                )
                             )
-                        )
-                )
-            } else {
-                LavaLampBackground(
-                    bitmap = sampleBitmap,
-                    blurRadius = if (isShowingLyrics) 80.dp else 65.dp,
-                    overlayAlpha = darkOverlayAlpha,
-                    fallbackColor = colorPalette.background0,
-                    modifier = Modifier.fillMaxSize()
-                )
+                    )
+                }
+                PlayerPreferences.PlayerBackgroundStyle.Solid -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(colorPalette.background0)
+                    )
+                }
             }
 
             if (isLandscape) Row(

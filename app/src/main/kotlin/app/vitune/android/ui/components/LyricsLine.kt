@@ -164,7 +164,8 @@ fun MetrolistLyricsLine(
         }
     } else inactiveAlpha
 
-    val targetBlur = if (!isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
+    val enableBlur = PlayerPreferences.lyricsLineBlur
+    val targetBlur = if (!enableBlur || !isSynced || !isAutoScrollEnabled || isActiveLine) 0.dp else when (distance) {
         0 -> 0.dp
         1 -> 2.dp
         2 -> 4.dp
@@ -229,7 +230,7 @@ fun MetrolistLyricsLine(
                 scaleX = animatedScale
                 scaleY = animatedScale
             }
-            .blur(animatedBlur)
+            .then(if (enableBlur && animatedBlur > 0.dp) Modifier.blur(animatedBlur) else Modifier)
             .padding(
                 horizontal = 24.dp,
                 vertical = if (item.isBackground) 4.dp else 10.dp

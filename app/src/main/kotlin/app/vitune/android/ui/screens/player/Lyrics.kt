@@ -550,17 +550,31 @@ fun Lyrics(
                             val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lineAlpha")
                             val animatedScale by animateFloatAsState(if (isActive) 1.03f else 1.0f, tween(300), label = "lineScale")
 
+                            val defaultAlignment = when (PlayerPreferences.lyricsTextPosition) {
+                                PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start to TextAlign.Left
+                                PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally to TextAlign.Center
+                                PlayerPreferences.LyricsTextPosition.Right -> Alignment.End to TextAlign.Right
+                            }
+
                             val (horizontalAlignment, textAlign) = when {
                                 entry.agent == "v1" -> Alignment.Start to TextAlign.Left
                                 entry.agent == "v2" -> Alignment.End to TextAlign.Right
                                 entry.isBackground -> Alignment.CenterHorizontally to TextAlign.Center
-                                else -> Alignment.CenterHorizontally to TextAlign.Center
+                                else -> defaultAlignment
                             }
 
                             if (entry.text.isBlank()) {
                                 val noteColor = if (isActive) colorPalette.accent else Color.White.copy(alpha = 0.35f)
                                 Box(
-                                    contentAlignment = Alignment.Center,
+                                    contentAlignment = when {
+                                        entry.agent == "v1" -> Alignment.CenterStart
+                                        entry.agent == "v2" -> Alignment.CenterEnd
+                                        else -> when (PlayerPreferences.lyricsTextPosition) {
+                                            PlayerPreferences.LyricsTextPosition.Left -> Alignment.CenterStart
+                                            PlayerPreferences.LyricsTextPosition.Right -> Alignment.CenterEnd
+                                            else -> Alignment.Center
+                                        }
+                                    },
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .graphicsLayer {
@@ -588,7 +602,7 @@ fun Lyrics(
                                     )
                                 }
                             } else {
-                                if (PlayerPreferences.pureViTuneUI) {
+                                if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
                                     val textColor = if (isActive) colorPalette.onOverlay else colorPalette.onOverlay.copy(alpha = 0.5f)
                                     BasicText(
                                         text = entry.text,
@@ -596,7 +610,7 @@ fun Lyrics(
                                             fontSize = 20.sp,
                                             fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
                                             color = textColor,
-                                            textAlign = TextAlign.Center
+                                            textAlign = textAlign
                                         ),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -682,7 +696,11 @@ fun Lyrics(
                         fontWeight = FontWeight.Bold,
                         lineHeight = 28.sp,
                         letterSpacing = (-0.5).sp,
-                        textAlign = TextAlign.Center,
+                        textAlign = when (PlayerPreferences.lyricsTextPosition) {
+                            PlayerPreferences.LyricsTextPosition.Left -> TextAlign.Start
+                            PlayerPreferences.LyricsTextPosition.Center -> TextAlign.Center
+                            PlayerPreferences.LyricsTextPosition.Right -> TextAlign.End
+                        },
                         color = colorPalette.onOverlay,
                         fontFamily = typography.m.fontFamily
                     ),
@@ -709,7 +727,7 @@ fun Lyrics(
 
         if (showControls) {
             val expandAction = onToggleFullscreen ?: onOpenDialog
-            if (expandAction != null) Image(
+            if (PlayerPreferences.showLyricsFullscreenButton && expandAction != null) Image(
                 painter = painterResource(if (isFullscreen) R.drawable.contract else R.drawable.expand),
                 contentDescription = if (isFullscreen) "Exit fullscreen" else "Fullscreen lyrics",
                 colorFilter = ColorFilter.tint(colorPalette.onOverlay),

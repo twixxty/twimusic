@@ -202,11 +202,32 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 valueText = { it.name }
             )
 
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.player_background_style),
+                selectedValue = PlayerPreferences.playerBackgroundStyle,
+                onValueSelect = { PlayerPreferences.playerBackgroundStyle = it },
+                valueText = { it.displayName() }
+            )
+
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.lyrics_animation_style),
+                selectedValue = PlayerPreferences.lyricsAnimationStyle,
+                onValueSelect = { PlayerPreferences.lyricsAnimationStyle = it },
+                valueText = { it.displayName() }
+            )
+
             SwitchSettingsEntry(
-                title = stringResource(R.string.pure_vitune_mode),
-                text = stringResource(R.string.pure_vitune_mode_description),
-                isChecked = PlayerPreferences.pureViTuneUI,
-                onCheckedChange = { PlayerPreferences.pureViTuneUI = it }
+                title = stringResource(R.string.lyrics_line_blur),
+                text = stringResource(R.string.lyrics_line_blur_description),
+                isChecked = PlayerPreferences.lyricsLineBlur,
+                onCheckedChange = { PlayerPreferences.lyricsLineBlur = it }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.show_lyrics_fullscreen_button),
+                text = stringResource(R.string.show_lyrics_fullscreen_button_description),
+                isChecked = PlayerPreferences.showLyricsFullscreenButton,
+                onCheckedChange = { PlayerPreferences.showLyricsFullscreenButton = it }
             )
 
             SwitchSettingsEntry(

@@ -24,11 +24,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -51,16 +50,26 @@ fun LavaLampBackground(
             null
         } else {
             try {
-                val width = bitmap.width
-                val height = bitmap.height
-                val enhanced = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+                // Downscale to 128x128 for ultra-fast, lightweight blur processing
+                val targetDim = 128
+                val maxDim = maxOf(bitmap.width, bitmap.height)
+                val scale = if (maxDim > targetDim) targetDim.toFloat() / maxDim else 1f
+                val scaledW = (bitmap.width * scale).toInt().coerceAtLeast(1)
+                val scaledH = (bitmap.height * scale).toInt().coerceAtLeast(1)
+                val scaled = if (scale < 1f) {
+                    Bitmap.createScaledBitmap(bitmap, scaledW, scaledH, true)
+                } else {
+                    bitmap
+                }
+
+                val enhanced = Bitmap.createBitmap(scaledW, scaledH, Bitmap.Config.ARGB_8888)
                 val paint = Paint().apply {
                     colorFilter = ColorMatrixColorFilter(ColorMatrix().apply { setSaturation(2.5f) })
                 }
-                Canvas(enhanced).drawBitmap(bitmap, 0f, 0f, paint)
+                Canvas(enhanced).drawBitmap(scaled, 0f, 0f, paint)
 
-                val qW = (width / 2).coerceAtLeast(1)
-                val qH = (height / 2).coerceAtLeast(1)
+                val qW = (scaledW / 2).coerceAtLeast(1)
+                val qH = (scaledH / 2).coerceAtLeast(1)
                 val tl = Bitmap.createBitmap(enhanced, 0, 0, qW, qH)
                 val br = Bitmap.createBitmap(enhanced, qW, qH, qW, qH)
                 Triple(enhanced.asImageBitmap(), tl.asImageBitmap(), br.asImageBitmap())
@@ -71,7 +80,7 @@ fun LavaLampBackground(
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "lavaLamp")
-    val rotationBase by infiniteTransition.animateFloat(
+    val rotationBase = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
@@ -94,7 +103,10 @@ fun LavaLampBackground(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .scale(1.3f)
+                    .graphicsLayer {
+                        scaleX = 1.3f
+                        scaleY = 1.3f
+                    }
                     .blur(blurRadius)
             ) {
                 // Base background layer
@@ -104,14 +116,19 @@ fun LavaLampBackground(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
                         .fillMaxSize()
-                        .scale(1.2f)
+                        .graphicsLayer {
+                            scaleX = 1.2f
+                            scaleY = 1.2f
+                        }
                 )
 
                 // Rotating frame
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .rotate(-rotationBase * 0.6f)
+                        .graphicsLayer {
+                            rotationZ = -rotationBase.value * 0.6f
+                        }
                 ) {
                     // Top-left quarter rotating clockwise
                     Image(
@@ -122,8 +139,11 @@ fun LavaLampBackground(
                             .size(320.dp)
                             .align(Alignment.TopStart)
                             .offset(x = (-30).dp, y = (-30).dp)
-                            .rotate(rotationBase * 1.2f)
-                            .scale(2.2f)
+                            .graphicsLayer {
+                                rotationZ = rotationBase.value * 1.2f
+                                scaleX = 2.2f
+                                scaleY = 2.2f
+                            }
                     )
 
                     // Bottom-right quarter rotating clockwise at different speed
@@ -135,8 +155,11 @@ fun LavaLampBackground(
                             .size(320.dp)
                             .align(Alignment.BottomEnd)
                             .offset(x = 30.dp, y = 30.dp)
-                            .rotate(rotationBase * 0.67f)
-                            .scale(2.2f)
+                            .graphicsLayer {
+                                rotationZ = rotationBase.value * 0.67f
+                                scaleX = 2.2f
+                                scaleY = 2.2f
+                            }
                     )
                 }
             }

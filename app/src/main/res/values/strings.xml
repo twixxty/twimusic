@@ -401,9 +401,17 @@
     <string name="search_lyrics_providers">Search across lyrics providers</string>
     <string name="copy_lyrics">Copy lyrics to clipboard</string>
     <string name="lyrics_copied">Lyrics copied to clipboard</string>
-    <string name="lyrics_text_position">Lyrics text alignment</string>
-    <string name="pure_vitune_mode">Pure ViTune Mode</string>
-    <string name="pure_vitune_mode_description">Revert player and lyrics UI changes back to the original classic ViTune</string>
+    <string name="player_background_style">Player background style</string>
+    <string name="background_lava_lamp">Lava Lamp (Fluid animated)</string>
+    <string name="background_gradient">Gradient</string>
+    <string name="background_solid">Solid</string>
+    <string name="lyrics_animation_style">Lyrics animation style</string>
+    <string name="lyrics_style_metrolist">Apple Music / Metrolist</string>
+    <string name="lyrics_style_classic">ViTune Classic</string>
+    <string name="lyrics_line_blur">Blur inactive lyric lines</string>
+    <string name="lyrics_line_blur_description">Apply distance depth blur on inactive lyric lines (disable for best performance)</string>
+    <string name="show_lyrics_fullscreen_button">Show fullscreen lyrics button</string>
+    <string name="show_lyrics_fullscreen_button_description">Show button under lyrics to expand to fullscreen</string>
     <string name="choose_lyrics_result">Select lyrics result</string>
     <string name="searching_providers">Searching providers…</string>
 </resources>

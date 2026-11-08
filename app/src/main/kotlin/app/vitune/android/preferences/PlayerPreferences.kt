@@ -51,7 +51,10 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsKeepScreenAwake by boolean(false)
     var lyricsShowSystemBars by boolean(true)
     var lyricsTextPosition by enum(LyricsTextPosition.Left)
-    var pureViTuneUI by boolean(false)
+    var playerBackgroundStyle by enum(PlayerBackgroundStyle.LavaLamp)
+    var lyricsAnimationStyle by enum(LyricsAnimationStyle.Metrolist)
+    var lyricsLineBlur by boolean(false)
+    var showLyricsFullscreenButton by boolean(true)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)
@@ -128,5 +131,16 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         Left,
         Center,
         Right
+    }
+
+    enum class PlayerBackgroundStyle(val displayName: @Composable () -> String) {
+        LavaLamp(displayName = { stringResource(R.string.background_lava_lamp) }),
+        Gradient(displayName = { stringResource(R.string.background_gradient) }),
+        Solid(displayName = { stringResource(R.string.background_solid) })
+    }
+
+    enum class LyricsAnimationStyle(val displayName: @Composable () -> String) {
+        Metrolist(displayName = { stringResource(R.string.lyrics_style_metrolist) }),
+        Classic(displayName = { stringResource(R.string.lyrics_style_classic) })
     }
 }
