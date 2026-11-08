@@ -451,13 +451,57 @@ fun Player(
             expandedBound = layoutState.expandedBound
         )
 
+        val canvasVideoUrl = (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
+            ?.takeIf { PlayerPreferences.enableCanvas }
+        val isPlayingState = binder?.player?.isPlaying == true
+        val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
+
         val containerModifier = Modifier
             .padding(
                 windowInsets
-                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    .only(
+                        if (isCanvasActive && !isShowingLyrics) WindowInsetsSides.Horizontal
+                        else (WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
+                    )
                     .asPaddingValues()
             )
             .padding(bottom = playerBottomSheetState.collapsedBound)
+
+        val canvasContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
+            val videoUrl = canvasVideoUrl
+            if (!videoUrl.isNullOrBlank()) {
+                Box(
+                    modifier = innerModifier
+                        .fillMaxSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { MutableInteractionSource() }
+                        ) {
+                            isShowingLyrics = !isShowingLyrics
+                        }
+                ) {
+                    BackgroundVideoView(
+                        videoUrl = videoUrl,
+                        isPlaying = isPlayingState,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.35f)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        androidx.compose.ui.graphics.Color.Transparent,
+                                        colorPalette.background0
+                                    )
+                                )
+                            )
+                    )
+                }
+            }
+        }
 
         val thumbnailContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             Pip(
@@ -573,29 +617,12 @@ fun Player(
                 }
             }
 
-            val canvasVideoUrl = (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
-                ?.takeIf { PlayerPreferences.enableCanvas }
-            val isPlayingState = binder?.player?.isPlaying == true
-
-            if (!canvasVideoUrl.isNullOrBlank()) {
-                BackgroundVideoView(
-                    videoUrl = canvasVideoUrl,
-                    isPlaying = isPlayingState,
-                    modifier = Modifier.fillMaxSize()
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(androidx.compose.ui.graphics.Color.Black.copy(alpha = darkOverlayAlpha))
-                )
-            }
-
             if (isLandscape) BoxWithConstraints(
                 modifier = containerModifier.fillMaxSize()
             ) {
                 val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 12.dp else 32.dp,
+                    targetValue = if (isLyricsFullscreen) 12.dp else if (isCanvasActive && !isShowingLyrics) 0.dp else 32.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeTopPadding"
                 )
@@ -623,6 +650,8 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            } else if (isCanvasActive) {
+                                canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 16.dp))
                             }
@@ -634,7 +663,7 @@ fun Player(
                         enter = expandHorizontally(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
                         exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                                fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
                     ) {
                         controlsContent(
                             Modifier
@@ -649,7 +678,7 @@ fun Player(
             ) {
                 val totalHeight = maxHeight
                 val topPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 16.dp else 54.dp,
+                    targetValue = if (isLyricsFullscreen) 16.dp else if (isCanvasActive && !isShowingLyrics) 0.dp else 54.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerTopPadding"
                 )
@@ -683,6 +712,8 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            } else if (isCanvasActive) {
+                                canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }

@@ -311,8 +311,8 @@ private fun ModernControls(
         val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
 
         val expressiveSpring = spring<Float>(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
         )
 
         val hasTopPrev = PlayerPreferences.showLike
@@ -321,20 +321,20 @@ private fun ModernControls(
         val basePrevWeight = 1f
 
         val targetPlayWeight = when {
-            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.5f else 0.4f)
-            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.45f).coerceAtLeast(1.5f)
+            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.35f else 0.3f)
+            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.25f).coerceAtLeast(1.5f)
             else -> basePlayWeight
         }
 
         val targetNextWeight = when {
-            isNextPressed -> baseNextWeight + 0.45f
-            isPlayPressed -> (baseNextWeight - 0.35f).coerceAtLeast(0.5f)
+            isNextPressed -> baseNextWeight + 0.25f
+            isPlayPressed -> (baseNextWeight - 0.15f).coerceAtLeast(0.6f)
             else -> baseNextWeight
         }
 
         val targetPrevWeight = when {
-            isTopPrevPressed -> basePrevWeight + 0.45f
-            isPlayPressed -> (basePrevWeight - 0.35f).coerceAtLeast(0.5f)
+            isTopPrevPressed -> basePrevWeight + 0.25f
+            isPlayPressed -> (basePrevWeight - 0.15f).coerceAtLeast(0.6f)
             else -> basePrevWeight
         }
 
@@ -345,7 +345,7 @@ private fun ModernControls(
         val playScale by animateFloatAsState(
             targetValue = when {
                 isPlayPressed -> 0.98f
-                isNextPressed || isTopPrevPressed -> 0.92f
+                isNextPressed || isTopPrevPressed -> 0.96f
                 else -> 1f
             },
             animationSpec = expressiveSpring,
@@ -355,7 +355,7 @@ private fun ModernControls(
         val nextScale by animateFloatAsState(
             targetValue = when {
                 isNextPressed -> 0.98f
-                isPlayPressed -> 0.86f
+                isPlayPressed -> 0.95f
                 else -> 1f
             },
             animationSpec = expressiveSpring,
@@ -365,7 +365,7 @@ private fun ModernControls(
         val prevScale by animateFloatAsState(
             targetValue = when {
                 isTopPrevPressed -> 0.98f
-                isPlayPressed -> 0.86f
+                isPlayPressed -> 0.95f
                 else -> 1f
             },
             animationSpec = expressiveSpring,
@@ -373,22 +373,22 @@ private fun ModernControls(
         )
 
         val expressiveSpringDp = spring<Dp>(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMediumLow
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMedium
         )
 
         val currentPlayRadius by animateDpAsState(
-            targetValue = if (isPlayPressed) (playButtonRadius - 4.dp).coerceAtLeast(12.dp) else playButtonRadius,
+            targetValue = if (isPlayPressed) (playButtonRadius - 2.dp).coerceAtLeast(14.dp) else playButtonRadius,
             animationSpec = expressiveSpringDp,
             label = "playRadius"
         )
         val currentNextRadius by animateDpAsState(
-            targetValue = if (isNextPressed) 24.dp else 32.dp,
+            targetValue = if (isNextPressed) 28.dp else 32.dp,
             animationSpec = expressiveSpringDp,
             label = "nextRadius"
         )
         val currentPrevRadius by animateDpAsState(
-            targetValue = if (isTopPrevPressed) 24.dp else 32.dp,
+            targetValue = if (isTopPrevPressed) 28.dp else 32.dp,
             animationSpec = expressiveSpringDp,
             label = "prevRadius"
         )

@@ -58,7 +58,9 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1087,8 +1089,10 @@ data class LyricsSearchResult(
     val artist: String,
     val durationSeconds: Int = -1,
     val lyrics: String,
-    val isSynced: Boolean
-)
+    val syncType: LyricsUtils.SyncType
+) {
+    val isSynced: Boolean get() = syncType != LyricsUtils.SyncType.NONE
+}
 
 @Composable
 fun MultiProviderSearchDialog(
@@ -1123,7 +1127,7 @@ fun MultiProviderSearchDialog(
 
         loading = true
         results.clear()
-        delay(600.milliseconds)
+        delay(500.milliseconds)
 
         val parts = q.split(" - ", limit = 2)
         val (parsedTitle, parsedArtist) = if (parts.size == 2) {
@@ -1132,67 +1136,101 @@ fun MultiProviderSearchDialog(
             q to initialArtist
         }
 
+        val allProviders = LyricsProviderRegistry.providerNames
+            .mapNotNull { LyricsProviderRegistry.getProviderByName(it) }
+            .distinctBy { it.name }
+
         withContext(Dispatchers.IO) {
-            // 1. Search LrcLib for tracks
-            runCatching {
-                LrcLib.lyrics(query = q, synced = true)?.getOrNull()?.let { tracks ->
-                    val lrclibResults = tracks.mapNotNull { track ->
-                        val synced = track.syncedLyrics
-                        val plain = track.plainLyrics
-                        if (!synced.isNullOrBlank()) {
-                            LyricsSearchResult(
-                                provider = "LrcLib",
-                                title = track.trackName,
-                                artist = track.artistName,
-                                durationSeconds = track.duration.toInt(),
-                                lyrics = synced,
-                                isSynced = true
-                            )
-                        } else if (!plain.isNullOrBlank()) {
-                            LyricsSearchResult(
-                                provider = "LrcLib",
-                                title = track.trackName,
-                                artist = track.artistName,
-                                durationSeconds = track.duration.toInt(),
-                                lyrics = plain,
-                                isSynced = false
-                            )
-                        } else null
-                    }
-                    withContext(Dispatchers.Main) {
-                        results.addAll(lrclibResults)
+            coroutineScope {
+                // 1. Search LrcLib for tracks (both synced and plain)
+                launch {
+                    runCatching {
+                        withTimeoutOrNull(8000L) {
+                            val syncedTracks = runCatching { LrcLib.lyrics(query = q, synced = true)?.getOrNull() }.getOrNull().orEmpty()
+                            val plainTracks = runCatching { LrcLib.lyrics(query = q, synced = false)?.getOrNull() }.getOrNull().orEmpty()
+                            val allTracks = (syncedTracks + plainTracks).distinctBy { it.id }
+
+                            val lrclibResults = allTracks.mapNotNull { track ->
+                                val synced = track.syncedLyrics
+                                val plain = track.plainLyrics
+                                val text = if (!synced.isNullOrBlank()) synced else plain
+                                if (!text.isNullOrBlank()) {
+                                    val syncType = LyricsUtils.getSyncType(text)
+                                    LyricsSearchResult(
+                                        provider = "LrcLib",
+                                        title = track.trackName,
+                                        artist = track.artistName,
+                                        durationSeconds = track.duration.toInt(),
+                                        lyrics = text,
+                                        syncType = syncType
+                                    )
+                                } else null
+                            }
+                            withContext(Dispatchers.Main) {
+                                results.addAll(lrclibResults)
+                            }
+                        }
                     }
                 }
-            }
 
-            // 2. Query other registered providers
-            val providers = LyricsProviderRegistry.getOrderedProviders(LyricsPreferences.lyricsProviderOrder)
-                .filter { it.name != "LrcLib" && it.isEnabled(context) }
-
-            for (provider in providers) {
-                runCatching {
-                    val lyricText = provider.getLyrics(
-                        context = context,
-                        id = mediaId,
-                        title = parsedTitle,
-                        artist = parsedArtist,
-                        duration = duration,
-                        album = null
-                    ).getOrNull()
-
-                    if (!lyricText.isNullOrBlank()) {
-                        val isSynced = lyricText.contains(Regex("""\[\d+:\d+(\.\d+)?\]"""))
-                        withContext(Dispatchers.Main) {
-                            results.add(
-                                LyricsSearchResult(
-                                    provider = provider.name,
+                // 2. Query ALL registered providers concurrently
+                allProviders.filter { it.name != "LrcLib" }.forEach { provider ->
+                    launch {
+                        runCatching {
+                            withTimeoutOrNull(8000L) {
+                                val foundLyrics = mutableListOf<String>()
+                                provider.getAllLyrics(
+                                    context = context,
+                                    id = mediaId,
                                     title = parsedTitle,
-                                    artist = if (parsedArtist.isNotBlank()) parsedArtist else provider.name,
-                                    durationSeconds = duration,
-                                    lyrics = lyricText,
-                                    isSynced = isSynced
-                                )
-                            )
+                                    artist = parsedArtist,
+                                    duration = duration,
+                                    album = null
+                                ) { lyricText ->
+                                    if (lyricText.isNotBlank()) {
+                                        synchronized(foundLyrics) {
+                                            foundLyrics.add(lyricText)
+                                        }
+                                    }
+                                }
+
+                                if (foundLyrics.isEmpty()) {
+                                    val single = provider.getLyrics(
+                                        context = context,
+                                        id = mediaId,
+                                        title = parsedTitle,
+                                        artist = parsedArtist,
+                                        duration = duration,
+                                        album = null
+                                    ).getOrNull()
+                                    if (!single.isNullOrBlank()) {
+                                        foundLyrics.add(single)
+                                    }
+                                }
+
+                                val mapped = synchronized(foundLyrics) {
+                                    foundLyrics.distinct().map { lyricText ->
+                                        LyricsSearchResult(
+                                            provider = provider.name,
+                                            title = parsedTitle,
+                                            artist = if (parsedArtist.isNotBlank()) parsedArtist else provider.name,
+                                            durationSeconds = duration,
+                                            lyrics = lyricText,
+                                            syncType = LyricsUtils.getSyncType(lyricText)
+                                        )
+                                    }
+                                }
+
+                                if (mapped.isNotEmpty()) {
+                                    withContext(Dispatchers.Main) {
+                                        mapped.forEach { item ->
+                                            if (results.none { it.provider == item.provider && it.lyrics == item.lyrics }) {
+                                                results.add(item)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1251,7 +1289,7 @@ fun MultiProviderSearchDialog(
                     val item = results[i]
                     val previewLines = item.lyrics
                         .lines()
-                        .map { it.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").trim() }
+                        .map { it.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").replace(Regex("""<[^>]+>"""), "").trim() }
                         .filter { it.isNotBlank() }
                         .take(2)
                         .joinToString(" • ")
@@ -1274,21 +1312,43 @@ fun MultiProviderSearchDialog(
                             ) {
                                 BasicText(
                                     text = item.provider,
-                                    style = typography.xxs.semiBold.color(colorPalette.onAccent),
+                                    style = typography.xxs.semiBold.color(colorPalette.text),
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(6.dp))
-                                        .background(colorPalette.accent)
+                                        .background(colorPalette.background2)
                                         .padding(horizontal = 6.dp, vertical = 2.dp)
                                 )
-                                if (item.isSynced) {
-                                    BasicText(
-                                        text = "SYNCED",
-                                        style = typography.xxs.semiBold.color(colorPalette.accent),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(colorPalette.accent.copy(alpha = 0.15f))
-                                            .padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
+                                when (item.syncType) {
+                                    LyricsUtils.SyncType.WORD -> {
+                                        BasicText(
+                                            text = "WORD SYNCED",
+                                            style = typography.xxs.semiBold.color(colorPalette.onAccent),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(colorPalette.accent)
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    LyricsUtils.SyncType.LINE -> {
+                                        BasicText(
+                                            text = "SYNCED",
+                                            style = typography.xxs.semiBold.color(colorPalette.accent),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(colorPalette.accent.copy(alpha = 0.15f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                    LyricsUtils.SyncType.NONE -> {
+                                        BasicText(
+                                            text = "PLAIN",
+                                            style = typography.xxs.semiBold.color(colorPalette.textSecondary),
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(6.dp))
+                                                .background(colorPalette.textSecondary.copy(alpha = 0.12f))
+                                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                        )
+                                    }
                                 }
                                 if (item.durationSeconds > 0) {
                                     val mins = item.durationSeconds / 60
