@@ -23,7 +23,7 @@ class LyricViewGroup @JvmOverloads constructor(
     private val itemSpacing = ITEM_SPACING.dp.px.toInt()
     private val topPadding: Int
         get() = (scrollViewHeight * 0.40f).toInt().coerceAtLeast(140.dp.px.toInt())
-    private val scrollInterpolator = PathInterpolator(0.6f, 0f, 0.2f, 1f)
+    private val scrollInterpolator = PathInterpolator(0.25f, 0.1f, 0.25f, 1f)
 
     private val lyrics: MutableList<LyricBase> = mutableListOf()
     private val lineStartTimes: MutableList<Long> = mutableListOf()
@@ -45,6 +45,27 @@ class LyricViewGroup @JvmOverloads constructor(
     var onLineClick: ((index: Int, timeMs: Long) -> Unit)? = null
     var positionProvider: (() -> Long)? = null
     var isPlayingProvider: (() -> Boolean)? = null
+
+    private var lastRawPositionMs = 0L
+    private var lastRawPositionTime = 0L
+
+    fun getSmoothPositionMs(): Long {
+        val rawPos = positionProvider?.invoke() ?: 0L
+        val isPlaying = isPlayingProvider?.invoke() ?: false
+        val now = System.currentTimeMillis()
+
+        if (rawPos != lastRawPositionMs) {
+            lastRawPositionMs = rawPos
+            lastRawPositionTime = now
+        }
+
+        if (!isPlaying || lastRawPositionTime <= 0L) {
+            return rawPos
+        }
+
+        val elapsed = (now - lastRawPositionTime).coerceIn(0L, 400L)
+        return rawPos + elapsed
+    }
 
     var autoScrollEnabled: Boolean = true
         set(value) {
@@ -70,10 +91,9 @@ class LyricViewGroup @JvmOverloads constructor(
     private val frameCallback = object : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             if (!isAttachedToWindow || !isLoopRunning) return
-            val provider = positionProvider
             val parentScrollView = parent as? ScrollView
-            if (provider != null && parentScrollView != null) {
-                val pos = provider()
+            if (parentScrollView != null && positionProvider != null) {
+                val pos = getSmoothPositionMs()
                 updatePlaybackPosition(
                     scrollView = parentScrollView,
                     positionMs = pos,
@@ -172,6 +192,8 @@ class LyricViewGroup @JvmOverloads constructor(
         }
 
     fun stopPlayback() {
+        lastRawPositionMs = 0L
+        lastRawPositionTime = 0L
         currentPrimaryLineIndex = -1
         currentActiveIndices = emptySet()
         forEach { child ->
@@ -270,12 +292,11 @@ class LyricViewGroup @JvmOverloads constructor(
             }
         }
 
-        // If any line was previously active and is no longer active, reset its playback & active flag
+        // If any line was previously active and is no longer active, update active flag
         for (prevIdx in previousActiveIndices) {
             if (prevIdx !in activeIndices && prevIdx in 0 until childCount) {
                 val child = getChildAt(prevIdx) as? LyricTextView ?: continue
                 child.setLineActive(false)
-                child.resetPlayback()
             }
         }
     }
@@ -325,23 +346,29 @@ class LyricViewGroup @JvmOverloads constructor(
         val shouldAnimate = animated && currentPrimaryLineIndex != -1
         val previousLineIndex = currentPrimaryLineIndex
         currentPrimaryLineIndex = index
+
+        val activeWindowStart = maxOf(0, minOf(if (previousLineIndex >= 0) previousLineIndex - 2 else index - 2, index - 2))
+        val activeWindowEnd = minOf(childCount - 1, maxOf(previousLineIndex + 2, index + 2))
+
         forEachIndexed { childIndex, child ->
             val lyricTextView = child as? LyricTextView ?: return@forEachIndexed
             val isActive = childIndex in currentActiveIndices
             if (childIndex == previousLineIndex && shouldAnimate && !isActive) {
                 lyricTextView.animateLiftupProgressToRest(
                     durationMs = SCROLL_ANIMATION_DURATION_MS,
-                    delayMs = getLineAnimationDelay(childIndex, index)
+                    delayMs = 0L
                 )
-            } else if (!isActive) {
+            } else if (!isActive && childIndex !in activeWindowStart..activeWindowEnd) {
                 lyricTextView.resetPlayback()
             }
             lyricTextView.setLineActive(isActive)
+
+            val animateThis = shouldAnimate && (childIndex in activeWindowStart..activeWindowEnd)
             lyricTextView.updateDelayedLineStyle(
                 index = childIndex,
                 targetIndex = index,
-                animated = shouldAnimate,
-                delayMs = getLineAnimationDelay(childIndex, index),
+                animated = animateThis,
+                delayMs = 0L,
                 enableBlur = PlayerPreferences.lyricsLineBlur,
                 isAutoScroll = autoScrollEnabled,
                 forceActive = isActive
@@ -349,13 +376,7 @@ class LyricViewGroup @JvmOverloads constructor(
         }
     }
 
-    private fun getLineAnimationDelay(index: Int, targetIndex: Int): Long =
-        if (index < targetIndex) {
-            0L
-        } else {
-            ((index - targetIndex) * LINE_ANIMATION_DELAY_STEP_MS + LINE_ANIMATION_MIN_DELAY_MS)
-                .coerceAtMost(LINE_ANIMATION_MAX_DELAY_MS)
-        }
+    private fun getLineAnimationDelay(index: Int, targetIndex: Int): Long = 0L
 
     private fun updateLineProgress(child: LyricTextView, lyric: LyricBase, linePositionMs: Long) {
         val syncedLyric = lyric as? SyncedLyric ?: return
@@ -447,9 +468,9 @@ class LyricViewGroup @JvmOverloads constructor(
     companion object {
         const val ITEM_SPACING = 16
 
-        private const val SCROLL_ANIMATION_DURATION_MS = 700L
-        private const val LINE_ANIMATION_MIN_DELAY_MS = 10L
-        private const val LINE_ANIMATION_DELAY_STEP_MS = 20L
-        private const val LINE_ANIMATION_MAX_DELAY_MS = 190L
+        private const val SCROLL_ANIMATION_DURATION_MS = 380L
+        private const val LINE_ANIMATION_MIN_DELAY_MS = 0L
+        private const val LINE_ANIMATION_DELAY_STEP_MS = 0L
+        private const val LINE_ANIMATION_MAX_DELAY_MS = 0L
     }
 }

@@ -138,7 +138,7 @@ class LyricTextView(
     private var lineTextAlphaAnimator: ValueAnimator? = null
     private var lineTextScaleAnimator: ValueAnimator? = null
     private var lineBlurRadiusAnimator: ValueAnimator? = null
-    private val lineStyleInterpolator = DecelerateInterpolator()
+    private val lineStyleInterpolator = PathInterpolator(0.25f, 0.1f, 0.25f, 1f)
 
     override fun onDraw(canvas: Canvas) {
         if (isMagicLyric) {
@@ -340,7 +340,7 @@ class LyricTextView(
             0f
         }
 
-        if (!animated || (targetBlurRadius == 0f && lineBlurRadius == 0f && targetAlpha == lineTextAlpha)) {
+        if (!animated || (targetBlurRadius == 0f && lineBlurRadius == 0f && targetAlpha == lineTextAlpha && targetScale == lineTextScale)) {
             cancelLineStyleAnimations()
             lineTextAlpha = targetAlpha
             lineTextScale = targetScale
@@ -348,10 +348,9 @@ class LyricTextView(
             return
         }
 
-        val secondaryDelayMs = delayMs + STYLE_SECONDARY_DELAY_MS
-        animateLineTextAlpha(targetAlpha, secondaryDelayMs)
-        animateLineTextScale(targetScale, secondaryDelayMs)
-        animateLineBlurRadius(targetBlurRadius, secondaryDelayMs)
+        animateLineTextAlpha(targetAlpha, delayMs)
+        animateLineTextScale(targetScale, delayMs)
+        animateLineBlurRadius(targetBlurRadius, delayMs)
     }
 
     fun resetLineStyle() {
@@ -399,6 +398,7 @@ class LyricTextView(
         lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
             duration = BLUR_ANIMATION_DURATION_MS
             startDelay = delayMs
+            interpolator = lineStyleInterpolator
             addUpdateListener {
                 lineBlurRadius = it.animatedValue as Float
             }
@@ -639,13 +639,50 @@ class LyricTextView(
 
         var charOffset = 0
 
-        for (i in synced.list.indices) {
+        // Batch completed units where liftProgress == 0f for high performance
+        var batchEndChar = 0
+        var batchEndUnit = -1
+        for (i in 0..endUnit) {
+            val content = synced.list[i].content
+            val p = progress.getOrElse(i) { 0f }
+            if (p == 0f && i == batchEndUnit + 1) {
+                batchEndChar += content.length
+                batchEndUnit = i
+            } else {
+                break
+            }
+        }
+
+        if (batchEndChar > 0) {
+            val startLine = 0
+            val endLine = layout.getLineForOffset(batchEndChar)
+            for (line in startLine..endLine) {
+                val lineTop = layout.getLineTop(line).toFloat()
+                val lineBottom = layout.getLineBottom(line).toFloat()
+                val lineLeft = layout.getLineLeft(line)
+                val lineRight = layout.getLineRight(line)
+
+                val startX = lineLeft
+                var endX = if (line == endLine) layout.getPrimaryHorizontal(batchEndChar) else lineRight
+                if (endX == 0F && line < endLine) endX = lineRight
+
+                canvas.withClip(startX, lineTop, endX, lineBottom) {
+                    drawLiftedHighlightText(
+                        layout = layout,
+                        liftProgress = 0f,
+                        glowEnabled = false
+                    )
+                }
+            }
+            charOffset = batchEndChar
+        }
+
+        val startUnit = batchEndUnit + 1
+        for (i in startUnit..endUnit) {
             val content = synced.list[i].content
             val startOffset = charOffset
             val endOffset = charOffset + content.length
             charOffset = endOffset
-
-            if (i > endUnit) continue
 
             val startLine = layout.getLineForOffset(startOffset)
             val endLine = layout.getLineForOffset(endOffset)
@@ -938,14 +975,14 @@ class LyricTextView(
 
         const val GLOW_EFFECT_RADIUS = 7F
 
-        private const val ACTIVE_LINE_ALPHA = .9F
-        private const val INACTIVE_LINE_ALPHA = .2F
+        private const val ACTIVE_LINE_ALPHA = .95F
+        private const val INACTIVE_LINE_ALPHA = .25F
         private const val ACTIVE_LINE_SCALE = 1F
         private const val INACTIVE_LINE_SCALE = .96F
         private const val MAX_BLUR_RADIUS = 8
         private const val BLUR_RADIUS_STEP = 2
-        private const val STYLE_ANIMATION_DURATION_MS = 500L
-        private const val BLUR_ANIMATION_DURATION_MS = 100L
-        private const val STYLE_SECONDARY_DELAY_MS = 250L
+        private const val STYLE_ANIMATION_DURATION_MS = 320L
+        private const val BLUR_ANIMATION_DURATION_MS = 320L
+        private const val STYLE_SECONDARY_DELAY_MS = 0L
     }
 }
