@@ -138,7 +138,7 @@ class LyricTextView(
     private var lineTextAlphaAnimator: ValueAnimator? = null
     private var lineTextScaleAnimator: ValueAnimator? = null
     private var lineBlurRadiusAnimator: ValueAnimator? = null
-    private val lineStyleInterpolator = PathInterpolator(0.25f, 0.1f, 0.25f, 1f)
+    private val lineStyleInterpolator = DecelerateInterpolator()
 
     override fun onDraw(canvas: Canvas) {
         if (isMagicLyric) {
@@ -232,6 +232,7 @@ class LyricTextView(
     private var animationPositionMs = 0L
     private val progressSoFar: Long
         get() = animationPositionMs
+    private var returnFraction = 0f
 
     fun animate(
         itemPos: Int,
@@ -239,6 +240,7 @@ class LyricTextView(
         linePositionMs: Long = calculateLinePositionMs(itemPos, fraction)
     ) {
         cancelLiftupReturnAnimator()
+        returnFraction = 0f
         animationFraction = fraction
         animationPositionMs = linePositionMs.coerceAtLeast(0L)
 
@@ -259,6 +261,7 @@ class LyricTextView(
         if (cancelReturnAnimator) {
             cancelLiftupReturnAnimator()
         }
+        returnFraction = 0f
         animationUnit = -1
         animationFraction = 0f
         animationPositionMs = 0L
@@ -274,18 +277,19 @@ class LyricTextView(
     }
 
     fun markCompleted() {
-        cancelLiftupReturnAnimator()
-        val synced = syncedLyric
-        if (synced != null && synced.list.isNotEmpty()) {
-            animationUnit = synced.list.lastIndex
-            animationFraction = 1f
-            calculateTargetPosition(animationUnit)
-            invalidate()
+        val synced = syncedLyric ?: return
+        if (synced.list.isEmpty()) return
+        animationUnit = synced.list.lastIndex
+        animationFraction = 1f
+        calculateTargetPosition(animationUnit)
+        if (liftupProgress == null) {
+            liftupProgress = FloatArray(synced.list.size) { 1f }
         }
     }
 
     fun clearLiftupProgress() {
         cancelLiftupReturnAnimator()
+        returnFraction = 0f
         liftupProgress?.fill(0f)
         invalidate()
     }
@@ -293,13 +297,13 @@ class LyricTextView(
     fun animateLiftupProgressToRest(durationMs: Long, delayMs: Long) {
         val progress = liftupProgress
         if (progress == null || animationUnit < 0 || progress.all { it == 0f }) {
-            liftupProgress?.fill(0f)
-            invalidate()
+            resetPlayback()
             return
         }
 
         val startProgress = progress.copyOf()
         var wasCancelled = false
+        returnFraction = 0f
 
         cancelLiftupReturnAnimator()
         liftupReturnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
@@ -308,6 +312,7 @@ class LyricTextView(
             interpolator = liftupReturnInterpolator
             addUpdateListener {
                 val fraction = it.animatedValue as Float
+                returnFraction = fraction
                 progress.indices.forEach { index ->
                     progress[index] = startProgress[index] * (1f - fraction)
                 }
@@ -319,8 +324,8 @@ class LyricTextView(
                 override fun onAnimationEnd(animation: Animator) {
                     if (!wasCancelled) {
                         liftupReturnAnimator = null
-                        liftupProgress?.fill(0f)
-                        invalidate()
+                        returnFraction = 1f
+                        resetPlayback(cancelReturnAnimator = false)
                     }
                 }
 
@@ -371,9 +376,10 @@ class LyricTextView(
             return
         }
 
-        animateLineTextAlpha(targetAlpha, delayMs)
-        animateLineTextScale(targetScale, delayMs)
-        animateLineBlurRadius(targetBlurRadius, delayMs)
+        val effectiveDelay = if (isActivated) delayMs else delayMs + STYLE_SECONDARY_DELAY_MS
+        animateLineTextAlpha(targetAlpha, effectiveDelay)
+        animateLineTextScale(targetScale, effectiveDelay)
+        animateLineBlurRadius(targetBlurRadius, effectiveDelay)
     }
 
     fun resetLineStyle() {
@@ -560,6 +566,7 @@ class LyricTextView(
     private fun drawContentLayerWithProgress(canvas: Canvas) {
         val startOffset = endOffsetChar
         val endOffset = lyric.length
+        if (startOffset >= endOffset) return
         val layout = staticLayout ?: return
 
         val activeWholeLine = isLineActive && syncedLyric == null
@@ -672,12 +679,8 @@ class LyricTextView(
     }
 
     private fun drawHighlightLayer(canvas: Canvas) {
-        if (animationFraction >= 1f && animationUnit == (syncedLyric?.list?.lastIndex ?: -1)) {
-            drawTextRange(canvas, animationUnit)
-        } else {
-            drawTextRange(canvas, animationUnit - 1)
-            drawHighlightText(canvas)
-        }
+        drawTextRange(canvas, animationUnit - 1)
+        drawHighlightText(canvas)
     }
 
     private fun drawTextRange(canvas: Canvas, endUnit: Int) {
@@ -687,49 +690,15 @@ class LyricTextView(
 
         if (endUnit !in synced.list.indices) return
 
-        // Batch completed units where liftProgress == 0f for 60fps/120fps smooth performance
-        var batchEndChar = 0
-        var batchEndUnit = -1
-        for (i in 0..endUnit) {
-            val content = synced.list[i].content
-            val p = progress.getOrElse(i) { 0f }
-            if (p == 0f && i == batchEndUnit + 1) {
-                batchEndChar += content.length
-                batchEndUnit = i
-            } else {
-                break
-            }
-        }
+        var charOffset = 0
 
-        if (batchEndChar > 0) {
-            val startLine = 0
-            val endLine = layout.getLineForOffset(batchEndChar)
-            for (line in startLine..endLine) {
-                val lineTop = layout.getLineTop(line).toFloat()
-                val lineBottom = layout.getLineBottom(line).toFloat()
-                val lineLeft = layout.getLineLeft(line)
-                val lineRight = layout.getLineRight(line)
-
-                val startX = lineLeft
-                var endX = if (line == endLine) layout.getPrimaryHorizontal(batchEndChar) else lineRight
-                if (endX == 0F && line < endLine) endX = lineRight
-
-                canvas.withClip(startX, lineTop, endX, lineBottom) {
-                    drawLiftedHighlightText(
-                        layout = layout,
-                        liftProgress = 0f,
-                        glowEnabled = false
-                    )
-                }
-            }
-        }
-
-        var charOffset = batchEndChar
-        for (i in (batchEndUnit + 1)..endUnit) {
+        for (i in synced.list.indices) {
             val content = synced.list[i].content
             val startOffset = charOffset
             val endOffset = charOffset + content.length
             charOffset = endOffset
+
+            if (i > endUnit) continue
 
             val startLine = layout.getLineForOffset(startOffset)
             val endLine = layout.getLineForOffset(endOffset)
@@ -847,17 +816,25 @@ class LyricTextView(
         }
         layout.draw(this)
 
-        layout.paint.apply {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                blendMode = null
+        val highlightFade = if (liftupReturnAnimator != null) (1f - returnFraction).coerceIn(0f, 1f) else 1f
+        if (highlightFade > 0f) {
+            layout.paint.apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    blendMode = null
+                }
+                strokeWidth = 0.5F * highlightFade
+                style = Paint.Style.FILL_AND_STROKE
+                alpha = getScopeAlpha(ACTIVE_SHADE_TRANSPARENCY * highlightFade)
+                setGlowShadow(liftProgress, glowEnabled)
             }
-            strokeWidth = 0.5F
-            style = Paint.Style.FILL_AND_STROKE
-            alpha = getScopeAlpha(ACTIVE_SHADE_TRANSPARENCY)
-            setGlowShadow(liftProgress, glowEnabled)
+            layout.draw(this)
         }
-        layout.draw(this)
-        layout.paint.clearGlowShadow()
+
+        layout.paint.apply {
+            clearGlowShadow()
+            strokeWidth = 0f
+            style = Paint.Style.FILL
+        }
     }
 
     private fun inactiveOverlayAlpha(): Float =
@@ -881,9 +858,7 @@ class LyricTextView(
 
     private fun TextPaint.setGlowShadow(liftProgress: Float, enabled: Boolean) {
         val radius = if (enabled && isLineActive) {
-            GLOW_EFFECT_RADIUS * (1f + triangle(liftProgress)) * 1.5f
-        } else if (liftProgress > 0.05f) {
-            GLOW_EFFECT_RADIUS * liftProgress * 1.2f
+            GLOW_EFFECT_RADIUS * triangle(liftProgress)
         } else {
             0F
         }
@@ -1030,8 +1005,8 @@ class LyricTextView(
         private const val INACTIVE_LINE_SCALE = .96F
         private const val MAX_BLUR_RADIUS = 8
         private const val BLUR_RADIUS_STEP = 2
-        private const val STYLE_ANIMATION_DURATION_MS = 320L
-        private const val BLUR_ANIMATION_DURATION_MS = 320L
-        private const val STYLE_SECONDARY_DELAY_MS = 0L
+        private const val STYLE_ANIMATION_DURATION_MS = 500L
+        private const val BLUR_ANIMATION_DURATION_MS = 100L
+        private const val STYLE_SECONDARY_DELAY_MS = 250L
     }
 }
