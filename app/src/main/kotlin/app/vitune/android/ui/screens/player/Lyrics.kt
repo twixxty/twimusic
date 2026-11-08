@@ -735,23 +735,31 @@ fun Lyrics(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val expandAction = onToggleFullscreen ?: onOpenDialog
-            if (PlayerPreferences.showLyricsFullscreenButton && expandAction != null) Image(
-                painter = painterResource(if (isFullscreen) R.drawable.contract else R.drawable.expand),
-                contentDescription = if (isFullscreen) "Exit fullscreen" else "Fullscreen lyrics",
-                colorFilter = ColorFilter.tint(colorPalette.onOverlay),
-                modifier = Modifier
-                    .padding(all = 4.dp)
-                    .clickable(
-                        indication = ripple(bounded = false),
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = {
-                            expandAction()
-                        }
-                    )
-                    .padding(all = 8.dp)
-                    .size(20.dp)
-                    .align(Alignment.BottomStart)
-            )
+                if (PlayerPreferences.showLyricsFullscreenButton && expandAction != null) {
+                    AnimatedContent(
+                        targetState = isFullscreen,
+                        transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(200)) },
+                        label = "FullscreenToggleIcon",
+                        modifier = Modifier.align(Alignment.BottomStart)
+                    ) { fullscreen ->
+                        Image(
+                            painter = painterResource(if (fullscreen) R.drawable.contract else R.drawable.expand),
+                            contentDescription = if (fullscreen) "Exit fullscreen" else "Fullscreen lyrics",
+                            colorFilter = ColorFilter.tint(colorPalette.onOverlay),
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .clickable(
+                                    indication = ripple(bounded = false),
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    onClick = {
+                                        expandAction()
+                                    }
+                                )
+                                .padding(all = 8.dp)
+                                .size(20.dp)
+                        )
+                    }
+                }
 
             Image(
                 painter = painterResource(R.drawable.ellipsis_horizontal),

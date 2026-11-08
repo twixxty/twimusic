@@ -14,6 +14,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.blur
 import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
@@ -494,100 +495,119 @@ fun Player(
                 }
             }
 
-            val animatedTopPadding by animateDpAsState(
-                targetValue = if (isLyricsFullscreen) 16.dp else 54.dp,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                label = "playerTopPadding"
-            )
-            val animatedWeight by animateFloatAsState(
-                targetValue = if (isLyricsFullscreen) 1f else if (isShowingLyrics) 2.2f else 1.25f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                label = "playerWeight"
-            )
-            val animatedLandscapeTopPadding by animateDpAsState(
-                targetValue = if (isLyricsFullscreen) 12.dp else 32.dp,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                label = "playerLandscapeTopPadding"
-            )
-            val animatedLandscapeWeight by animateFloatAsState(
-                targetValue = if (isLyricsFullscreen) 1f else 0.66f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                label = "playerLandscapeWeight"
-            )
-
-            if (isLandscape) Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = containerModifier
-                    .fillMaxSize()
-                    .padding(top = animatedLandscapeTopPadding)
+            if (isLandscape) BoxWithConstraints(
+                modifier = containerModifier.fillMaxSize()
             ) {
-                Box(
-                    contentAlignment = Alignment.Center,
+                val totalWidth = maxWidth
+                val landscapeTopPadding by animateDpAsState(
+                    targetValue = if (isLyricsFullscreen) 12.dp else 32.dp,
+                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                    label = "playerLandscapeTopPadding"
+                )
+                val controlsTargetWidth = remember(totalWidth) {
+                    totalWidth * (1f / (0.66f + 1f))
+                }
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
-                        .weight(animatedLandscapeWeight)
-                        .padding(bottom = if (isLyricsFullscreen) 0.dp else 16.dp)
+                        .fillMaxSize()
+                        .padding(top = landscapeTopPadding)
                 ) {
-                    AnimatedContent(
-                        targetState = isShowingLyrics,
-                        label = "ArtworkOrLyricsLandscape",
-                        transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
-                    ) { showLyrics ->
-                        if (showLyrics) {
-                            lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                        } else {
-                            thumbnailContent(Modifier.padding(horizontal = 16.dp))
-                        }
-                    }
-                }
-
-                AnimatedVisibility(
-                    visible = !isLyricsFullscreen,
-                    enter = expandHorizontally(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
-                            fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)),
-                    exit = shrinkHorizontally(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                           fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
-                ) {
-                    controlsContent(
-                        Modifier
-                            .padding(vertical = 8.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
                             .fillMaxHeight()
-                    )
-                }
-            } else Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = containerModifier
-                    .fillMaxSize()
-                    .padding(top = animatedTopPadding)
-            ) {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.weight(animatedWeight)
-                ) {
-                    AnimatedContent(
-                        targetState = isShowingLyrics,
-                        label = "ArtworkOrLyrics",
-                        transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
-                    ) { showLyrics ->
-                        if (showLyrics) {
-                            lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                        } else {
-                            thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                            .padding(bottom = if (isLyricsFullscreen) 0.dp else 16.dp)
+                    ) {
+                        AnimatedContent(
+                            targetState = isShowingLyrics,
+                            label = "ArtworkOrLyricsLandscape",
+                            transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
+                        ) { showLyrics ->
+                            if (showLyrics) {
+                                lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            } else {
+                                thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                            }
                         }
                     }
-                }
 
-                AnimatedVisibility(
-                    visible = !isLyricsFullscreen,
-                    enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) +
-                            fadeIn(animationSpec = tween(350, easing = FastOutSlowInEasing)),
-                    exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) +
-                           fadeOut(animationSpec = tween(300, easing = FastOutSlowInEasing))
+                    AnimatedVisibility(
+                        visible = !isLyricsFullscreen,
+                        enter = expandHorizontally(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
+                                fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
+                        exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                    ) {
+                        controlsContent(
+                            Modifier
+                                .padding(vertical = 8.dp)
+                                .fillMaxHeight()
+                                .width(controlsTargetWidth)
+                        )
+                    }
+                }
+            } else BoxWithConstraints(
+                modifier = containerModifier.fillMaxSize()
+            ) {
+                val totalHeight = maxHeight
+                val topPadding by animateDpAsState(
+                    targetValue = if (isLyricsFullscreen) 16.dp else 54.dp,
+                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                    label = "playerTopPadding"
+                )
+                val availableHeight = (totalHeight - topPadding).coerceAtLeast(0.dp)
+                val controlsTargetHeight = remember(availableHeight, isShowingLyrics) {
+                    val ratio = if (isShowingLyrics) (1f / 3.2f) else (1f / 2.25f)
+                    availableHeight * ratio
+                }
+                val animatedControlsHeight by animateDpAsState(
+                    targetValue = controlsTargetHeight,
+                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                    label = "playerControlsHeight"
+                )
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(top = topPadding)
                 ) {
-                    controlsContent(
-                        Modifier
-                            .padding(vertical = 8.dp)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
                             .fillMaxWidth()
-                    )
+                    ) {
+                        AnimatedContent(
+                            targetState = isShowingLyrics,
+                            label = "ArtworkOrLyrics",
+                            transitionSpec = { fadeIn(tween(350, easing = FastOutSlowInEasing)) togetherWith fadeOut(tween(350, easing = FastOutSlowInEasing)) }
+                        ) { showLyrics ->
+                            if (showLyrics) {
+                                lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            } else {
+                                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                            }
+                        }
+                    }
+
+                    AnimatedVisibility(
+                        visible = !isLyricsFullscreen,
+                        enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
+                                fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
+                        exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                    ) {
+                        controlsContent(
+                            Modifier
+                                .padding(vertical = 8.dp)
+                                .fillMaxWidth()
+                                .height(animatedControlsHeight)
+                        )
+                    }
                 }
             }
         }
