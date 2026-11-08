@@ -531,7 +531,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         with(bitmapProvider) {
             when {
                 mediaItem == null -> load(null)
-                mediaItem.mediaMetadata.artworkUri == lastUri -> bitmapProvider.load(lastUri)
+                else -> load(mediaItem.mediaMetadata.artworkUri)
             }
         }
 
@@ -1168,7 +1168,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             }
 
         val poiTimestamp get() = this@PlayerService.poiTimestamp
-
+        val bitmapState get() = bitmapProvider.bitmapState
         fun setBitmapListener(listener: ((Bitmap?) -> Unit)?) = bitmapProvider.setListener(listener)
 
         @kotlin.OptIn(FlowPreview::class)

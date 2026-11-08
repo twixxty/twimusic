@@ -22,11 +22,14 @@ class BitmapProvider(
     var lastUri: Uri? = null
         private set
 
+    val bitmapState = kotlinx.coroutines.flow.MutableStateFlow<Bitmap?>(null)
+
     @set:Synchronized
     private var lastBitmap: Bitmap? = null
         get() = field?.takeUnless { it.isRecycled }
         set(value) {
             field = value
+            bitmapState.value = value
             listener?.invoke(value)
         }
     private var lastIsSystemInDarkMode = false
