@@ -743,29 +743,31 @@ class LyricTextView(
             val leftDist = if (line == startLine) startOffsetInLinePx else lineLeft
             val startX = if (line == activeLine) leftDist + pixelProgress else leftDist
             val endX = if (line == endLine) endOffsetInLinePx else lineRight
-            canvas.withClip(startX, lineTop, endX, lineBottom) {
-                val currentLift = progress.getOrElse(animationUnit) { 0f }
-                canvas.translate(0F, -LIFTUP_PX * currentLift)
+            if (endX > startX) {
+                canvas.withClip(startX, lineTop, endX, lineBottom) {
+                    val currentLift = progress.getOrElse(animationUnit) { 0f }
+                    canvas.translate(0F, -LIFTUP_PX * currentLift)
 
-                layout.paint.apply {
-                    clearGlowShadow()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        blendMode = BlendMode.OVERLAY
+                    layout.paint.apply {
+                        clearGlowShadow()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            blendMode = BlendMode.OVERLAY
+                        }
+                        style = Paint.Style.FILL
+                        alpha = getScopeAlpha(inactiveOverlayAlpha())
                     }
-                    style = Paint.Style.FILL
-                    alpha = getScopeAlpha(inactiveOverlayAlpha())
-                }
-                layout.draw(this)
+                    layout.draw(this)
 
-                layout.paint.apply {
-                    clearGlowShadow()
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                        blendMode = null
+                    layout.paint.apply {
+                        clearGlowShadow()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            blendMode = null
+                        }
+                        style = Paint.Style.FILL
+                        alpha = getScopeAlpha(inactiveShadeAlpha())
                     }
-                    style = Paint.Style.FILL
-                    alpha = getScopeAlpha(inactiveShadeAlpha())
+                    layout.draw(this)
                 }
-                layout.draw(this)
             }
         }
 
@@ -778,13 +780,15 @@ class LyricTextView(
             val startX = if (line == startLine) startOffsetInLinePx else lineLeft
             val endX = if (line == activeLine) startX + pixelProgress else lineRight
 
-            canvas.withClip(startX, lineTop, endX, lineBottom) {
-                val currentLift = progress.getOrElse(animationUnit) { 0f }
-                drawLiftedHighlightText(
-                    layout = layout,
-                    liftProgress = currentLift,
-                    glowEnabled = isLineActive && shouldShowActiveGlow(animationUnit)
-                )
+            if (endX > startX) {
+                canvas.withClip(startX, lineTop, endX, lineBottom) {
+                    val currentLift = progress.getOrElse(animationUnit) { 0f }
+                    drawLiftedHighlightText(
+                        layout = layout,
+                        liftProgress = currentLift,
+                        glowEnabled = isLineActive && shouldShowActiveGlow(animationUnit)
+                    )
+                }
             }
         }
     }

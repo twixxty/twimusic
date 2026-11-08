@@ -264,14 +264,16 @@ class LyricViewGroup @JvmOverloads constructor(
         }
 
         // When multiple lines overlap (e.g. main line and background / subtext):
-        // Prioritize the main non-background, non-magic line as the primary scroll target
-        val primary = active.firstOrNull { index ->
+        // Prioritize the latest-started non-background, non-magic line as the primary scroll target
+        val primary = active.filter { index ->
             when (val item = lyrics.getOrNull(index)) {
                 is Lyric -> !item.isBackground && !item.isMagicLyric
                 is SyncedLyric -> !item.isBackground
                 else -> true
             }
-        } ?: active.first()
+        }.maxByOrNull { lineStartTimes.getOrElse(it) { 0L } }
+            ?: active.maxByOrNull { lineStartTimes.getOrElse(it) { 0L } }
+            ?: active.first()
 
         return primary to active
     }
@@ -520,6 +522,6 @@ class LyricViewGroup @JvmOverloads constructor(
     companion object {
         const val ITEM_SPACING = 16
 
-        private const val SCROLL_ANIMATION_DURATION_MS = 700L
+        private const val SCROLL_ANIMATION_DURATION_MS = 500L
     }
 }

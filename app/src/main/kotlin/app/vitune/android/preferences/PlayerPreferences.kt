@@ -75,7 +75,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     enum class SeekBarStyle(val displayName: @Composable () -> String) {
         Static(displayName = { stringResource(R.string.static_seek_bar_name) }),
         Wavy(displayName = { stringResource(R.string.wavy_seek_bar_name) }),
-        Squiggly(displayName = { "Squiggly" })
+        Squiggly(displayName = { "Squiggly" }),
+        TaperedWave(displayName = { stringResource(R.string.tapered_seek_bar_name) })
     }
 
     @Suppress("unused")
@@ -136,6 +137,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     }
 
     enum class PlayerBackgroundStyle(val displayName: @Composable () -> String) {
+        Blur(displayName = { stringResource(R.string.background_blur) }),
         LavaLamp(displayName = { stringResource(R.string.background_lava_lamp) }),
         Gradient(displayName = { stringResource(R.string.background_gradient) }),
         Solid(displayName = { stringResource(R.string.background_solid) })

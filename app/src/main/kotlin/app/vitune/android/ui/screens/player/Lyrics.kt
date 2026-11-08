@@ -591,7 +591,19 @@ fun Lyrics(
                             }
                             SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
                         } else {
-                            Lyric(lineText, isBackground = isBg, agent = entry.agent)
+                            val duration = (calculatedEndTime - lineStartTime).coerceAtLeast(800L)
+                            val rawTokens = lineText.split(Regex("(?<=\\s)|(?=\\s+)")).filter { it.isNotEmpty() }
+                            val tokens = if (rawTokens.isEmpty()) listOf(lineText) else rawTokens
+                            val totalChars = tokens.sumOf { it.trim().length }.coerceAtLeast(1)
+                            val list = tokens.map { token ->
+                                Lyric(token, isBackground = isBg, agent = entry.agent)
+                            }
+                            val relativeTime = LongArray(tokens.size) { i ->
+                                val trimmedLen = tokens[i].trim().length
+                                val weight = if (trimmedLen > 0) trimmedLen.toDouble() / totalChars else (1.0 / tokens.size)
+                                (duration * weight).toLong().coerceAtLeast(20L)
+                            }
+                            SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
                         }
 
                         rawItems.add(Triple(lyricItem, lineStartTime, calculatedEndTime))

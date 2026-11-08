@@ -16,7 +16,11 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
 import app.vitune.android.ui.components.LavaLampBackground
+import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
 import app.vitune.android.canvas.Motionartwork
@@ -480,11 +484,31 @@ fun Player(
                             isShowingLyrics = !isShowingLyrics
                         }
                 ) {
-                    BackgroundVideoView(
-                        videoUrl = videoUrl,
-                        isPlaying = isPlayingState,
-                        modifier = Modifier.fillMaxSize()
-                    )
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        0.0f to androidx.compose.ui.graphics.Color.White,
+                                        0.50f to androidx.compose.ui.graphics.Color.White,
+                                        0.80f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f),
+                                        1.0f to androidx.compose.ui.graphics.Color.Transparent
+                                    ),
+                                    blendMode = BlendMode.DstIn
+                                )
+                            }
+                    ) {
+                        BackgroundVideoView(
+                            videoUrl = videoUrl,
+                            isPlaying = isPlayingState,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+
+                    // Bottom subtle fade matching Lava Lamp / Blur background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -494,6 +518,7 @@ fun Player(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         androidx.compose.ui.graphics.Color.Transparent,
+                                        colorPalette.background0.copy(alpha = 0.5f),
                                         colorPalette.background0
                                     )
                                 )
@@ -587,6 +612,15 @@ fun Player(
             )
 
             when (playerBackgroundStyle) {
+                PlayerPreferences.PlayerBackgroundStyle.Blur -> {
+                    BlurredArtworkBackground(
+                        bitmap = sampleBitmap,
+                        blurRadius = if (isShowingLyrics) 60.dp else 40.dp,
+                        overlayAlpha = darkOverlayAlpha,
+                        fallbackColor = colorPalette.background0,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
                 PlayerPreferences.PlayerBackgroundStyle.LavaLamp -> {
                     LavaLampBackground(
                         bitmap = sampleBitmap,

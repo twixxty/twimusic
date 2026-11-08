@@ -323,6 +323,7 @@
     <string name="seek_bar_style">Seek bar style</string>
     <string name="static_seek_bar_name">Static</string>
     <string name="wavy_seek_bar_name">Wavy</string>
+    <string name="tapered_seek_bar_name">Tapered Wave</string>
     <string name="seek_bar_quality">Wavy seek bar quality</string>
     <string name="seek_bar_quality_poor">Poor</string>
     <string name="seek_bar_quality_low">Low</string>
@@ -403,6 +404,7 @@
     <string name="lyrics_copied">Lyrics copied to clipboard</string>
     <string name="lyrics_text_position">Lyrics text alignment</string>
     <string name="player_background_style">Player background style</string>
+    <string name="background_blur">Blur (Artwork)</string>
     <string name="background_lava_lamp">Lava Lamp (Fluid animated)</string>
     <string name="background_gradient">Gradient</string>
     <string name="background_solid">Solid</string>

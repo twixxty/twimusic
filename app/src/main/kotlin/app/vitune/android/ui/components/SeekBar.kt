@@ -164,6 +164,21 @@ fun SeekBar(
                 modifier = modifier
             )
         }
+
+        PlayerPreferences.SeekBarStyle.TaperedWave -> {
+            TaperedWaveSeekBarBody(
+                position = scrubbingPosition ?: position,
+                duration = media.duration,
+                isPlaying = isActive,
+                color = color,
+                backgroundColor = backgroundColor,
+                showDuration = alwaysShowDuration || scrubbingPosition != null,
+                onSeek = { targetMs ->
+                    binder.player.seekTo(targetMs)
+                },
+                modifier = modifier
+            )
+        }
     }
 }
 
@@ -181,6 +196,37 @@ private fun SquigglySeekBarBody(
     var localPosition by remember(position) { mutableFloatStateOf(position.toFloat()) }
 
     SquigglySlider(
+        value = localPosition,
+        onValueChange = { localPosition = it },
+        onValueChangeFinished = { onSeek(localPosition.toLong()) },
+        valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
+        activeColor = color,
+        inactiveColor = backgroundColor.copy(alpha = 0.35f),
+        isPlaying = isPlaying,
+        modifier = modifier
+    )
+
+    Duration(
+        position = localPosition.toLong(),
+        duration = duration,
+        show = showDuration
+    )
+}
+
+@Composable
+private fun TaperedWaveSeekBarBody(
+    position: Long,
+    duration: Long,
+    isPlaying: Boolean,
+    color: Color,
+    backgroundColor: Color,
+    showDuration: Boolean,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier,
+) = Column {
+    var localPosition by remember(position) { mutableFloatStateOf(position.toFloat()) }
+
+    TaperedWaveSlider(
         value = localPosition,
         onValueChange = { localPosition = it },
         onValueChangeFinished = { onSeek(localPosition.toLong()) },

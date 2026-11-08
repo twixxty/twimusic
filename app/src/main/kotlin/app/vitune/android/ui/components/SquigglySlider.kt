@@ -210,3 +210,167 @@ fun SquigglySlider(
         }
     }
 }
+
+@Composable
+fun TaperedWaveSlider(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    valueRange: ClosedFloatingPointRange<Float> = 0f..1f,
+    onValueChangeFinished: (() -> Unit)? = null,
+    activeColor: Color = Color.White,
+    inactiveColor: Color = Color.White.copy(alpha = 0.35f),
+    isPlaying: Boolean = true,
+) {
+    var isDragging by remember { mutableStateOf(false) }
+    var dragPosition by remember { mutableFloatStateOf(value) }
+
+    val currentValue = if (isDragging) dragPosition else value
+    val duration = (valueRange.endInclusive - valueRange.start).coerceAtLeast(1f)
+    val position = (currentValue - valueRange.start).coerceIn(0f, duration)
+
+    val waveLength = 64f
+    val maxAmplitude = 9.dp
+    val phaseSpeed = 22f
+
+    val infiniteTransition = rememberInfiniteTransition(label = "taperedWave")
+    val phaseOffset = if (isPlaying) {
+        infiniteTransition.animateFloat(
+            initialValue = 0f,
+            targetValue = waveLength,
+            animationSpec = infiniteRepeatable(
+                animation = tween(
+                    durationMillis = ((waveLength / phaseSpeed) * 1000).toInt(),
+                    easing = LinearEasing
+                ),
+                repeatMode = RepeatMode.Restart
+            ),
+            label = "taperedPhaseOffset"
+        )
+    } else {
+        remember { mutableFloatStateOf(0f) }
+    }
+
+    val heightFraction by animateFloatAsState(
+        targetValue = if (!isPlaying || isDragging) 0f else 1f,
+        animationSpec = tween(durationMillis = 200, easing = LinearEasing),
+        label = "taperedHeightFraction"
+    )
+
+    val cachedPath = remember { Path() }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .then(
+                if (enabled) {
+                    Modifier
+                        .pointerInput(valueRange) {
+                            detectTapGestures { offset ->
+                                val newPosition = (offset.x / size.width) * duration
+                                val mappedValue = valueRange.start + newPosition.coerceIn(0f, duration)
+                                onValueChange(mappedValue)
+                                onValueChangeFinished?.invoke()
+                            }
+                        }
+                        .pointerInput(valueRange) {
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    isDragging = true
+                                    val newPosition = (offset.x / size.width) * duration
+                                    dragPosition = valueRange.start + newPosition.coerceIn(0f, duration)
+                                    onValueChange(dragPosition)
+                                },
+                                onDragEnd = {
+                                    isDragging = false
+                                    onValueChangeFinished?.invoke()
+                                },
+                                onDragCancel = {
+                                    isDragging = false
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    val newPosition = (change.position.x / size.width) * duration
+                                    dragPosition = valueRange.start + newPosition.coerceIn(0f, duration)
+                                    onValueChange(dragPosition)
+                                }
+                            )
+                        }
+                } else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(36.dp)
+        ) {
+            val strokeWidth = 3.2.dp.toPx()
+            val progress = (position / duration).coerceIn(0f, 1f)
+            val totalWidth = size.width
+            val totalProgressPx = totalWidth * progress
+            val centerY = size.height / 2f
+            val maxAmpPx = maxAmplitude.toPx()
+
+            // 1. Draw played tapered wave segment
+            if (totalProgressPx > 0f) {
+                cachedPath.reset()
+                cachedPath.moveTo(0f, centerY)
+
+                val step = 3f
+                var x = 0f
+                val activeReach = (totalWidth * 0.40f).coerceAtLeast(100f)
+
+                while (x <= totalProgressPx) {
+                    val distFromScrubber = (totalProgressPx - x).coerceAtLeast(0f)
+                    // Amplitude decreases with distance from the scrubber
+                    val taper = (1f - (distFromScrubber / activeReach)).coerceIn(0f, 1f)
+                    val smoothTaper = taper * taper
+                    val amp = maxAmpPx * smoothTaper * heightFraction
+                    val angle = ((x - phaseOffset.value) / waveLength) * (2f * Math.PI.toFloat())
+                    val y = centerY + kotlin.math.sin(angle) * amp
+                    cachedPath.lineTo(x, y)
+                    x += step
+                }
+                cachedPath.lineTo(totalProgressPx, centerY)
+
+                drawPath(
+                    path = cachedPath,
+                    color = activeColor,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+
+            // 2. Draw unplayed straight line segment from progress to end
+            if (totalProgressPx < totalWidth) {
+                drawLine(
+                    color = inactiveColor,
+                    start = Offset(totalProgressPx, centerY),
+                    end = Offset(totalWidth, centerY),
+                    strokeWidth = strokeWidth,
+                    cap = StrokeCap.Round
+                )
+                // Terminal subtle dot at the end matching screenshot
+                drawCircle(
+                    color = inactiveColor,
+                    radius = strokeWidth * 0.9f,
+                    center = Offset(totalWidth - strokeWidth / 2f, centerY)
+                )
+            }
+
+            // 3. Vertical Bar Thumb `|` matching Metrolist and screenshot
+            val barHalfHeight = 11.dp.toPx()
+            val barWidth = 4.dp.toPx()
+
+            drawLine(
+                color = activeColor,
+                start = Offset(totalProgressPx, centerY - barHalfHeight),
+                end = Offset(totalProgressPx, centerY + barHalfHeight),
+                strokeWidth = barWidth,
+                cap = StrokeCap.Round,
+            )
+        }
+    }
+}

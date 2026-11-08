@@ -203,3 +203,52 @@ fun LavaLampBackground(
         )
     }
 }
+
+@Composable
+fun BlurredArtworkBackground(
+    bitmap: Bitmap?,
+    modifier: Modifier = Modifier,
+    blurRadius: Dp = 45.dp,
+    overlayAlpha: Float = 0.35f,
+    fallbackColor: Color = Color(0xff121216)
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(fallbackColor)
+            .clipToBounds()
+    ) {
+        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.30f
+                        scaleY = 1.30f
+                    }
+                    .blur(blurRadius)
+            )
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = overlayAlpha))
+        )
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    Brush.verticalGradient(
+                        0.0f to Color.Transparent,
+                        0.60f to Color.Transparent,
+                        1.0f to Color.Black.copy(alpha = 0.50f)
+                    )
+                )
+        )
+    }
+}
