@@ -80,14 +80,32 @@ fun LavaLampBackground(
     }
 
     val infiniteTransition = rememberInfiniteTransition(label = "lavaLamp")
-    val rotationBase = infiniteTransition.animateFloat(
+    val frameRotation = infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = -360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 44000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "lavaLampFrameRotation"
+    )
+    val topLeftRotation = infiniteTransition.animateFloat(
         initialValue = 0f,
         targetValue = 360f,
         animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 26000, easing = LinearEasing),
+            animation = tween(durationMillis = 22000, easing = LinearEasing),
             repeatMode = RepeatMode.Restart
         ),
-        label = "lavaLampRotation"
+        label = "lavaLampTopLeftRotation"
+    )
+    val bottomRightRotation = infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 34000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "lavaLampBottomRightRotation"
     )
 
     Box(
@@ -127,7 +145,7 @@ fun LavaLampBackground(
                     modifier = Modifier
                         .fillMaxSize()
                         .graphicsLayer {
-                            rotationZ = -rotationBase.value * 0.6f
+                            rotationZ = frameRotation.value
                         }
                 ) {
                     // Top-left quarter rotating clockwise
@@ -140,7 +158,7 @@ fun LavaLampBackground(
                             .align(Alignment.TopStart)
                             .offset(x = (-30).dp, y = (-30).dp)
                             .graphicsLayer {
-                                rotationZ = rotationBase.value * 1.2f
+                                rotationZ = topLeftRotation.value
                                 scaleX = 2.2f
                                 scaleY = 2.2f
                             }
@@ -156,7 +174,7 @@ fun LavaLampBackground(
                             .align(Alignment.BottomEnd)
                             .offset(x = 30.dp, y = 30.dp)
                             .graphicsLayer {
-                                rotationZ = rotationBase.value * 0.67f
+                                rotationZ = bottomRightRotation.value
                                 scaleX = 2.2f
                                 scaleY = 2.2f
                             }

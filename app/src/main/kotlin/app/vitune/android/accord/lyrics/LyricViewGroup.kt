@@ -22,7 +22,7 @@ class LyricViewGroup @JvmOverloads constructor(
 
     private val itemSpacing = ITEM_SPACING.dp.px.toInt()
     private val topPadding: Int
-        get() = (scrollViewHeight * 0.32f).toInt().coerceAtLeast(100.dp.px.toInt())
+        get() = (scrollViewHeight * 0.40f).toInt().coerceAtLeast(140.dp.px.toInt())
     private val scrollInterpolator = PathInterpolator(0.6f, 0f, 0.2f, 1f)
 
     private val lyrics: MutableList<LyricBase> = mutableListOf()
@@ -30,6 +30,14 @@ class LyricViewGroup @JvmOverloads constructor(
     private val lineEndTimes: MutableList<Long> = mutableListOf()
     private var currentPrimaryLineIndex = -1
     private var currentActiveIndices = setOf<Int>()
+
+    var accentColor: Int = android.graphics.Color.WHITE
+        set(value) {
+            field = value
+            forEach { child ->
+                (child as? LyricTextView)?.accentColor = value
+            }
+        }
 
     var durationMs: Long = 0L
         private set
@@ -63,7 +71,6 @@ class LyricViewGroup @JvmOverloads constructor(
         override fun doFrame(frameTimeNanos: Long) {
             if (!isAttachedToWindow || !isLoopRunning) return
             val provider = positionProvider
-            val isPlaying = isPlayingProvider?.invoke() ?: false
             val parentScrollView = parent as? ScrollView
             if (provider != null && parentScrollView != null) {
                 val pos = provider()
@@ -74,10 +81,8 @@ class LyricViewGroup @JvmOverloads constructor(
                     enableBlur = PlayerPreferences.lyricsLineBlur
                 )
             }
-            if (isPlaying && isLoopRunning) {
+            if (isAttachedToWindow && isLoopRunning) {
                 Choreographer.getInstance().postFrameCallback(this)
-            } else {
-                isLoopRunning = false
             }
         }
     }
@@ -137,6 +142,7 @@ class LyricViewGroup @JvmOverloads constructor(
         removeAllViews()
         lyrics.forEachIndexed { index, line ->
             val view = LyricTextView(context, line)
+            view.accentColor = accentColor
             view.alpha = currentAlpha ?: 1f
             view.updateDelayedLineStyle(
                 index = index,
@@ -197,10 +203,10 @@ class LyricViewGroup @JvmOverloads constructor(
         }
 
         // When multiple lines overlap (e.g. main line and background / subtext):
-        // Prioritize the main non-background line as the primary scroll target
+        // Prioritize the main non-background, non-magic line as the primary scroll target
         val primary = active.firstOrNull { index ->
             when (val item = lyrics.getOrNull(index)) {
-                is Lyric -> !item.isBackground
+                is Lyric -> !item.isBackground && !item.isMagicLyric
                 is SyncedLyric -> !item.isBackground
                 else -> true
             }
@@ -224,6 +230,7 @@ class LyricViewGroup @JvmOverloads constructor(
         val previousActiveIndices = currentActiveIndices
         currentActiveIndices = activeIndices
 
+        val activeIndicesChanged = activeIndices != previousActiveIndices
         if (primaryIndex != currentPrimaryLineIndex) {
             scrollToLine(
                 scrollView = scrollView,
@@ -231,6 +238,26 @@ class LyricViewGroup @JvmOverloads constructor(
                 animated = currentPrimaryLineIndex != -1,
                 shouldScrollScrollView = autoScroll
             )
+        } else if (activeIndicesChanged) {
+            // Update line styles immediately when active indices change,
+            // so simultaneous lines (e.g. background vocals) unblur and highlight instantly
+            forEachIndexed { childIndex, child ->
+                val lyricTextView = child as? LyricTextView ?: return@forEachIndexed
+                val isActive = childIndex in activeIndices
+                val wasActive = childIndex in previousActiveIndices
+                if (isActive != wasActive) {
+                    lyricTextView.setLineActive(isActive)
+                    lyricTextView.updateDelayedLineStyle(
+                        index = childIndex,
+                        targetIndex = primaryIndex,
+                        animated = true,
+                        delayMs = 0L,
+                        enableBlur = enableBlur,
+                        isAutoScroll = autoScroll,
+                        forceActive = isActive
+                    )
+                }
+            }
         }
 
         // Update progress on all active lines

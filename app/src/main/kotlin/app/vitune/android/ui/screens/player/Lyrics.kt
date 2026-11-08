@@ -87,6 +87,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -533,25 +534,45 @@ fun Lyrics(
                     }
                 }
 
+                val accentArgb = colorPalette.accent.toArgb()
+
                 val accordLyricsData = remember(parsedEntries) {
-                    val lyricList = mutableListOf<LyricBase>()
-                    val startTimes = mutableListOf<Long>()
-                    val endTimes = mutableListOf<Long>()
-                    parsedEntries.forEachIndexed { idx, entry ->
+                    val rawItems = mutableListOf<Triple<LyricBase, Long, Long>>()
+                    val validEntries = parsedEntries.filter { it.text.isNotBlank() }
+
+                    // Check intro magic lyric (if first lyric begins after 3000ms)
+                    val firstEntry = validEntries.firstOrNull()
+                    if (firstEntry != null) {
+                        val firstStartTime = firstEntry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
+                            ?: firstEntry.time
+                        if (firstStartTime > 3000L) {
+                            rawItems.add(
+                                Triple(
+                                    Lyric(content = "•••", isMagicLyric = true),
+                                    0L,
+                                    firstStartTime
+                                )
+                            )
+                        }
+                    }
+
+                    // Process each entry
+                    validEntries.forEachIndexed { idx, entry ->
                         val lineText = entry.text
-                        if (lineText.isBlank()) return@forEachIndexed
-                        startTimes.add(entry.time)
                         val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
+                        val lineStartTime = entry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
+                            ?: entry.time
 
                         val calculatedEndTime = if (!entry.words.isNullOrEmpty()) {
-                            (entry.words.last().endTime * 1000).toLong().coerceAtLeast(entry.time + 500L)
+                            (entry.words.last().endTime * 1000).toLong().coerceAtLeast(lineStartTime + 800L)
                         } else {
-                            parsedEntries.drop(idx + 1).firstOrNull { it.time > entry.time }?.time
-                                ?: (entry.time + 4000L)
+                            val nextEntry = validEntries.getOrNull(idx + 1)
+                            val nextStart = nextEntry?.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
+                                ?: nextEntry?.time
+                            nextStart?.coerceAtLeast(lineStartTime + 500L) ?: (lineStartTime + 4000L)
                         }
-                        endTimes.add(calculatedEndTime)
 
-                        if (!entry.words.isNullOrEmpty()) {
+                        val lyricItem = if (!entry.words.isNullOrEmpty()) {
                             val words = entry.words
                             val list = words.map { word ->
                                 val content = if (word.hasTrailingSpace) "${word.text} " else word.text
@@ -559,14 +580,40 @@ fun Lyrics(
                             }
                             val relativeTime = LongArray(words.size) { i ->
                                 val word = words[i]
-                                ((word.endTime - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                                val nextStart = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
+                                ((nextStart - word.startTime) * 1000).toLong().coerceAtLeast(10L)
                             }
-                            lyricList.add(SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent))
+                            SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
                         } else {
-                            lyricList.add(Lyric(lineText, isBackground = isBg, agent = entry.agent))
+                            Lyric(lineText, isBackground = isBg, agent = entry.agent)
+                        }
+
+                        rawItems.add(Triple(lyricItem, lineStartTime, calculatedEndTime))
+
+                        // Check instrumental break between this line and the next line
+                        val nextEntry = validEntries.getOrNull(idx + 1)
+                        if (nextEntry != null) {
+                            val nextStartTime = nextEntry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
+                                ?: nextEntry.time
+                            if (nextStartTime - calculatedEndTime >= 4500L) {
+                                rawItems.add(
+                                    Triple(
+                                        Lyric(content = "•••", isMagicLyric = true),
+                                        calculatedEndTime,
+                                        nextStartTime
+                                    )
+                                )
+                            }
                         }
                     }
-                    Triple(lyricList, startTimes, endTimes)
+
+                    // Sort all items strictly by start time
+                    val sorted = rawItems.sortedBy { it.second }
+                    Triple(
+                        sorted.map { it.first },
+                        sorted.map { it.second },
+                        sorted.map { it.third }
+                    )
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -634,6 +681,7 @@ fun Lyrics(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.WRAP_CONTENT
                                     )
+                                    accentColor = accentArgb
                                     onLineClick = { _, timeMs ->
                                         binder?.player?.seekTo(timeMs)
                                         isAutoScrollEnabled = true
@@ -661,6 +709,7 @@ fun Lyrics(
                             },
                             update = { scrollView ->
                                 val lyricViewGroup = scrollView.getChildAt(0) as? LyricViewGroup ?: return@AndroidView
+                                lyricViewGroup.accentColor = accentArgb
                                 lyricViewGroup.autoScrollEnabled = isAutoScrollEnabled
                                 if (lyricViewGroup.tag != accordLyricsData.first) {
                                     lyricViewGroup.tag = accordLyricsData.first

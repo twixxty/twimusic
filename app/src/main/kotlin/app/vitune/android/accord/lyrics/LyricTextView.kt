@@ -29,13 +29,26 @@ class LyricTextView(
 
     var isBackgroundLine = false
         private set
+    var isMagicLyric = false
+        private set
     var agent: String? = null
         private set
+    var accentColor: Int = Color.WHITE
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+
+    private val magicDotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.FILL
+    }
 
     constructor(context: Context, lyric: LyricBase) : this(context) {
         when (lyric) {
             is Lyric -> {
                 this.lyric = lyric.content
+                this.isMagicLyric = lyric.isMagicLyric
                 this.isBackgroundLine = lyric.isBackground
                 this.agent = lyric.agent
                 if (lyric.isBackground) {
@@ -128,6 +141,10 @@ class LyricTextView(
     private val lineStyleInterpolator = DecelerateInterpolator()
 
     override fun onDraw(canvas: Canvas) {
+        if (isMagicLyric) {
+            drawMagicLyric(canvas)
+            return
+        }
         val count = canvas.save()
         canvas.scale(
             lineTextScale,
@@ -147,6 +164,57 @@ class LyricTextView(
             }
         }
         canvas.restoreToCount(count)
+    }
+
+    private fun drawMagicLyric(canvas: Canvas) {
+        val count = canvas.save()
+        canvas.scale(
+            lineTextScale,
+            lineTextScale,
+            horizontalMargin.toFloat(),
+            height / 2f
+        )
+
+        val dotRadius = 5.dp.px
+        val dotSpacing = 22.dp.px
+        val startX = horizontalMargin.toFloat() + dotRadius
+        val centerY = height / 2f
+        val now = System.currentTimeMillis()
+
+        for (i in 0..2) {
+            val dotX = startX + i * dotSpacing
+            val bouncePhase = (now / 220.0) - i * 0.85
+            val bounceSin = kotlin.math.sin(bouncePhase).toFloat()
+
+            val bounceY = if (isLineActive) bounceSin * 4.5.dp.px else 0f
+            val dotScale = if (isLineActive) 1f + 0.22f * maxOf(0f, bounceSin) else 0.85f
+
+            val baseAlpha = if (isLineActive) 1f else 0.3f
+            val finalAlpha = (baseAlpha * 255 * this.alpha * lineTextAlpha).toInt().coerceIn(0, 255)
+
+            magicDotPaint.color = Color.WHITE
+            magicDotPaint.alpha = finalAlpha
+
+            if (isLineActive) {
+                val glowCol = if (accentColor != Color.WHITE && accentColor != 0) accentColor else Color.WHITE
+                magicDotPaint.setShadowLayer(
+                    8.dp.px * (1f + maxOf(0f, bounceSin) * 0.5f),
+                    0f,
+                    0f,
+                    glowCol
+                )
+            } else {
+                magicDotPaint.clearShadowLayer()
+            }
+
+            canvas.drawCircle(dotX, centerY - bounceY, dotRadius * dotScale, magicDotPaint)
+        }
+
+        canvas.restoreToCount(count)
+
+        if (isLineActive) {
+            postInvalidateOnAnimation()
+        }
     }
 
     private var animationUnit = -1
@@ -549,8 +617,12 @@ class LyricTextView(
             }
             style = Paint.Style.FILL
             alpha = getScopeAlpha(shadeAlpha)
+            if (activeWholeLine && accentColor != Color.WHITE && accentColor != 0) {
+                setShadowLayer(GLOW_EFFECT_RADIUS * 1.5f, 0f, 0f, accentColor)
+            }
         }
         layout.draw(canvas)
+        layout.paint.clearGlowShadow()
     }
 
     private fun drawHighlightLayer(canvas: Canvas) {
@@ -725,17 +797,24 @@ class LyricTextView(
 
     private fun TextPaint.setGlowShadow(liftProgress: Float, enabled: Boolean) {
         val radius = if (enabled) {
-            GLOW_EFFECT_RADIUS * triangle(liftProgress)
+            GLOW_EFFECT_RADIUS * (1f + triangle(liftProgress)) * 1.5f
+        } else if (liftProgress > 0.05f) {
+            GLOW_EFFECT_RADIUS * liftProgress * 1.2f
         } else {
             0F
         }
 
         if (radius > 0F) {
+            val glowColor = if (accentColor != Color.WHITE && accentColor != 0) {
+                accentColor
+            } else {
+                Color.WHITE
+            }
             setShadowLayer(
                 radius,
                 0F,
                 0F,
-                Color.WHITE.applyAlpha(alpha)
+                glowColor
             )
         } else {
             clearGlowShadow()
@@ -772,6 +851,18 @@ class LyricTextView(
             MeasureSpec.AT_MOST -> widthSize
             MeasureSpec.UNSPECIFIED -> widthSize
             else -> widthSize
+        }
+
+        if (isMagicLyric) {
+            val desiredHeight = (44.dp.px).toInt()
+            val measuredHeight = when (heightMode) {
+                MeasureSpec.EXACTLY -> heightSize
+                MeasureSpec.AT_MOST -> desiredHeight.coerceAtMost(heightSize)
+                MeasureSpec.UNSPECIFIED -> desiredHeight
+                else -> desiredHeight
+            }
+            setMeasuredDimension(measuredWidth, measuredHeight)
+            return
         }
 
         measureStaticLayout(lyric, measuredWidth)
