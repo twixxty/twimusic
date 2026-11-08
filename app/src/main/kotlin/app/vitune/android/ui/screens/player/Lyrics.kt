@@ -441,8 +441,7 @@ fun Lyrics(
             while (true) {
                 val player = binder?.player
                 currentPositionMs = (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                val isPlaying = player?.isPlaying ?: false
-                delay(if (isPlaying) 16.milliseconds else 200.milliseconds)
+                delay(250.milliseconds)
             }
         }
 
@@ -537,26 +536,37 @@ fun Lyrics(
                 val accordLyricsData = remember(parsedEntries) {
                     val lyricList = mutableListOf<LyricBase>()
                     val startTimes = mutableListOf<Long>()
-                    parsedEntries.forEach { entry ->
+                    val endTimes = mutableListOf<Long>()
+                    parsedEntries.forEachIndexed { idx, entry ->
                         val lineText = entry.text
-                        if (lineText.isBlank()) return@forEach
+                        if (lineText.isBlank()) return@forEachIndexed
                         startTimes.add(entry.time)
-                        if (entry.words != null && entry.words.isNotEmpty()) {
+                        val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
+
+                        val calculatedEndTime = if (!entry.words.isNullOrEmpty()) {
+                            (entry.words.last().endTime * 1000).toLong().coerceAtLeast(entry.time + 500L)
+                        } else {
+                            parsedEntries.drop(idx + 1).firstOrNull { it.time > entry.time }?.time
+                                ?: (entry.time + 4000L)
+                        }
+                        endTimes.add(calculatedEndTime)
+
+                        if (!entry.words.isNullOrEmpty()) {
                             val words = entry.words
                             val list = words.map { word ->
                                 val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                Lyric(content)
+                                Lyric(content, isBackground = isBg, agent = entry.agent)
                             }
-                            val relativeTime = LongArray(words.size) { idx ->
-                                val word = words[idx]
+                            val relativeTime = LongArray(words.size) { i ->
+                                val word = words[i]
                                 ((word.endTime - word.startTime) * 1000).toLong().coerceAtLeast(10L)
                             }
-                            lyricList.add(SyncedLyric(list, relativeTime))
+                            lyricList.add(SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent))
                         } else {
-                            lyricList.add(Lyric(lineText))
+                            lyricList.add(Lyric(lineText, isBackground = isBg, agent = entry.agent))
                         }
                     }
-                    lyricList to startTimes
+                    Triple(lyricList, startTimes, endTimes)
                 }
 
                 Box(modifier = Modifier.fillMaxSize()) {
@@ -618,13 +628,6 @@ fun Lyrics(
                                         ViewGroup.LayoutParams.MATCH_PARENT,
                                         ViewGroup.LayoutParams.MATCH_PARENT
                                     )
-                                    setOnTouchListener { _, event ->
-                                        if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-                                            isAutoScrollEnabled = false
-                                            lastPreviewTime = System.currentTimeMillis()
-                                        }
-                                        false
-                                    }
                                 }
                                 val lyricViewGroup = LyricViewGroup(ctx).apply {
                                     layoutParams = ViewGroup.LayoutParams(
@@ -635,22 +638,39 @@ fun Lyrics(
                                         binder?.player?.seekTo(timeMs)
                                         isAutoScrollEnabled = true
                                         lastPreviewTime = 0L
+                                        autoScrollEnabled = true
                                     }
+                                    positionProvider = {
+                                        val player = binder?.player
+                                        (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
+                                    }
+                                    isPlayingProvider = {
+                                        binder?.player?.isPlaying ?: false
+                                    }
+                                }
+                                scrollView.setOnTouchListener { _, event ->
+                                    if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+                                        isAutoScrollEnabled = false
+                                        lastPreviewTime = System.currentTimeMillis()
+                                        lyricViewGroup.autoScrollEnabled = false
+                                    }
+                                    false
                                 }
                                 scrollView.addView(lyricViewGroup)
                                 scrollView
                             },
                             update = { scrollView ->
                                 val lyricViewGroup = scrollView.getChildAt(0) as? LyricViewGroup ?: return@AndroidView
+                                lyricViewGroup.autoScrollEnabled = isAutoScrollEnabled
                                 if (lyricViewGroup.tag != accordLyricsData.first) {
                                     lyricViewGroup.tag = accordLyricsData.first
-                                    lyricViewGroup.updateLyrics(accordLyricsData.first, accordLyricsData.second)
+                                    lyricViewGroup.updateLyrics(
+                                        lyrics = accordLyricsData.first,
+                                        startTimes = accordLyricsData.second,
+                                        endTimes = accordLyricsData.third
+                                    )
                                 }
-                                lyricViewGroup.updatePlaybackPosition(
-                                    scrollView = scrollView,
-                                    positionMs = currentPositionMs,
-                                    autoScroll = isAutoScrollEnabled
-                                )
+                                lyricViewGroup.startFrameLoop()
                             },
                             modifier = Modifier
                                 .fillMaxSize()

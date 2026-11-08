@@ -20,17 +20,35 @@ import androidx.core.content.res.ResourcesCompat
 import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import app.vitune.android.R
+import app.vitune.android.preferences.PlayerPreferences
 import kotlin.math.abs
 
 class LyricTextView(
     context: Context,
 ) : View(context) {
 
+    var isBackgroundLine = false
+        private set
+    var agent: String? = null
+        private set
+
     constructor(context: Context, lyric: LyricBase) : this(context) {
         when (lyric) {
-            is Lyric -> { this.lyric = lyric.content }
+            is Lyric -> {
+                this.lyric = lyric.content
+                this.isBackgroundLine = lyric.isBackground
+                this.agent = lyric.agent
+                if (lyric.isBackground) {
+                    setBackgroundContent()
+                }
+            }
             is SyncedLyric -> {
                 this.syncedLyric = lyric
+                this.isBackgroundLine = lyric.isBackground
+                this.agent = lyric.agent
+                if (lyric.isBackground) {
+                    setBackgroundContent()
+                }
                 liftupWindows = LyricTiming.liftupWindows(
                     relativeTime = lyric.relativeTime,
                     unitCount = lyric.list.size
@@ -235,15 +253,26 @@ class LyricTextView(
         index: Int,
         targetIndex: Int,
         animated: Boolean,
-        delayMs: Long
+        delayMs: Long,
+        enableBlur: Boolean = PlayerPreferences.lyricsLineBlur,
+        isAutoScroll: Boolean = true,
+        forceActive: Boolean = false
     ) {
-        val isActivated = index == targetIndex
-        val targetAlpha = if (isActivated) ACTIVE_LINE_ALPHA else INACTIVE_LINE_ALPHA
+        val isActivated = index == targetIndex || forceActive
+        val targetAlpha = if (!isAutoScroll) {
+            if (isActivated) ACTIVE_LINE_ALPHA else 0.75f
+        } else {
+            if (isActivated) ACTIVE_LINE_ALPHA else INACTIVE_LINE_ALPHA
+        }
         val targetScale = if (isActivated) ACTIVE_LINE_SCALE else INACTIVE_LINE_SCALE
-        val targetBlurRadius = (abs(index - targetIndex) * BLUR_RADIUS_STEP.dp.px)
-            .coerceAtMost(MAX_BLUR_RADIUS.dp.px)
+        val targetBlurRadius = if (enableBlur && isAutoScroll && !isActivated) {
+            (abs(index - targetIndex) * BLUR_RADIUS_STEP.dp.px)
+                .coerceAtMost(MAX_BLUR_RADIUS.dp.px)
+        } else {
+            0f
+        }
 
-        if (!animated) {
+        if (!animated || (targetBlurRadius == 0f && lineBlurRadius == 0f && targetAlpha == lineTextAlpha)) {
             cancelLineStyleAnimations()
             lineTextAlpha = targetAlpha
             lineTextScale = targetScale
@@ -295,6 +324,10 @@ class LyricTextView(
     private fun animateLineBlurRadius(targetRadius: Float, delayMs: Long) {
         if (lineBlurRadius == targetRadius) return
         lineBlurRadiusAnimator?.cancel()
+        if (targetRadius == 0f) {
+            lineBlurRadius = 0f
+            return
+        }
         lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
             duration = BLUR_ANIMATION_DURATION_MS
             startDelay = delayMs
@@ -783,6 +816,13 @@ class LyricTextView(
         lyricPaint.apply {
             textSize = BG_TEXT_SIZE.sp.px
             typeface = ResourcesCompat.getFont(context, R.font.inter_semibold)
+        }
+    }
+
+    private fun setBackgroundContent() {
+        lyricPaint.apply {
+            textSize = BG_TEXT_SIZE.sp.px
+            typeface = ResourcesCompat.getFont(context, R.font.inter_medium)
         }
     }
 
