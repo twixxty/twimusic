@@ -69,7 +69,7 @@ class BitmapProvider(
         uri: Uri?,
         onDone: (Bitmap) -> Unit = { }
     ) {
-        if (lastUri == uri) {
+        if (lastUri == uri && (lastBitmap != null || uri == null)) {
             listener?.invoke(lastBitmap)
             return
         }
