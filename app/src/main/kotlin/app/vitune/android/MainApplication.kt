@@ -569,10 +569,10 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
         MonetCompat.enablePaletteCompat()
         ServiceNotifications.createAll()
 
-        // Auto-sync library on startup when logged in (delayed to not block app start)
+        // Auto-sync library on startup when logged in (delayed to not block app start or playback)
         if (AccountPreferences.isLoggedIn) {
             CoroutineScope(Dispatchers.IO).launch {
-                kotlinx.coroutines.delay(5_000L) // 5 second delay after startup
+                kotlinx.coroutines.delay(20_000L) // 20 second delay to ensure playback has started smoothly
                 YouTubeSync.syncAll()
             }
         }

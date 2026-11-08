@@ -46,8 +46,7 @@ fun BackgroundVideoView(
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             parameters = buildUponParameters()
-                .setMaxVideoSize(4096, 4096)
-                .setForceHighestSupportedBitrate(true)
+                .setMaxVideoSize(1080, 1080)
                 .build()
         }
     }
@@ -62,7 +61,7 @@ fun BackgroundVideoView(
             .setTrackSelector(trackSelector)
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setTargetBufferBytes(20 * 1024 * 1024)
+                    .setTargetBufferBytes(4 * 1024 * 1024)
                     .build()
             )
             .build().apply {

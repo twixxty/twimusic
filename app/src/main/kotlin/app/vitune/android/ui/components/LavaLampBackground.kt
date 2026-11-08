@@ -212,15 +212,21 @@ fun BlurredArtworkBackground(
     overlayAlpha: Float = 0.35f,
     fallbackColor: Color = Color(0xff121216)
 ) {
+    val imageBitmap = remember(bitmap) {
+        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+            bitmap.asImageBitmap()
+        } else null
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(fallbackColor)
             .clipToBounds()
     ) {
-        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+        if (imageBitmap != null) {
             Image(
-                bitmap = bitmap.asImageBitmap(),
+                bitmap = imageBitmap,
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier

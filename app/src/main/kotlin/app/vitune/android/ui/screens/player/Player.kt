@@ -485,31 +485,13 @@ fun Player(
                             isShowingLyrics = !isShowingLyrics
                         }
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(
-                                    brush = Brush.verticalGradient(
-                                        0.0f to androidx.compose.ui.graphics.Color.White,
-                                        0.50f to androidx.compose.ui.graphics.Color.White,
-                                        0.80f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.35f),
-                                        1.0f to androidx.compose.ui.graphics.Color.Transparent
-                                    ),
-                                    blendMode = BlendMode.DstIn
-                                )
-                            }
-                    ) {
-                        BackgroundVideoView(
-                            videoUrl = videoUrl,
-                            isPlaying = isPlayingState,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
+                    BackgroundVideoView(
+                        videoUrl = videoUrl,
+                        isPlaying = isPlayingState && !isShowingLyrics,
+                        modifier = Modifier.fillMaxSize()
+                    )
 
-                    // Bottom subtle fade matching Lava Lamp / Blur background
+                    // Bottom subtle fade matching background
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()

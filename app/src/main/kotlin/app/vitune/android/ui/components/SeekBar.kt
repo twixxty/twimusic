@@ -121,7 +121,7 @@ fun SeekBar(
     when (style) {
         PlayerPreferences.SeekBarStyle.Static -> {
             ClassicSeekBarBody(
-                position = scrubbingPosition ?: animatedPosition.toLong(),
+                position = scrubbingPosition ?: position,
                 duration = media.duration,
                 poiTimestamp = binder.poiTimestamp,
                 isDragging = isDragging,
@@ -136,7 +136,7 @@ fun SeekBar(
 
         PlayerPreferences.SeekBarStyle.Wavy -> {
             WavySeekBarBody(
-                position = scrubbingPosition ?: animatedPosition.toLong(),
+                position = scrubbingPosition ?: position,
                 duration = media.duration,
                 poiTimestamp = binder.poiTimestamp,
                 isDragging = isDragging,
