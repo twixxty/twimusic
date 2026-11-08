@@ -1,6 +1,7 @@
 package app.vitune.android.accord.lyrics
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.AttributeSet
 import android.view.Choreographer
 import android.view.View
@@ -47,24 +48,45 @@ class LyricViewGroup @JvmOverloads constructor(
     var isPlayingProvider: (() -> Boolean)? = null
 
     private var lastRawPositionMs = 0L
-    private var lastRawPositionTime = 0L
+    private var lastRawPositionTimeMs = 0L
+    private var lastEmittedPositionMs = 0L
 
     fun getSmoothPositionMs(): Long {
         val rawPos = positionProvider?.invoke() ?: 0L
         val isPlaying = isPlayingProvider?.invoke() ?: false
-        val now = System.currentTimeMillis()
+        val now = SystemClock.elapsedRealtime()
 
-        if (rawPos != lastRawPositionMs) {
+        if (!isPlaying) {
             lastRawPositionMs = rawPos
-            lastRawPositionTime = now
-        }
-
-        if (!isPlaying || lastRawPositionTime <= 0L) {
+            lastRawPositionTimeMs = now
+            lastEmittedPositionMs = rawPos
             return rawPos
         }
 
-        val elapsed = (now - lastRawPositionTime).coerceIn(0L, 400L)
-        return rawPos + elapsed
+        // Seek or large track jump (> 1000ms): immediately sync ground truth
+        if (kotlin.math.abs(rawPos - lastEmittedPositionMs) > 1000L) {
+            lastRawPositionMs = rawPos
+            lastRawPositionTimeMs = now
+            lastEmittedPositionMs = rawPos
+            return rawPos
+        }
+
+        if (rawPos != lastRawPositionMs) {
+            lastRawPositionMs = rawPos
+            lastRawPositionTimeMs = now
+        }
+
+        // Small, safe monotonic interpolation for frame smoothness (up to 50ms)
+        val elapsed = if (lastRawPositionTimeMs > 0L) {
+            (now - lastRawPositionTimeMs).coerceIn(0L, 50L)
+        } else {
+            0L
+        }
+
+        val computed = rawPos + elapsed
+        // Strictly monotonic: time NEVER travels backwards during playback
+        lastEmittedPositionMs = maxOf(lastEmittedPositionMs, computed)
+        return lastEmittedPositionMs
     }
 
     var autoScrollEnabled: Boolean = true
@@ -193,7 +215,8 @@ class LyricViewGroup @JvmOverloads constructor(
 
     fun stopPlayback() {
         lastRawPositionMs = 0L
-        lastRawPositionTime = 0L
+        lastRawPositionTimeMs = 0L
+        lastEmittedPositionMs = 0L
         currentPrimaryLineIndex = -1
         currentActiveIndices = emptySet()
         forEach { child ->
@@ -211,8 +234,14 @@ class LyricViewGroup @JvmOverloads constructor(
         val active = mutableSetOf<Int>()
         for (i in lyrics.indices) {
             val start = lineStartTimes.getOrElse(i) { 0L }
-            val end = lineEndTimes.getOrElse(i) {
+            val rawEnd = lineEndTimes.getOrElse(i) {
                 if (i + 1 < lineStartTimes.size) lineStartTimes[i + 1] else start + 4000L
+            }
+            // Seamless handoff: eliminate dead-zone gap between sequential lines
+            val end = if (i + 1 < lineStartTimes.size && rawEnd < lineStartTimes[i + 1]) {
+                lineStartTimes[i + 1]
+            } else {
+                rawEnd
             }
             if (positionMs in start..end) {
                 active.add(i)

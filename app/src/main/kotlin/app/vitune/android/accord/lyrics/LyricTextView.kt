@@ -638,47 +638,7 @@ class LyricTextView(
         if (endUnit !in synced.list.indices) return
 
         var charOffset = 0
-
-        // Batch completed units where liftProgress == 0f for high performance
-        var batchEndChar = 0
-        var batchEndUnit = -1
         for (i in 0..endUnit) {
-            val content = synced.list[i].content
-            val p = progress.getOrElse(i) { 0f }
-            if (p == 0f && i == batchEndUnit + 1) {
-                batchEndChar += content.length
-                batchEndUnit = i
-            } else {
-                break
-            }
-        }
-
-        if (batchEndChar > 0) {
-            val startLine = 0
-            val endLine = layout.getLineForOffset(batchEndChar)
-            for (line in startLine..endLine) {
-                val lineTop = layout.getLineTop(line).toFloat()
-                val lineBottom = layout.getLineBottom(line).toFloat()
-                val lineLeft = layout.getLineLeft(line)
-                val lineRight = layout.getLineRight(line)
-
-                val startX = lineLeft
-                var endX = if (line == endLine) layout.getPrimaryHorizontal(batchEndChar) else lineRight
-                if (endX == 0F && line < endLine) endX = lineRight
-
-                canvas.withClip(startX, lineTop, endX, lineBottom) {
-                    drawLiftedHighlightText(
-                        layout = layout,
-                        liftProgress = 0f,
-                        glowEnabled = false
-                    )
-                }
-            }
-            charOffset = batchEndChar
-        }
-
-        val startUnit = batchEndUnit + 1
-        for (i in startUnit..endUnit) {
             val content = synced.list[i].content
             val startOffset = charOffset
             val endOffset = charOffset + content.length
