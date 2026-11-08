@@ -1,5 +1,6 @@
 package app.vitune.android.accord.lyrics
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.os.SystemClock
 import android.util.AttributeSet
@@ -107,6 +108,11 @@ class LyricViewGroup @JvmOverloads constructor(
                     forceActive = isActive
                 )
             }
+            if (value && primary >= 0) {
+                (parent as? ScrollView)?.let { sv ->
+                    scrollToLine(sv, primary, animated = true, shouldScrollScrollView = true)
+                }
+            }
         }
 
     private var isLoopRunning = false
@@ -147,6 +153,7 @@ class LyricViewGroup @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
+        cancelScrollAnimation()
         stopPlayback()
         stopFrameLoop()
         super.onDetachedFromWindow()
@@ -214,6 +221,7 @@ class LyricViewGroup @JvmOverloads constructor(
         }
 
     fun stopPlayback() {
+        cancelScrollAnimation()
         lastRawPositionMs = 0L
         lastRawPositionTimeMs = 0L
         lastEmittedPositionMs = 0L
@@ -332,6 +340,16 @@ class LyricViewGroup @JvmOverloads constructor(
         }
     }
 
+    private var scrollAnimator: ValueAnimator? = null
+
+    fun cancelScrollAnimation() {
+        scrollAnimator?.cancel()
+        scrollAnimator = null
+    }
+
+    val activeLineIndex: Int
+        get() = currentPrimaryLineIndex
+
     fun scrollToLine(
         scrollView: ScrollView,
         index: Int,
@@ -347,28 +365,27 @@ class LyricViewGroup @JvmOverloads constructor(
         val currentScrollY = scrollView.scrollY
         val maxScrollOffset = (measuredHeight - scrollView.height).coerceAtLeast(0)
         val targetScrollY = (getChildAt(index).top - topPadding).coerceIn(0, maxScrollOffset)
-        val deltaY = (targetScrollY - currentScrollY).toFloat()
 
-        if (!animated || deltaY == 0f) {
+        cancelScrollAnimation()
+
+        forEach { child ->
+            child.animate().cancel()
+            child.translationY = 0f
+        }
+
+        if (!animated || currentScrollY == targetScrollY) {
             scrollView.scrollTo(0, targetScrollY)
-            forEach { child ->
-                child.animate().cancel()
-                child.translationY = 0f
-            }
             return
         }
 
-        scrollView.scrollTo(0, targetScrollY)
-        forEachIndexed { childIndex, child ->
-            val currentTranslation = child.translationY
-            child.animate().cancel()
-            child.translationY = currentTranslation + deltaY
-            child.animate()
-                .translationY(0f)
-                .setDuration(SCROLL_ANIMATION_DURATION_MS)
-                .setInterpolator(scrollInterpolator)
-                .setStartDelay(getLineAnimationDelay(childIndex, index))
-                .start()
+        scrollAnimator = ValueAnimator.ofInt(currentScrollY, targetScrollY).apply {
+            duration = SCROLL_ANIMATION_DURATION_MS
+            interpolator = scrollInterpolator
+            addUpdateListener { animator ->
+                val y = animator.animatedValue as Int
+                scrollView.scrollTo(0, y)
+            }
+            start()
         }
     }
 
@@ -382,10 +399,9 @@ class LyricViewGroup @JvmOverloads constructor(
             val lyricTextView = child as? LyricTextView ?: return@forEachIndexed
             val isActive = childIndex in currentActiveIndices
             if (childIndex == previousLineIndex && shouldAnimate && !isActive) {
-                lyricTextView.markCompleted()
                 lyricTextView.animateLiftupProgressToRest(
                     durationMs = SCROLL_ANIMATION_DURATION_MS,
-                    delayMs = getLineAnimationDelay(childIndex, index)
+                    delayMs = 0L
                 )
             } else if (!isActive && childIndex != index) {
                 lyricTextView.resetPlayback()
@@ -396,21 +412,13 @@ class LyricViewGroup @JvmOverloads constructor(
                 index = childIndex,
                 targetIndex = index,
                 animated = shouldAnimate,
-                delayMs = getLineAnimationDelay(childIndex, index),
+                delayMs = 0L,
                 enableBlur = PlayerPreferences.lyricsLineBlur,
                 isAutoScroll = autoScrollEnabled,
                 forceActive = isActive
             )
         }
     }
-
-    private fun getLineAnimationDelay(index: Int, targetIndex: Int): Long =
-        if (index < targetIndex) {
-            0L
-        } else {
-            ((index - targetIndex) * LINE_ANIMATION_DELAY_STEP_MS + LINE_ANIMATION_MIN_DELAY_MS)
-                .coerceAtMost(LINE_ANIMATION_MAX_DELAY_MS)
-        }
 
     private fun updateLineProgress(child: LyricTextView, lyric: LyricBase, linePositionMs: Long) {
         val syncedLyric = lyric as? SyncedLyric ?: return
@@ -513,8 +521,5 @@ class LyricViewGroup @JvmOverloads constructor(
         const val ITEM_SPACING = 16
 
         private const val SCROLL_ANIMATION_DURATION_MS = 700L
-        private const val LINE_ANIMATION_MIN_DELAY_MS = 10L
-        private const val LINE_ANIMATION_DELAY_STEP_MS = 20L
-        private const val LINE_ANIMATION_MAX_DELAY_MS = 190L
     }
 }

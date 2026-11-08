@@ -461,6 +461,8 @@ fun Lyrics(
             var isAnimating by remember { mutableStateOf(false) }
             var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
             var lastPreviewTime by remember { mutableLongStateOf(0L) }
+            var accordScrollView by remember { mutableStateOf<ScrollView?>(null) }
+            var accordLyricViewGroup by remember { mutableStateOf<LyricViewGroup?>(null) }
 
             if (synchronized) {
                 LaunchedEffect(lastPreviewTime) {
@@ -503,9 +505,11 @@ fun Lyrics(
                     }
                 }
 
-                LaunchedEffect(activeIndex, isAutoScrollEnabled) {
-                    if (isAutoScrollEnabled && activeIndex >= 0 && activeIndex < parsedEntries.size) {
-                        performSmoothPageScroll(activeIndex, duration = 800)
+                LaunchedEffect(activeIndex, isAutoScrollEnabled, PlayerPreferences.lyricsAnimationStyle) {
+                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                        if (isAutoScrollEnabled && activeIndex >= 0 && activeIndex < parsedEntries.size) {
+                            performSmoothPageScroll(activeIndex, duration = 800)
+                        }
                     }
                 }
 
@@ -696,11 +700,14 @@ fun Lyrics(
                                         binder?.player?.isPlaying ?: false
                                     }
                                 }
+                                accordScrollView = scrollView
+                                accordLyricViewGroup = lyricViewGroup
                                 scrollView.setOnTouchListener { _, event ->
                                     if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
                                         isAutoScrollEnabled = false
                                         lastPreviewTime = System.currentTimeMillis()
                                         lyricViewGroup.autoScrollEnabled = false
+                                        lyricViewGroup.cancelScrollAnimation()
                                     }
                                     false
                                 }
@@ -744,8 +751,18 @@ fun Lyrics(
                                 .clickable {
                                     isAutoScrollEnabled = true
                                     lastPreviewTime = 0L
-                                    coroutineScope.launch {
-                                        performSmoothPageScroll(activeIndex, duration = 800)
+                                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                                        coroutineScope.launch {
+                                            performSmoothPageScroll(activeIndex, duration = 800)
+                                        }
+                                    } else {
+                                        accordLyricViewGroup?.let { vg ->
+                                            vg.autoScrollEnabled = true
+                                            accordScrollView?.let { sv ->
+                                                val target = if (vg.activeLineIndex >= 0) vg.activeLineIndex else 0
+                                                vg.scrollToLine(sv, target, animated = true, shouldScrollScrollView = true)
+                                            }
+                                        }
                                     }
                                 }
                                 .padding(horizontal = 14.dp, vertical = 6.dp)
