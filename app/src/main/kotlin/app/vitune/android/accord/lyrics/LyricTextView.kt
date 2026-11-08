@@ -127,10 +127,10 @@ class LyricTextView(
             field = value
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 setRenderEffect(
-                    if (value <= 0f) {
+                    if (value <= 0.5f) {
                         null
                     } else {
-                        RenderEffect.createBlurEffect(value, value, Shader.TileMode.DECAL)
+                        RenderEffect.createBlurEffect(value, value, Shader.TileMode.CLAMP)
                     }
                 )
             }
@@ -280,9 +280,14 @@ class LyricTextView(
             animationUnit = synced.list.lastIndex
             animationFraction = 1f
             calculateTargetPosition(animationUnit)
-            liftupProgress?.fill(0f)
             invalidate()
         }
+    }
+
+    fun clearLiftupProgress() {
+        cancelLiftupReturnAnimator()
+        liftupProgress?.fill(0f)
+        invalidate()
     }
 
     fun animateLiftupProgressToRest(durationMs: Long, delayMs: Long) {
@@ -667,8 +672,12 @@ class LyricTextView(
     }
 
     private fun drawHighlightLayer(canvas: Canvas) {
-        drawTextRange(canvas, animationUnit - 1)
-        drawHighlightText(canvas)
+        if (animationFraction >= 1f && animationUnit == (syncedLyric?.list?.lastIndex ?: -1)) {
+            drawTextRange(canvas, animationUnit)
+        } else {
+            drawTextRange(canvas, animationUnit - 1)
+            drawHighlightText(canvas)
+        }
     }
 
     private fun drawTextRange(canvas: Canvas, endUnit: Int) {
@@ -805,7 +814,7 @@ class LyricTextView(
                 drawLiftedHighlightText(
                     layout = layout,
                     liftProgress = currentLift,
-                    glowEnabled = shouldShowActiveGlow(animationUnit)
+                    glowEnabled = isLineActive && shouldShowActiveGlow(animationUnit)
                 )
             }
         }
@@ -871,7 +880,7 @@ class LyricTextView(
     }
 
     private fun TextPaint.setGlowShadow(liftProgress: Float, enabled: Boolean) {
-        val radius = if (enabled) {
+        val radius = if (enabled && isLineActive) {
             GLOW_EFFECT_RADIUS * (1f + triangle(liftProgress)) * 1.5f
         } else if (liftProgress > 0.05f) {
             GLOW_EFFECT_RADIUS * liftProgress * 1.2f
@@ -880,11 +889,13 @@ class LyricTextView(
         }
 
         if (radius > 0F) {
-            val glowColor = if (accentColor != Color.WHITE && accentColor != 0) {
+            val baseColor = if (accentColor != Color.WHITE && accentColor != 0) {
                 accentColor
             } else {
                 Color.WHITE
             }
+            val shadowAlpha = (Color.alpha(baseColor) * this@LyricTextView.alpha * lineTextAlpha).toInt().coerceIn(0, 255)
+            val glowColor = (shadowAlpha shl 24) or (baseColor and 0x00FFFFFF)
             setShadowLayer(
                 radius,
                 0F,

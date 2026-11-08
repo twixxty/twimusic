@@ -344,13 +344,13 @@ class LyricViewGroup @JvmOverloads constructor(
 
         if (!shouldScrollScrollView) return
 
-        val currentOffset = scrollView.scrollY.toFloat()
+        val currentScrollY = scrollView.scrollY
         val maxScrollOffset = (measuredHeight - scrollView.height).coerceAtLeast(0)
-        val targetOffset = (getChildAt(index).top - topPadding).coerceIn(0, maxScrollOffset).toFloat()
-        val deltaOffset = targetOffset - currentOffset
+        val targetScrollY = (getChildAt(index).top - topPadding).coerceIn(0, maxScrollOffset)
+        val deltaY = (targetScrollY - currentScrollY).toFloat()
 
-        if (!animated || deltaOffset == 0f) {
-            scrollView.scrollTo(0, targetOffset.toInt())
+        if (!animated || deltaY == 0f) {
+            scrollView.scrollTo(0, targetScrollY)
             forEach { child ->
                 child.animate().cancel()
                 child.translationY = 0f
@@ -358,11 +358,11 @@ class LyricViewGroup @JvmOverloads constructor(
             return
         }
 
-        scrollView.scrollTo(0, targetOffset.toInt())
+        scrollView.scrollTo(0, targetScrollY)
         forEachIndexed { childIndex, child ->
             val currentTranslation = child.translationY
             child.animate().cancel()
-            child.translationY = currentTranslation + deltaOffset
+            child.translationY = currentTranslation + deltaY
             child.animate()
                 .translationY(0f)
                 .setDuration(SCROLL_ANIMATION_DURATION_MS)
@@ -390,11 +390,12 @@ class LyricViewGroup @JvmOverloads constructor(
                     durationMs = SCROLL_ANIMATION_DURATION_MS,
                     delayMs = 0L
                 )
-            } else if (!isActive && childIndex !in activeWindowStart..activeWindowEnd) {
-                if (childIndex > index) {
-                    lyricTextView.resetPlayback()
-                } else {
+            } else if (!isActive) {
+                if (childIndex < index) {
                     lyricTextView.markCompleted()
+                    lyricTextView.clearLiftupProgress()
+                } else if (childIndex > index) {
+                    lyricTextView.resetPlayback()
                 }
             }
             lyricTextView.setLineActive(isActive)
