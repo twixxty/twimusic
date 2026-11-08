@@ -314,34 +314,25 @@ private fun ModernControls(
                 modifier = Modifier.weight(1f)
             )
         }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        AnimatedVisibility(
+            visible = !isShowingLyrics,
+            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+            exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
         ) {
-            if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-            Column(modifier = Modifier.weight(4f)) {
-                AnimatedVisibility(
-                    visible = !isShowingLyrics,
-                    enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
-                    exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
-                ) {
+                Column(modifier = Modifier.weight(1f)) {
                     SeekBar(
                         binder = binder,
                         position = position,
                         media = media
                     )
                 }
-            }
-
-            if (onToggleLyrics != null) {
-                IconButton(
-                    icon = R.drawable.musical_notes,
-                    color = if (isShowingLyrics) LocalAppearance.current.colorPalette.accent else LocalAppearance.current.colorPalette.text,
-                    onClick = onToggleLyrics,
-                    modifier = Modifier.size(24.dp)
-                )
             }
         }
 

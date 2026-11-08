@@ -1,5 +1,6 @@
 package app.vitune.android.ui.components
 
+import android.graphics.BlurMaskFilter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -7,6 +8,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -174,8 +178,7 @@ fun MetrolistLyricsLine(
     val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
     val animatedScale by animateFloatAsState(if (isActiveLine) 1.04f else 1.0f, tween(300), label = "lyricsLineScale")
 
-    // Luminous soft white with subtle 15% accent tint instead of overwhelming raw neon color
-    val activeTextColor = lerp(Color.White, expressiveAccent, 0.15f)
+    val activeTextColor = expressiveAccent
     val lineColor = Color.White.copy(alpha = if (item.isBackground) focusedAlpha else animatedAlpha)
 
     val mainTextRaw = item.text
@@ -195,8 +198,26 @@ fun MetrolistLyricsLine(
         )
     )
 
-    val effectiveWords = if (isActiveLine && item.words?.isNotEmpty() == true) {
+    val effectiveWords = if (item.words?.isNotEmpty() == true) {
         item.words
+    } else if (mainText.isNotBlank()) {
+        remember(mainText, item.time) {
+            val words = mainText.split(Regex("\\s+")).filter { it.isNotBlank() }
+            if (words.isEmpty()) null
+            else {
+                val totalDurationSec = (words.size * 0.40).coerceIn(1.2, 5.0)
+                val wordDurationSec = totalDurationSec / words.size
+                val startTimeSec = item.time / 1000.0
+                words.mapIndexed { idx, wordText ->
+                    WordTimestamp(
+                        text = wordText,
+                        startTime = startTimeSec + (idx * wordDurationSec),
+                        endTime = startTimeSec + ((idx + 1) * wordDurationSec),
+                        hasTrailingSpace = idx < words.size - 1
+                    )
+                }
+            }
+        }
     } else null
 
     Box(
@@ -228,7 +249,7 @@ fun MetrolistLyricsLine(
             modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = agentAlignment
         ) {
-            if (isSynced && effectiveWords != null && isActiveLine && mainText.isNotBlank()) {
+            if (isSynced && effectiveWords != null && (isActiveLine || distance <= 1) && mainText.isNotBlank()) {
                 WordLevelLyrics(
                     mainText = mainText,
                     words = effectiveWords,
@@ -273,6 +294,11 @@ private fun WordLevelLyrics(
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
+    val glowPaint = remember {
+        android.graphics.Paint().apply {
+            isAntiAlias = true
+        }
+    }
 
     var smoothPosition by remember { mutableLongStateOf(currentPositionState) }
 
@@ -632,23 +658,34 @@ private fun WordLevelLyrics(
                                 val impactFactor = (((impactRatio - 100f) / 250f).coerceIn(0f, 1f) * 0.6f + ((dur.toFloat() - 300f) / 1500f).coerceIn(0f, 1f) * 0.4f).coerceIn(0f, 1f) * fadeFactor
                                 if (impactFactor > 0.01f) {
                                     val glowAlpha = (0.45f * impactFactor).coerceIn(0f, 0.5f)
-                                    drawText(
-                                        letterLayouts[i],
-                                        color = expressiveAccent.copy(alpha = glowAlpha),
-                                        shadow = androidx.compose.ui.graphics.Shadow(
-                                            color = expressiveAccent.copy(alpha = glowAlpha),
-                                            blurRadius = 10f * impactFactor
-                                        )
-                                    )
+                                    val baseGlowRadius = 14.dp.toPx() * impactFactor
+                                    drawIntoCanvas { canvas ->
+                                        glowPaint.maskFilter = BlurMaskFilter(baseGlowRadius.coerceAtLeast(1f), BlurMaskFilter.Blur.NORMAL)
+                                        glowPaint.color = expressiveAccent.copy(alpha = glowAlpha).toArgb()
+                                        glowPaint.textSize = lyricStyle.fontSize.toPx()
+                                        glowPaint.typeface = android.graphics.Typeface.create(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD)
+                                        canvas.nativeCanvas.drawText(letterLayouts[i].layoutInput.text.text, 0f, letterLayouts[i].firstBaseline, glowPaint)
+                                    }
                                 }
                             }
                             val baseAlpha = if (isWordSung || charLp > 0.99f) 1f else (focusedAlpha + (1f - focusedAlpha) * sungFactor)
-                            drawText(letterLayouts[i], color = activeTextColor.copy(alpha = if (wordIdx == -1) focusedAlpha else baseAlpha))
-                            if (!isWordSung && charLp > 0f) {
+                            drawText(letterLayouts[i], color = if (wordIdx == -1) lineColor.copy(alpha = focusedAlpha) else activeTextColor.copy(alpha = baseAlpha))
+                            if (!isWordSung && charLp > 0f && charLp < 1f) {
                                 val fXL = (charBounds.width * charLp).coerceIn(0f, charBounds.width)
-                                if (fXL > 0f) {
-                                    clipRect(left = 0f, top = 0f, right = fXL, bottom = charBounds.height) {
+                                val eW = (charBounds.width * 0.45f).coerceAtLeast(1f)
+                                val sWL = (fXL - eW).coerceAtLeast(0f)
+                                if (sWL > 0f) {
+                                    clipRect(left = 0f, top = 0f, right = sWL, bottom = charBounds.height) {
                                         drawText(letterLayouts[i], color = activeTextColor)
+                                    }
+                                }
+                                for (j in 0 until 12) {
+                                    val start = sWL + (j * eW / 12f)
+                                    val end = (sWL + ((j + 1) * eW / 12f) + 0.5f).coerceAtMost(fXL)
+                                    if (end > start) {
+                                        clipRect(left = start, top = 0f, right = end, bottom = charBounds.height) {
+                                            drawText(letterLayouts[i], color = activeTextColor.copy(alpha = 1f - (j + 0.5f) / 12f))
+                                        }
                                     }
                                 }
                             }
