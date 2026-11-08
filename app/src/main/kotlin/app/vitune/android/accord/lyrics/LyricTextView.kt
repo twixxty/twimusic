@@ -156,9 +156,13 @@ class LyricTextView(
             horizontalMargin.toFloat(),
             verticalMargin.toFloat()
         ) {
-            if (syncedLyric != null && animationUnit >= 0 && endOffsetChar >= 0) {
-                drawContentLayerWithProgress(canvas)
-                drawHighlightLayer(canvas)
+            if (syncedLyric != null) {
+                if (animationUnit >= 0 && endOffsetChar >= 0) {
+                    drawContentLayerWithProgress(canvas)
+                    drawHighlightLayer(canvas)
+                } else {
+                    drawInactiveSyncedContentLayer(canvas)
+                }
             } else {
                 drawContentLayer(canvas)
             }
@@ -625,6 +629,29 @@ class LyricTextView(
         layout.paint.clearGlowShadow()
     }
 
+    private fun drawInactiveSyncedContentLayer(canvas: Canvas) {
+        val layout = staticLayout ?: return
+        layout.paint.apply {
+            clearGlowShadow()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = BlendMode.OVERLAY
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(inactiveOverlayAlpha())
+        }
+        layout.draw(canvas)
+
+        layout.paint.apply {
+            clearGlowShadow()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = null
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(inactiveShadeAlpha())
+        }
+        layout.draw(canvas)
+    }
+
     private fun drawHighlightLayer(canvas: Canvas) {
         drawTextRange(canvas, animationUnit - 1)
         drawHighlightText(canvas)
@@ -637,8 +664,45 @@ class LyricTextView(
 
         if (endUnit !in synced.list.indices) return
 
-        var charOffset = 0
+        // Batch completed units where liftProgress == 0f for 60fps/120fps smooth performance
+        var batchEndChar = 0
+        var batchEndUnit = -1
         for (i in 0..endUnit) {
+            val content = synced.list[i].content
+            val p = progress.getOrElse(i) { 0f }
+            if (p == 0f && i == batchEndUnit + 1) {
+                batchEndChar += content.length
+                batchEndUnit = i
+            } else {
+                break
+            }
+        }
+
+        if (batchEndChar > 0) {
+            val startLine = 0
+            val endLine = layout.getLineForOffset(batchEndChar)
+            for (line in startLine..endLine) {
+                val lineTop = layout.getLineTop(line).toFloat()
+                val lineBottom = layout.getLineBottom(line).toFloat()
+                val lineLeft = layout.getLineLeft(line)
+                val lineRight = layout.getLineRight(line)
+
+                val startX = lineLeft
+                var endX = if (line == endLine) layout.getPrimaryHorizontal(batchEndChar) else lineRight
+                if (endX == 0F && line < endLine) endX = lineRight
+
+                canvas.withClip(startX, lineTop, endX, lineBottom) {
+                    drawLiftedHighlightText(
+                        layout = layout,
+                        liftProgress = 0f,
+                        glowEnabled = false
+                    )
+                }
+            }
+        }
+
+        var charOffset = batchEndChar
+        for (i in (batchEndUnit + 1)..endUnit) {
             val content = synced.list[i].content
             val startOffset = charOffset
             val endOffset = charOffset + content.length

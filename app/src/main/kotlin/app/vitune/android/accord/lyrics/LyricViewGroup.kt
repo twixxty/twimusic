@@ -76,9 +76,9 @@ class LyricViewGroup @JvmOverloads constructor(
             lastRawPositionTimeMs = now
         }
 
-        // Small, safe monotonic interpolation for frame smoothness (up to 50ms)
+        // Safe monotonic interpolation for frame smoothness (up to 500ms between ExoPlayer clock updates)
         val elapsed = if (lastRawPositionTimeMs > 0L) {
-            (now - lastRawPositionTimeMs).coerceIn(0L, 50L)
+            (now - lastRawPositionTimeMs).coerceIn(0L, 500L)
         } else {
             0L
         }
@@ -409,6 +409,16 @@ class LyricViewGroup @JvmOverloads constructor(
 
     private fun updateLineProgress(child: LyricTextView, lyric: LyricBase, linePositionMs: Long) {
         val syncedLyric = lyric as? SyncedLyric ?: return
+        if (linePositionMs < 0L) {
+            // Before word 0 starts singing (lead-in / pre-roll):
+            // Hold at syllable 0, 0% progress so all words remain properly masked as unsung
+            child.animate(
+                itemPos = 0,
+                fraction = 0f,
+                linePositionMs = 0L
+            )
+            return
+        }
         val unitProgress = LyricTiming.resolveUnitProgress(
             unitCount = syncedLyric.list.size,
             relativeTime = syncedLyric.relativeTime,
