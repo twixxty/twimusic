@@ -1,0 +1,820 @@
+package app.vitune.android.accord.lyrics
+
+import android.animation.Animator
+import android.animation.ValueAnimator
+import android.content.Context
+import android.graphics.BlendMode
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.os.Build
+import android.text.Layout
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.view.View
+import android.view.animation.DecelerateInterpolator
+import android.view.animation.PathInterpolator
+import androidx.core.content.res.ResourcesCompat
+import androidx.core.graphics.withClip
+import androidx.core.graphics.withTranslation
+import app.vitune.android.R
+import kotlin.math.abs
+
+class LyricTextView(
+    context: Context,
+) : View(context) {
+
+    constructor(context: Context, lyric: LyricBase) : this(context) {
+        when (lyric) {
+            is Lyric -> { this.lyric = lyric.content }
+            is SyncedLyric -> {
+                this.syncedLyric = lyric
+                liftupWindows = LyricTiming.liftupWindows(
+                    relativeTime = lyric.relativeTime,
+                    unitCount = lyric.list.size
+                )
+                liftupProgress = FloatArray(lyric.list.size)
+                liftupStartupTimes = LongArray(lyric.list.size) { index ->
+                    liftupWindows[index].startMs
+                }
+            }
+            is Creator -> {
+                this.isHolding = true
+                this.lyric = "Written by: ${lyric.content}"
+                setCreatorContent()
+            }
+        }
+    }
+
+    private val horizontalMargin = 12.dp.px.toInt()
+    private val verticalMargin = 8.dp.px.toInt()
+
+    private val lyricPaint = TextPaint().apply {
+        textSize = NORMAL_TEXT_SIZE.sp.px
+        color = Color.WHITE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            blendMode = BlendMode.OVERLAY
+        }
+        typeface = ResourcesCompat.getFont(context, R.font.inter_bold)
+    }
+
+    var lyric: String = ""
+        set(value) {
+            field = value
+            requestLayout()
+            invalidate()
+        }
+        get() {
+            syncedLyric?.let {
+                return it.list.joinToString(separator = "") { lyric -> lyric.content }
+            }
+            return field
+        }
+
+    var syncedLyric: SyncedLyric? = null
+
+    var staticLayout: StaticLayout? = null
+    var isHolding: Boolean = false
+    private var isLineActive: Boolean = false
+    private var lineTextAlpha = INACTIVE_LINE_ALPHA
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+    private var lineTextScale = INACTIVE_LINE_SCALE
+        set(value) {
+            if (field == value) return
+            field = value
+            invalidate()
+        }
+    private var lineBlurRadius = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setRenderEffect(
+                    if (value <= 0f) {
+                        null
+                    } else {
+                        RenderEffect.createBlurEffect(value, value, Shader.TileMode.DECAL)
+                    }
+                )
+            }
+        }
+    private var lineTextAlphaAnimator: ValueAnimator? = null
+    private var lineTextScaleAnimator: ValueAnimator? = null
+    private var lineBlurRadiusAnimator: ValueAnimator? = null
+    private val lineStyleInterpolator = DecelerateInterpolator()
+
+    override fun onDraw(canvas: Canvas) {
+        val count = canvas.save()
+        canvas.scale(
+            lineTextScale,
+            lineTextScale,
+            horizontalMargin.toFloat(),
+            height / 2f
+        )
+        canvas.withTranslation(
+            horizontalMargin.toFloat(),
+            verticalMargin.toFloat()
+        ) {
+            if (syncedLyric != null && animationUnit >= 0 && endOffsetChar >= 0) {
+                drawContentLayerWithProgress(canvas)
+                drawHighlightLayer(canvas)
+            } else {
+                drawContentLayer(canvas)
+            }
+        }
+        canvas.restoreToCount(count)
+    }
+
+    private var animationUnit = -1
+    private var animationFraction = 0F
+
+    private var liftupWindows: List<LyricTiming.LiftupWindow> = emptyList()
+    private var liftupProgress: FloatArray? = null
+    private var liftupStartupTimes: LongArray? = null
+    private var liftupReturnAnimator: ValueAnimator? = null
+    private val liftupReturnInterpolator = PathInterpolator(0.6F, 0F, 0.2F, 1F)
+    private var animationPositionMs = 0L
+    private val progressSoFar: Long
+        get() = animationPositionMs
+
+    fun animate(
+        itemPos: Int,
+        fraction: Float,
+        linePositionMs: Long = calculateLinePositionMs(itemPos, fraction)
+    ) {
+        cancelLiftupReturnAnimator()
+        animationFraction = fraction
+        animationPositionMs = linePositionMs.coerceAtLeast(0L)
+
+        if (itemPos != animationUnit) {
+            animationUnit = itemPos
+            calculateTargetPosition(animationUnit)
+        }
+
+        calculateLiftupProgress()
+        invalidate()
+    }
+
+    fun resetPlayback() {
+        resetPlayback(cancelReturnAnimator = true)
+    }
+
+    private fun resetPlayback(cancelReturnAnimator: Boolean) {
+        if (cancelReturnAnimator) {
+            cancelLiftupReturnAnimator()
+        }
+        animationUnit = -1
+        animationFraction = 0f
+        animationPositionMs = 0L
+        startLine = -1
+        endLine = -1
+        startOffsetInLinePx = -1f
+        endOffsetInLinePx = -1f
+        startOffsetChar = -1
+        endOffsetChar = -1
+        animationLinePx = null
+        liftupProgress?.fill(0f)
+        invalidate()
+    }
+
+    fun animateLiftupProgressToRest(durationMs: Long, delayMs: Long) {
+        val progress = liftupProgress
+        if (progress == null || animationUnit < 0 || progress.all { it == 0f }) {
+            resetPlayback()
+            return
+        }
+
+        val startProgress = progress.copyOf()
+        var wasCancelled = false
+
+        cancelLiftupReturnAnimator()
+        liftupReturnAnimator = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = durationMs
+            startDelay = delayMs
+            interpolator = liftupReturnInterpolator
+            addUpdateListener {
+                val fraction = it.animatedValue as Float
+                progress.indices.forEach { index ->
+                    progress[index] = startProgress[index] * (1f - fraction)
+                }
+                invalidate()
+            }
+            addListener(object : Animator.AnimatorListener {
+                override fun onAnimationStart(animation: Animator) = Unit
+
+                override fun onAnimationEnd(animation: Animator) {
+                    if (!wasCancelled) {
+                        liftupReturnAnimator = null
+                        resetPlayback(cancelReturnAnimator = false)
+                    }
+                }
+
+                override fun onAnimationCancel(animation: Animator) {
+                    wasCancelled = true
+                }
+
+                override fun onAnimationRepeat(animation: Animator) = Unit
+            })
+            start()
+        }
+    }
+
+    fun setLineActive(active: Boolean) {
+        if (isLineActive == active) return
+        isLineActive = active
+        invalidate()
+    }
+
+    fun updateDelayedLineStyle(
+        index: Int,
+        targetIndex: Int,
+        animated: Boolean,
+        delayMs: Long
+    ) {
+        val isActivated = index == targetIndex
+        val targetAlpha = if (isActivated) ACTIVE_LINE_ALPHA else INACTIVE_LINE_ALPHA
+        val targetScale = if (isActivated) ACTIVE_LINE_SCALE else INACTIVE_LINE_SCALE
+        val targetBlurRadius = (abs(index - targetIndex) * BLUR_RADIUS_STEP.dp.px)
+            .coerceAtMost(MAX_BLUR_RADIUS.dp.px)
+
+        if (!animated) {
+            cancelLineStyleAnimations()
+            lineTextAlpha = targetAlpha
+            lineTextScale = targetScale
+            lineBlurRadius = targetBlurRadius
+            return
+        }
+
+        val secondaryDelayMs = delayMs + STYLE_SECONDARY_DELAY_MS
+        animateLineTextAlpha(targetAlpha, secondaryDelayMs)
+        animateLineTextScale(targetScale, secondaryDelayMs)
+        animateLineBlurRadius(targetBlurRadius, secondaryDelayMs)
+    }
+
+    fun resetLineStyle() {
+        cancelLineStyleAnimations()
+        lineTextAlpha = INACTIVE_LINE_ALPHA
+        lineTextScale = INACTIVE_LINE_SCALE
+        lineBlurRadius = 0f
+    }
+
+    private fun animateLineTextAlpha(targetAlpha: Float, delayMs: Long) {
+        if (lineTextAlpha == targetAlpha) return
+        lineTextAlphaAnimator?.cancel()
+        lineTextAlphaAnimator = ValueAnimator.ofFloat(lineTextAlpha, targetAlpha).apply {
+            duration = STYLE_ANIMATION_DURATION_MS
+            startDelay = delayMs
+            interpolator = lineStyleInterpolator
+            addUpdateListener {
+                lineTextAlpha = it.animatedValue as Float
+            }
+            start()
+        }
+    }
+
+    private fun animateLineTextScale(targetScale: Float, delayMs: Long) {
+        if (lineTextScale == targetScale) return
+        lineTextScaleAnimator?.cancel()
+        lineTextScaleAnimator = ValueAnimator.ofFloat(lineTextScale, targetScale).apply {
+            duration = STYLE_ANIMATION_DURATION_MS
+            startDelay = delayMs
+            interpolator = lineStyleInterpolator
+            addUpdateListener {
+                lineTextScale = it.animatedValue as Float
+            }
+            start()
+        }
+    }
+
+    private fun animateLineBlurRadius(targetRadius: Float, delayMs: Long) {
+        if (lineBlurRadius == targetRadius) return
+        lineBlurRadiusAnimator?.cancel()
+        lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
+            duration = BLUR_ANIMATION_DURATION_MS
+            startDelay = delayMs
+            addUpdateListener {
+                lineBlurRadius = it.animatedValue as Float
+            }
+            start()
+        }
+    }
+
+    private fun cancelLineStyleAnimations() {
+        lineTextAlphaAnimator?.cancel()
+        lineTextScaleAnimator?.cancel()
+        lineBlurRadiusAnimator?.cancel()
+        lineTextAlphaAnimator = null
+        lineTextScaleAnimator = null
+        lineBlurRadiusAnimator = null
+    }
+
+    private fun cancelLiftupReturnAnimator() {
+        liftupReturnAnimator?.cancel()
+        liftupReturnAnimator = null
+    }
+
+    private fun calculateLiftupProgress() {
+        val starts = liftupStartupTimes ?: return
+        val progresses = liftupProgress ?: return
+
+        val n = minOf(starts.size, progresses.size)
+        val now = progressSoFar
+
+        for (i in 0 until n) {
+            val start = starts[i]
+            if (start < 0L) {
+                continue
+            }
+            val elapsed = now - start
+            val duration = liftupWindows
+                .getOrNull(i)
+                ?.durationMs
+                ?: LyricTiming.LIFTUP_DURATION_MS
+            val p = when {
+                elapsed <= 0L -> 0f
+                elapsed >= duration -> 1f
+                else -> elapsed.toFloat() / duration.toFloat()
+            }
+            progresses[i] = defaultPathInterpolator.getInterpolation(p)
+        }
+    }
+
+    private fun calculateLinePositionMs(itemPos: Int, fraction: Float): Long {
+        val synced = syncedLyric ?: return 0L
+        return LyricTiming.linePositionMs(synced.relativeTime, itemPos, fraction)
+    }
+
+    private fun calculateTargetPosition(itemPos: Int) {
+        val list = syncedLyric?.list ?: return
+        val layout = staticLayout ?: return
+
+        val substringBeforeTarget = list.take(itemPos).joinToString("") { it.content }
+        startOffsetChar = substringBeforeTarget.length
+        endOffsetChar = startOffsetChar + list[itemPos].content.length
+
+        startLine = layout.getLineForOffset(startOffsetChar)
+        endLine = layout.getLineForOffset(endOffsetChar)
+
+        startOffsetInLinePx = layout.getPrimaryHorizontal(startOffsetChar)
+        endOffsetInLinePx = layout.getPrimaryHorizontal(endOffsetChar)
+
+        if (endOffsetInLinePx == 0F) {
+            endLine --
+            endOffsetInLinePx = layout.getLineRight(endLine)
+        }
+
+        val lineArray = IntArray(endLine - startLine + 1)
+        for (line in startLine..endLine) {
+            if (startLine == endLine) {
+                lineArray[0] = (endOffsetInLinePx - startOffsetInLinePx).toInt()
+                break
+            }
+            if (line == startLine) {
+                lineArray[0] = (layout.getLineRight(line) - layout.getLineLeft(line) - startOffsetInLinePx).toInt()
+                continue
+            }
+            if (line == endLine) {
+                lineArray[endLine - startLine] = endOffsetInLinePx.toInt()
+                continue
+            }
+            lineArray[line - startLine] = (layout.getLineRight(line) - layout.getLineLeft(line)).toInt()
+        }
+        animationLinePx = LinePixels(lineArray)
+    }
+
+    private var startLine = -1
+    private var endLine = -1
+    private var startOffsetInLinePx = -1F
+    private var endOffsetInLinePx = -1F
+    private var startOffsetChar = -1
+    private var endOffsetChar = -1
+    private var animationLinePx: LinePixels? = null
+
+    private val defaultPathInterpolator = PathInterpolator(0.2F, 0F, 0F, 1F)
+
+    inner class LinePixels(
+        val lineWidths: IntArray,
+    ) {
+        fun getTotalLineWidth() =
+            lineWidths.sum()
+
+        fun getLineAndProgress(animationFraction: Float): Pair<Int, Float> {
+            val progressPixel = animationFraction * getTotalLineWidth()
+            var accumulatingPixels = 0
+
+            lineWidths.forEachIndexed { index, i ->
+                if (accumulatingPixels + i < progressPixel) {
+                    accumulatingPixels += i
+                } else {
+                    return Pair(startLine + index, progressPixel - accumulatingPixels)
+                }
+            }
+
+            return Pair(startLine, 0f)
+        }
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+
+            other as LinePixels
+
+            return lineWidths.contentEquals(other.lineWidths)
+        }
+
+        override fun hashCode(): Int {
+            return lineWidths.contentHashCode()
+        }
+    }
+
+    private fun drawContentLayerWithProgress(canvas: Canvas) {
+        val startOffset = endOffsetChar
+        val endOffset = lyric.length
+        val layout = staticLayout ?: return
+
+        val activeWholeLine = isLineActive && syncedLyric == null
+        val overlayAlpha = when {
+            activeWholeLine -> ACTIVE_OVERLAY_TRANSPARENCY
+            isHolding -> HOLDING_OVERLAY_TRANSPARENCY
+            else -> INACTIVE_OVERLAY_TRANSPARENCY
+        }
+
+        val shadeAlpha = when {
+            activeWholeLine -> ACTIVE_SHADE_TRANSPARENCY
+            isHolding -> HOLDING_SHADE_TRANSPARENCY
+            else -> INACTIVE_SHADE_TRANSPARENCY
+        }
+
+        val startLine = layout.getLineForOffset(startOffset)
+        val endLine = layout.getLineForOffset(endOffset)
+
+        for (line in startLine..endLine) {
+            val lineTop = layout.getLineTop(line).toFloat()
+            val lineBottom = layout.getLineBottom(line).toFloat()
+            val lineLeft = layout.getLineLeft(line)
+            val lineRight = layout.getLineRight(line)
+
+            val startX = if (line == startLine) layout.getPrimaryHorizontal(startOffset) else lineLeft
+            val endX = if (line == endLine) layout.getPrimaryHorizontal(endOffset) else lineRight
+
+            canvas.withClip(startX, lineTop, endX, lineBottom) {
+                layout.paint.apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        blendMode = BlendMode.OVERLAY
+                    }
+                    style = Paint.Style.FILL
+                    alpha = getScopeAlpha(overlayAlpha)
+                }
+                layout.draw(this)
+
+                layout.paint.apply {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        blendMode = null
+                    }
+                    style = Paint.Style.FILL
+                    alpha = getScopeAlpha(shadeAlpha)
+                }
+                layout.draw(this)
+            }
+        }
+    }
+
+    private fun drawContentLayer(canvas: Canvas) {
+        val layout = staticLayout ?: return
+
+        val activeWholeLine = isLineActive && syncedLyric == null
+        val overlayAlpha = when {
+            activeWholeLine -> ACTIVE_OVERLAY_TRANSPARENCY
+            isHolding -> HOLDING_OVERLAY_TRANSPARENCY
+            else -> INACTIVE_OVERLAY_TRANSPARENCY
+        }
+
+        val shadeAlpha = when {
+            activeWholeLine -> ACTIVE_SHADE_TRANSPARENCY
+            isHolding -> HOLDING_SHADE_TRANSPARENCY
+            else -> INACTIVE_SHADE_TRANSPARENCY
+        }
+
+        layout.paint.apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = BlendMode.OVERLAY
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(overlayAlpha)
+        }
+        layout.draw(canvas)
+
+        layout.paint.apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = null
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(shadeAlpha)
+        }
+        layout.draw(canvas)
+    }
+
+    private fun drawHighlightLayer(canvas: Canvas) {
+        drawTextRange(canvas, animationUnit - 1)
+        drawHighlightText(canvas)
+    }
+
+    private fun drawTextRange(canvas: Canvas, endUnit: Int) {
+        val layout = staticLayout ?: return
+        val synced = syncedLyric ?: return
+        val progress = liftupProgress ?: return
+
+        if (endUnit !in synced.list.indices) return
+
+        var charOffset = 0
+
+        for (i in synced.list.indices) {
+            val content = synced.list[i].content
+            val startOffset = charOffset
+            val endOffset = charOffset + content.length
+            charOffset = endOffset
+
+            if (i > endUnit) continue
+
+            val startLine = layout.getLineForOffset(startOffset)
+            val endLine = layout.getLineForOffset(endOffset)
+
+            for (line in startLine..endLine) {
+                val lineTop = layout.getLineTop(line).toFloat()
+                val lineBottom = layout.getLineBottom(line).toFloat()
+                val lineLeft = layout.getLineLeft(line)
+                val lineRight = layout.getLineRight(line)
+
+                val startX = if (line == startLine) layout.getPrimaryHorizontal(startOffset) else lineLeft
+                var endX = if (line == endLine) layout.getPrimaryHorizontal(endOffset) else lineRight
+
+                if (endX == 0F && line < endLine) {
+                    endX = lineRight
+                }
+
+                canvas.withClip(startX, lineTop, endX, lineBottom) {
+                    drawLiftedHighlightText(
+                        layout = layout,
+                        liftProgress = progress.getOrElse(i) { 0f },
+                        glowEnabled = false
+                    )
+                }
+            }
+        }
+    }
+
+    private fun drawHighlightText(canvas: Canvas) {
+        val layout = staticLayout ?: return
+        val linePx = animationLinePx ?: return
+        val progress = liftupProgress ?: return
+
+        val (activeLine, pixelProgress) = linePx.getLineAndProgress(animationFraction)
+
+        for (line in activeLine..endLine) {
+            val lineTop = layout.getLineTop(line).toFloat()
+            val lineBottom = layout.getLineBottom(line).toFloat()
+            val lineLeft = layout.getLineLeft(line)
+            val lineRight = layout.getLineRight(line)
+
+            val leftDist = if (line == startLine) startOffsetInLinePx else lineLeft
+            val startX = if (line == activeLine) leftDist + pixelProgress else leftDist
+            val endX = if (line == endLine) endOffsetInLinePx else lineRight
+            canvas.withClip(startX, lineTop, endX, lineBottom) {
+                val currentLift = progress.getOrElse(animationUnit) { 0f }
+                canvas.translate(0F, -LIFTUP_PX * currentLift)
+
+                layout.paint.apply {
+                    clearGlowShadow()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        blendMode = BlendMode.OVERLAY
+                    }
+                    style = Paint.Style.FILL
+                    alpha = getScopeAlpha(inactiveOverlayAlpha())
+                }
+                layout.draw(this)
+
+                layout.paint.apply {
+                    clearGlowShadow()
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                        blendMode = null
+                    }
+                    style = Paint.Style.FILL
+                    alpha = getScopeAlpha(inactiveShadeAlpha())
+                }
+                layout.draw(this)
+            }
+        }
+
+        for (line in startLine..activeLine) {
+            val lineTop = layout.getLineTop(line).toFloat()
+            val lineBottom = layout.getLineBottom(line).toFloat()
+            val lineLeft = layout.getLineLeft(line)
+            val lineRight = layout.getLineRight(line)
+
+            val startX = if (line == startLine) startOffsetInLinePx else lineLeft
+            val endX = if (line == activeLine) startX + pixelProgress else lineRight
+
+            canvas.withClip(startX, lineTop, endX, lineBottom) {
+                val currentLift = progress.getOrElse(animationUnit) { 0f }
+                drawLiftedHighlightText(
+                    layout = layout,
+                    liftProgress = currentLift,
+                    glowEnabled = shouldShowActiveGlow(animationUnit)
+                )
+            }
+        }
+    }
+
+    private fun Canvas.drawLiftedHighlightText(
+        layout: StaticLayout,
+        liftProgress: Float,
+        glowEnabled: Boolean
+    ) {
+        translate(0F, -LIFTUP_PX * liftProgress)
+
+        layout.paint.apply {
+            clearGlowShadow()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = BlendMode.OVERLAY
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(inactiveOverlayAlpha())
+        }
+        layout.draw(this)
+
+        layout.paint.apply {
+            clearGlowShadow()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = null
+            }
+            style = Paint.Style.FILL
+            alpha = getScopeAlpha(inactiveShadeAlpha())
+        }
+        layout.draw(this)
+
+        layout.paint.apply {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                blendMode = null
+            }
+            strokeWidth = 0.5F
+            style = Paint.Style.FILL_AND_STROKE
+            alpha = getScopeAlpha(ACTIVE_SHADE_TRANSPARENCY)
+            setGlowShadow(liftProgress, glowEnabled)
+        }
+        layout.draw(this)
+        layout.paint.clearGlowShadow()
+    }
+
+    private fun inactiveOverlayAlpha(): Float =
+        if (isHolding) {
+            HOLDING_OVERLAY_TRANSPARENCY
+        } else {
+            INACTIVE_OVERLAY_TRANSPARENCY
+        }
+
+    private fun inactiveShadeAlpha(): Float =
+        if (isHolding) {
+            HOLDING_SHADE_TRANSPARENCY
+        } else {
+            INACTIVE_SHADE_TRANSPARENCY
+        }
+
+    private fun shouldShowActiveGlow(itemPos: Int): Boolean {
+        val synced = syncedLyric ?: return false
+        return LyricTiming.shouldShowActiveGlow(synced.relativeTime, itemPos)
+    }
+
+    private fun TextPaint.setGlowShadow(liftProgress: Float, enabled: Boolean) {
+        val radius = if (enabled) {
+            GLOW_EFFECT_RADIUS * triangle(liftProgress)
+        } else {
+            0F
+        }
+
+        if (radius > 0F) {
+            setShadowLayer(
+                radius,
+                0F,
+                0F,
+                Color.WHITE.applyAlpha(alpha)
+            )
+        } else {
+            clearGlowShadow()
+        }
+    }
+
+    private fun TextPaint.clearGlowShadow() {
+        setShadowLayer(
+            0F,
+            0F,
+            0F,
+            Color.TRANSPARENT
+        )
+    }
+
+    private var alpha = 1F
+
+    override fun setAlpha(alpha: Float) {
+        this.alpha = alpha
+        invalidate()
+    }
+
+    override fun getAlpha(): Float = alpha
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val widthMode = MeasureSpec.getMode(widthMeasureSpec)
+        val widthSize = MeasureSpec.getSize(widthMeasureSpec)
+
+        val heightMode = MeasureSpec.getMode(heightMeasureSpec)
+        val heightSize = MeasureSpec.getSize(heightMeasureSpec)
+
+        val measuredWidth = when (widthMode) {
+            MeasureSpec.EXACTLY -> widthSize
+            MeasureSpec.AT_MOST -> widthSize
+            MeasureSpec.UNSPECIFIED -> widthSize
+            else -> widthSize
+        }
+
+        measureStaticLayout(lyric, measuredWidth)
+
+        val desiredHeight = staticLayout?.height ?: 0
+
+        val measuredHeight = when (heightMode) {
+            MeasureSpec.EXACTLY -> heightSize
+            MeasureSpec.AT_MOST -> desiredHeight.coerceAtMost(heightSize) + verticalMargin * 2
+            MeasureSpec.UNSPECIFIED -> desiredHeight + verticalMargin * 2
+            else -> desiredHeight
+        }
+
+        setMeasuredDimension(measuredWidth, measuredHeight)
+    }
+
+    fun release() {
+        animate().cancel()
+        cancelLineStyleAnimations()
+        cancelLiftupReturnAnimator()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            setRenderEffect(null)
+        }
+    }
+
+    private fun measureStaticLayout(value: String, measuredWidth: Int) {
+        val contentWidth = (measuredWidth - 2 * horizontalMargin).coerceAtLeast(1)
+        staticLayout = StaticLayout.Builder
+            .obtain(
+                value,
+                0, value.length,
+                lyricPaint,
+                contentWidth
+            )
+            .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+            .setLineSpacing(0F, 1.25F)
+            .setIncludePad(false)
+            .build()
+    }
+
+    private fun setCreatorContent() {
+        lyricPaint.apply {
+            textSize = BG_TEXT_SIZE.sp.px
+            typeface = ResourcesCompat.getFont(context, R.font.inter_semibold)
+        }
+    }
+
+    private fun getScopeAlpha(currentAlpha: Float): Int =
+        (currentAlpha * 255 * this.alpha * lineTextAlpha).toInt()
+
+    companion object {
+        const val ACTIVE_SHADE_TRANSPARENCY = .85F
+        const val ACTIVE_OVERLAY_TRANSPARENCY = 1F
+
+        const val INACTIVE_SHADE_TRANSPARENCY = .25F
+        const val INACTIVE_OVERLAY_TRANSPARENCY = .3F
+
+        const val HOLDING_SHADE_TRANSPARENCY = .45F
+        const val HOLDING_OVERLAY_TRANSPARENCY = .75F
+
+        const val NORMAL_TEXT_SIZE = 26
+        const val BG_TEXT_SIZE = 20
+
+        const val LIFTUP_DURATION = LyricTiming.LIFTUP_DURATION_MS
+        const val LIFTUP_PX = 6
+
+        const val GLOW_EFFECT_RADIUS = 7F
+
+        private const val ACTIVE_LINE_ALPHA = .9F
+        private const val INACTIVE_LINE_ALPHA = .2F
+        private const val ACTIVE_LINE_SCALE = 1F
+        private const val INACTIVE_LINE_SCALE = .96F
+        private const val MAX_BLUR_RADIUS = 8
+        private const val BLUR_RADIUS_STEP = 2
+        private const val STYLE_ANIMATION_DURATION_MS = 500L
+        private const val BLUR_ANIMATION_DURATION_MS = 100L
+        private const val STYLE_SECONDARY_DELAY_MS = 250L
+    }
+}

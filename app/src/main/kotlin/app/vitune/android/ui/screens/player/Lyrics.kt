@@ -6,6 +6,16 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
+import android.view.MotionEvent
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ScrollView
+import androidx.compose.ui.viewinterop.AndroidView
+import app.vitune.android.accord.lyrics.Lyric
+import app.vitune.android.accord.lyrics.LyricBase
+import app.vitune.android.accord.lyrics.LyricViewGroup
+import app.vitune.android.accord.lyrics.SyncedLyric
+import app.vitune.android.accord.lyrics.UiUtils
 import androidx.compose.foundation.layout.heightIn
 import app.vitune.android.lyrics.LyricsProviderRegistry
 import app.vitune.android.preferences.LyricsPreferences
@@ -431,7 +441,8 @@ fun Lyrics(
             while (true) {
                 val player = binder?.player
                 currentPositionMs = (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                delay(100.milliseconds)
+                val isPlaying = player?.isPlaying ?: false
+                delay(if (isPlaying) 16.milliseconds else 200.milliseconds)
             }
         }
 
@@ -523,68 +534,62 @@ fun Lyrics(
                     }
                 }
 
-                Box(modifier = Modifier.fillMaxSize()) {
-                    LazyColumn(
-                        state = lazyListState,
-                        userScrollEnabled = true,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
-                        modifier = Modifier
-                            .verticalFadingEdge()
-                            .nestedScroll(nestedScrollConnection)
-                            .fillMaxSize()
-                    ) {
-                        item(key = "header") {
-                            Spacer(modifier = Modifier.height(containerMaxHeight * 0.35f))
+                val accordLyricsData = remember(parsedEntries) {
+                    val lyricList = mutableListOf<LyricBase>()
+                    val startTimes = mutableListOf<Long>()
+                    parsedEntries.forEach { entry ->
+                        val lineText = entry.text
+                        if (lineText.isBlank()) return@forEach
+                        startTimes.add(entry.time)
+                        if (entry.words != null && entry.words.isNotEmpty()) {
+                            val words = entry.words
+                            val list = words.map { word ->
+                                val content = if (word.hasTrailingSpace) "${word.text} " else word.text
+                                Lyric(content)
+                            }
+                            val relativeTime = LongArray(words.size) { idx ->
+                                val word = words[idx]
+                                ((word.endTime - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                            }
+                            lyricList.add(SyncedLyric(list, relativeTime))
+                        } else {
+                            lyricList.add(Lyric(lineText))
                         }
-                        itemsIndexed(
-                            items = parsedEntries,
-                            key = { index, entry -> "${entry.time}_$index" }
-                        ) { index, entry ->
-                            val isActive = index == activeIndex
-                            val distance = abs(index - activeIndex)
+                    }
+                    lyricList to startTimes
+                }
 
-                            val defaultAlignment = when (PlayerPreferences.lyricsTextPosition) {
-                                PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start to TextAlign.Left
-                                PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally to TextAlign.Center
-                                PlayerPreferences.LyricsTextPosition.Right -> Alignment.End to TextAlign.Right
+                Box(modifier = Modifier.fillMaxSize()) {
+                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                        LazyColumn(
+                            state = lazyListState,
+                            userScrollEnabled = true,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .verticalFadingEdge()
+                                .nestedScroll(nestedScrollConnection)
+                                .fillMaxSize()
+                        ) {
+                            item(key = "header") {
+                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.35f))
                             }
-
-                            val (horizontalAlignment, textAlign) = when {
-                                entry.agent == "v1" -> Alignment.Start to TextAlign.Left
-                                entry.agent == "v2" -> Alignment.End to TextAlign.Right
-                                entry.isBackground -> Alignment.CenterHorizontally to TextAlign.Center
-                                else -> defaultAlignment
-                            }
-
-                            if (entry.text.isBlank()) {
-                                val targetAlpha = when {
-                                    isActive -> 1.0f
-                                    distance == 1 -> 0.35f
-                                    distance == 2 -> 0.22f
-                                    distance == 3 -> 0.15f
-                                    else -> 0.08f
-                                }.let { if (entry.isBackground && !isActive) 0.08f else it }
-                                val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lineAlpha")
-                                val animatedScale by animateFloatAsState(if (isActive) 1.03f else 1.0f, tween(300), label = "lineScale")
-                                val noteColor = if (isActive) colorPalette.accent else Color.White.copy(alpha = 0.35f)
-                                Box(
-                                    contentAlignment = when {
-                                        entry.agent == "v1" -> Alignment.CenterStart
-                                        entry.agent == "v2" -> Alignment.CenterEnd
-                                        else -> when (PlayerPreferences.lyricsTextPosition) {
-                                            PlayerPreferences.LyricsTextPosition.Left -> Alignment.CenterStart
-                                            PlayerPreferences.LyricsTextPosition.Right -> Alignment.CenterEnd
-                                            else -> Alignment.Center
-                                        }
-                                    },
+                            itemsIndexed(
+                                items = parsedEntries,
+                                key = { index, entry -> "${entry.time}_$index" }
+                            ) { index, entry ->
+                                val isActive = index == activeIndex
+                                val textColor = if (isActive) colorPalette.onOverlay else colorPalette.onOverlay.copy(alpha = 0.5f)
+                                BasicText(
+                                    text = entry.text,
+                                    style = TextStyle(
+                                        fontSize = 20.sp,
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                                        color = textColor,
+                                        textAlign = TextAlign.Center
+                                    ),
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .graphicsLayer {
-                                            scaleX = animatedScale
-                                            scaleY = animatedScale
-                                            alpha = animatedAlpha
-                                        }
                                         .clickable(
                                             indication = ripple(bounded = false),
                                             interactionSource = remember { MutableInteractionSource() },
@@ -595,64 +600,62 @@ fun Lyrics(
                                                 }
                                             }
                                         )
-                                        .padding(vertical = 12.dp)
-                                ) {
-                                    Image(
-                                        painter = painterResource(R.drawable.musical_notes),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(noteColor),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                }
-                            } else {
-                                if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
-                                    val textColor = if (isActive) colorPalette.onOverlay else colorPalette.onOverlay.copy(alpha = 0.5f)
-                                    BasicText(
-                                        text = entry.text,
-                                        style = TextStyle(
-                                            fontSize = 20.sp,
-                                            fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
-                                            color = textColor,
-                                            textAlign = textAlign
-                                        ),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clickable(
-                                                indication = ripple(bounded = false),
-                                                interactionSource = remember { MutableInteractionSource() },
-                                                onClick = {
-                                                    binder?.player?.seekTo(entry.time)
-                                                    coroutineScope.launch {
-                                                        performSmoothPageScroll(index, duration = 800)
-                                                    }
-                                                }
-                                            )
-                                            .padding(vertical = 10.dp, horizontal = 24.dp)
-                                    )
-                                } else {
-                                    MetrolistLyricsLine(
-                                        index = index,
-                                        item = entry,
-                                        isSynced = true,
-                                        isActiveLine = isActive,
-                                        currentPositionState = currentPositionMs,
-                                        player = binder?.player,
-                                        expressiveAccent = colorPalette.accent,
-                                        displayedCurrentLineIndex = activeIndex,
-                                        isAutoScrollEnabled = isAutoScrollEnabled,
-                                        onClick = {
-                                            binder?.player?.seekTo(entry.time)
-                                            coroutineScope.launch {
-                                                performSmoothPageScroll(index, duration = 800)
-                                            }
-                                        }
-                                    )
-                                }
+                                        .padding(vertical = 10.dp, horizontal = 24.dp)
+                                )
+                            }
+                            item(key = "footer") {
+                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
                             }
                         }
-                        item(key = "footer") {
-                            Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
-                        }
+                    } else {
+                        AndroidView(
+                            factory = { ctx ->
+                                UiUtils.init(ctx)
+                                val scrollView = ScrollView(ctx).apply {
+                                    overScrollMode = View.OVER_SCROLL_NEVER
+                                    isVerticalScrollBarEnabled = false
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.MATCH_PARENT
+                                    )
+                                    setOnTouchListener { _, event ->
+                                        if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
+                                            isAutoScrollEnabled = false
+                                            lastPreviewTime = System.currentTimeMillis()
+                                        }
+                                        false
+                                    }
+                                }
+                                val lyricViewGroup = LyricViewGroup(ctx).apply {
+                                    layoutParams = ViewGroup.LayoutParams(
+                                        ViewGroup.LayoutParams.MATCH_PARENT,
+                                        ViewGroup.LayoutParams.WRAP_CONTENT
+                                    )
+                                    onLineClick = { _, timeMs ->
+                                        binder?.player?.seekTo(timeMs)
+                                        isAutoScrollEnabled = true
+                                        lastPreviewTime = 0L
+                                    }
+                                }
+                                scrollView.addView(lyricViewGroup)
+                                scrollView
+                            },
+                            update = { scrollView ->
+                                val lyricViewGroup = scrollView.getChildAt(0) as? LyricViewGroup ?: return@AndroidView
+                                if (lyricViewGroup.tag != accordLyricsData.first) {
+                                    lyricViewGroup.tag = accordLyricsData.first
+                                    lyricViewGroup.updateLyrics(accordLyricsData.first, accordLyricsData.second)
+                                }
+                                lyricViewGroup.updatePlaybackPosition(
+                                    scrollView = scrollView,
+                                    positionMs = currentPositionMs,
+                                    autoScroll = isAutoScrollEnabled
+                                )
+                            },
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalFadingEdge()
+                        )
                     }
 
                     androidx.compose.animation.AnimatedVisibility(

@@ -314,7 +314,7 @@ private fun ModernControls(
                 modifier = Modifier.weight(1f)
             )
         }
-        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(12.dp))
         AnimatedVisibility(
             visible = !isShowingLyrics,
             enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
