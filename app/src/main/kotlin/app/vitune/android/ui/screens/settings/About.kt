@@ -296,7 +296,7 @@ fun About() = SettingsCategoryScreen(
                     style = typography.m.bold.center
                 )
 
-                if (!release.markdown.isNullOrBlank()) {
+                release.markdown?.takeIf { it.isNotBlank() }?.let { markdown ->
                     Spacer(modifier = Modifier.height(10.dp))
                     Box(
                         modifier = Modifier
@@ -310,7 +310,7 @@ fun About() = SettingsCategoryScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
                         BasicText(
-                            text = release.markdown.trim(),
+                            text = markdown.trim(),
                             style = typography.xxs.secondary
                         )
                     }

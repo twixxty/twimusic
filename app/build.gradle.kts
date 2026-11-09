@@ -136,8 +136,7 @@ kotlin {
 
         freeCompilerArgs.addAll(
             "-Xconsistent-data-class-copy-visibility",
-            "-Xstring-concat=inline",
-            "-Xjvm-default=all"
+            "-Xstring-concat=inline"
         )
     }
 }
