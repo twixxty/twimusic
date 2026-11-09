@@ -783,12 +783,27 @@ fun Lyrics(
                                 }
                                 accordScrollView = scrollView
                                 accordLyricViewGroup = lyricViewGroup
+                                var downY = 0f
+                                var isDragging = false
+                                val touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop
                                 scrollView.setOnTouchListener { _, event ->
-                                    if (event.action == MotionEvent.ACTION_DOWN || event.action == MotionEvent.ACTION_MOVE) {
-                                        isAutoScrollEnabled = false
-                                        lastPreviewTime = System.currentTimeMillis()
-                                        lyricViewGroup.autoScrollEnabled = false
-                                        lyricViewGroup.cancelScrollAnimation()
+                                    when (event.actionMasked) {
+                                        MotionEvent.ACTION_DOWN -> {
+                                            downY = event.y
+                                            isDragging = false
+                                        }
+                                        MotionEvent.ACTION_MOVE -> {
+                                            if (!isDragging && kotlin.math.abs(event.y - downY) > touchSlop) {
+                                                isDragging = true
+                                                isAutoScrollEnabled = false
+                                                lastPreviewTime = System.currentTimeMillis()
+                                                lyricViewGroup.autoScrollEnabled = false
+                                                lyricViewGroup.cancelScrollAnimation()
+                                            }
+                                        }
+                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                                            isDragging = false
+                                        }
                                     }
                                     false
                                 }

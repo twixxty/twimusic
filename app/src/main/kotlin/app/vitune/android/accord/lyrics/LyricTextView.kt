@@ -392,7 +392,7 @@ class LyricTextView(
             return
         }
 
-        val effectiveDelay = if (isActivated) delayMs else delayMs + STYLE_SECONDARY_DELAY_MS
+        val effectiveDelay = if (isActivated) delayMs + 60L else delayMs + STYLE_SECONDARY_DELAY_MS
         animateLineTextAlpha(targetAlpha, effectiveDelay)
         animateLineTextScale(targetScale, effectiveDelay)
         animateLineBlurRadius(targetBlurRadius, effectiveDelay)
@@ -436,10 +436,6 @@ class LyricTextView(
     private fun animateLineBlurRadius(targetRadius: Float, delayMs: Long) {
         if (lineBlurRadius == targetRadius) return
         lineBlurRadiusAnimator?.cancel()
-        if (targetRadius == 0f) {
-            lineBlurRadius = 0f
-            return
-        }
         lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
             duration = BLUR_ANIMATION_DURATION_MS
             startDelay = delayMs
@@ -635,18 +631,16 @@ class LyricTextView(
     private fun drawContentLayer(canvas: Canvas) {
         val layout = staticLayout ?: return
 
-        val activeWholeLine = isLineActive && syncedLyric == null
-        val overlayAlpha = when {
-            activeWholeLine -> ACTIVE_OVERLAY_TRANSPARENCY
-            isHolding -> HOLDING_OVERLAY_TRANSPARENCY
-            else -> INACTIVE_OVERLAY_TRANSPARENCY
+        val activeProgress = if (isLineActive && syncedLyric == null) {
+            ((lineTextAlpha - INACTIVE_LINE_ALPHA) / (ACTIVE_LINE_ALPHA - INACTIVE_LINE_ALPHA)).coerceIn(0f, 1f)
+        } else if (isHolding) {
+            0.5f
+        } else {
+            0f
         }
 
-        val shadeAlpha = when {
-            activeWholeLine -> ACTIVE_SHADE_TRANSPARENCY
-            isHolding -> HOLDING_SHADE_TRANSPARENCY
-            else -> INACTIVE_SHADE_TRANSPARENCY
-        }
+        val overlayAlpha = INACTIVE_OVERLAY_TRANSPARENCY + (ACTIVE_OVERLAY_TRANSPARENCY - INACTIVE_OVERLAY_TRANSPARENCY) * activeProgress
+        val shadeAlpha = INACTIVE_SHADE_TRANSPARENCY + (ACTIVE_SHADE_TRANSPARENCY - INACTIVE_SHADE_TRANSPARENCY) * activeProgress
 
         layout.paint.apply {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -663,8 +657,8 @@ class LyricTextView(
             }
             style = Paint.Style.FILL
             alpha = getScopeAlpha(shadeAlpha)
-            if (activeWholeLine && accentColor != Color.WHITE && accentColor != 0) {
-                setShadowLayer(GLOW_EFFECT_RADIUS * 1.5f, 0f, 0f, accentColor)
+            if (activeProgress > 0.15f && accentColor != Color.WHITE && accentColor != 0) {
+                setShadowLayer(GLOW_EFFECT_RADIUS * 1.5f * activeProgress, 0f, 0f, accentColor)
             }
         }
         layout.draw(canvas)

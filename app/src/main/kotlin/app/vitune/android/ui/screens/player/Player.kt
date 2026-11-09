@@ -629,6 +629,21 @@ fun Player(
                 }
             }
 
+            if (!isLandscape && isCanvasActive) {
+                AnimatedVisibility(
+                    visible = !isShowingLyrics,
+                    enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(tween(350, easing = FastOutSlowInEasing)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    canvasContent(
+                        Modifier
+                            .fillMaxSize()
+                            .align(Alignment.TopCenter)
+                    )
+                }
+            }
+
             if (isLandscape) BoxWithConstraints(
                 modifier = containerModifier.fillMaxSize()
             ) {
@@ -725,7 +740,16 @@ fun Player(
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             } else if (isCanvasActive) {
-                                canvasContent(Modifier.fillMaxSize())
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = remember { MutableInteractionSource() }
+                                        ) {
+                                            isShowingLyrics = !isShowingLyrics
+                                        }
+                                )
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }

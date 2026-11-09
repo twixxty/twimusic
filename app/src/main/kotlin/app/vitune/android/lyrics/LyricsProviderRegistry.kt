@@ -47,7 +47,7 @@ object LyricsProviderRegistry {
         providerMap.entries.find { it.value == provider }?.key
 
     fun deserializeProviderOrder(orderString: String): List<String> {
-        if (orderString.isBlank()) {
+        if (orderString.isBlank() || orderString.startsWith("Musixmatch,YouLyPlus")) {
             return getDefaultProviderOrder()
         }
         val saved = orderString.split(",").map { it.trim() }.filter { it in providerNames }
@@ -61,9 +61,9 @@ object LyricsProviderRegistry {
     fun getDefaultProviderOrder(): List<String> = listOf(
         "BetterLyrics",
         "Paxsenix",
+        "BiniLyrics",
         "YouLyPlus",
         "Unison",
-        "BiniLyrics",
         "Musixmatch",
         "LrcLib",
         "KuGou",

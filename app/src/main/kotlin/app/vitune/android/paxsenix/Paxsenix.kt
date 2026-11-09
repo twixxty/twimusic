@@ -286,12 +286,12 @@ object Paxsenix {
             val resultArtist = result.displayArtist
             
             result.duration?.let { d ->
-                val diff = abs(d - durationMs)
+                val diff = abs(d - duration)
                 when {
-                    diff <= 2000 -> score += 100 // Excellent match
-                    diff <= 5000 -> score += 50  // Good match
-                    diff <= 10000 -> score += 10 // Acceptable match
-                    else -> score -= 50          // Likely wrong version (Mixed/Edit/etc)
+                    diff <= 2 -> score += 100 // Excellent match (within 2s)
+                    diff <= 5 -> score += 50  // Good match (within 5s)
+                    diff <= 10 -> score += 10 // Acceptable match (within 10s)
+                    else -> score -= 50       // Likely wrong version (Mixed/Edit/etc)
                 }
             }
             
