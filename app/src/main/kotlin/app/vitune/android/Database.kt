@@ -91,6 +91,14 @@ object DatabaseDependency {
             From22To23Migration(),
             From23To24Migration()
         )
+        .addCallback(object : RoomDatabase.Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                db.execSQL("PRAGMA cache_size = -8000;")
+                db.execSQL("PRAGMA temp_store = MEMORY;")
+                db.execSQL("PRAGMA synchronous = NORMAL;")
+            }
+        })
         .build()
 
     // Unfortunately, this HAS to block with the current architecture

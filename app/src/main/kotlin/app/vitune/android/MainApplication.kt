@@ -580,7 +580,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
         .crossfade(true)
         .memoryCache {
             MemoryCache.Builder()
-                .maxSizePercent(context, 0.1)
+                .maxSizePercent(context, 0.20)
                 .build()
         }
         .diskCache {

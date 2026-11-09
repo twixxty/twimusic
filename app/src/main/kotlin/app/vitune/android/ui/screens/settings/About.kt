@@ -7,23 +7,39 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.vitune.android.utils.AppUpdater
+import app.vitune.android.utils.secondary
+import kotlinx.coroutines.launch
+import java.io.File
 import androidx.core.app.NotificationCompat
 import androidx.core.net.toUri
 import androidx.work.Constraints
@@ -172,7 +188,7 @@ fun About() = SettingsCategoryScreen(
         VERSION_NAME
     )
 ) {
-    val [_, typography] = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
 
@@ -259,24 +275,120 @@ fun About() = SettingsCategoryScreen(
                 }
             }
 
-            newerVersion?.getOrNull()?.let {
+            newerVersion?.getOrNull()?.let { release ->
+                val bestAsset = remember(release) { AppUpdater.findBestAsset(release) }
+                var isDownloading by remember { mutableStateOf(false) }
+                var downloadProgress by remember { mutableFloatStateOf(0f) }
+                var downloadedMb by remember { mutableStateOf("") }
+                var downloadedFile by remember { mutableStateOf<File?>(null) }
+                var errorMessage by remember { mutableStateOf<String?>(null) }
+                val coroutineScope = rememberCoroutineScope()
+
                 BasicText(
                     text = stringResource(R.string.new_version_available),
                     style = typography.xs.semiBold.center
                 )
 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 BasicText(
-                    text = it.name ?: it.tag,
+                    text = release.name ?: release.tag,
                     style = typography.m.bold.center
                 )
 
+                if (!release.markdown.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 140.dp)
+                            .background(
+                                color = colorPalette.background1,
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(12.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        BasicText(
+                            text = release.markdown.trim(),
+                            style = typography.xxs.secondary
+                        )
+                    }
+                }
+
                 Spacer(modifier = Modifier.height(16.dp))
+
+                if (isDownloading) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        LinearProgressIndicator(
+                            progress = { downloadProgress },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color = colorPalette.accent,
+                            trackColor = colorPalette.background2
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BasicText(
+                            text = if (downloadProgress > 0f) {
+                                "${(downloadProgress * 100).toInt()}% ($downloadedMb)"
+                            } else "Downloading update...",
+                            style = typography.xs.semiBold.center
+                        )
+                    }
+                } else if (downloadedFile != null) {
+                    SecondaryTextButton(
+                        text = "Install Update",
+                        onClick = { AppUpdater.installApk(context, downloadedFile!!) }
+                    )
+                } else if (bestAsset != null) {
+                    val sizeMb = remember(bestAsset.size) {
+                        "%.1f MB".format(bestAsset.size / (1024f * 1024f))
+                    }
+                    SecondaryTextButton(
+                        text = "Download & Install ($sizeMb)",
+                        onClick = {
+                            isDownloading = true
+                            errorMessage = null
+                            coroutineScope.launch {
+                                val result = AppUpdater.downloadAndInstall(
+                                    context = context,
+                                    asset = bestAsset,
+                                    onProgress = { progress, downloaded, total ->
+                                        downloadProgress = progress
+                                        downloadedMb = "%.1f / %.1f MB".format(
+                                            downloaded / (1024f * 1024f),
+                                            total / (1024f * 1024f)
+                                        )
+                                    }
+                                )
+                                isDownloading = false
+                                result.fold(
+                                    onSuccess = { file -> downloadedFile = file },
+                                    onFailure = { e -> errorMessage = e.message }
+                                )
+                            }
+                        }
+                    )
+                }
+
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    BasicText(
+                        text = errorMessage ?: "",
+                        style = typography.xs.secondary.center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
 
                 SecondaryTextButton(
                     text = stringResource(R.string.more_information),
-                    onClick = { uriHandler.openUri(it.frontendUrl.toString()) }
+                    onClick = { uriHandler.openUri(release.frontendUrl.toString()) }
                 )
             } ?: newerVersion?.exceptionOrNull()?.let {
                 BasicText(

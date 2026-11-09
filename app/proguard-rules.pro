@@ -56,3 +56,17 @@
 
 -keep class org.brotli.dec.DictionaryData
 -keepnames class org.brotli.dec.Dictionary
+
+# Optimizations
+-allowaccessmodification
+-mergeinterfacesaggressively
+
+# Strip debug and verbose logging from release APKs for battery and speed
+-assumenosideeffects class timber.log.Timber {
+    public static void v(...);
+    public static void d(...);
+}
+-assumenosideeffects class android.util.Log {
+    public static int v(...);
+    public static int d(...);
+}

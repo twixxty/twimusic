@@ -1,0 +1,129 @@
+package app.vitune.android.utils
+
+import android.content.Context
+import android.content.Intent
+import android.os.Build
+import androidx.core.content.FileProvider
+import app.vitune.providers.github.models.Release
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import timber.log.Timber
+import java.io.File
+import java.io.IOException
+
+object AppUpdater {
+    private val httpClient by lazy {
+        OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .build()
+    }
+
+    /**
+     * Finds the best matching APK asset for the current device architecture.
+     * Prioritizes arm64-v8a for 64-bit ARM devices, then universal, then any .apk.
+     */
+    fun findBestAsset(release: Release): Release.Asset? {
+        val apkAssets = release.assets.filter { asset ->
+            asset.name.endsWith(".apk", ignoreCase = true) ||
+                asset.contentType == "application/vnd.android.package-archive"
+        }
+        if (apkAssets.isEmpty()) return null
+
+        val supportedAbis = Build.SUPPORTED_ABIS.toList()
+
+        // 1. Try matching the device's primary ABI (e.g. arm64-v8a)
+        if (supportedAbis.any { it.contains("arm64", ignoreCase = true) }) {
+            apkAssets.find { it.name.contains("arm64", ignoreCase = true) }?.let { return it }
+        }
+
+        // 2. Try universal APK
+        apkAssets.find { it.name.contains("universal", ignoreCase = true) }?.let { return it }
+
+        // 3. Fallback to any APK asset
+        return apkAssets.firstOrNull()
+    }
+
+    /**
+     * Downloads the APK asset with streaming progress reporting and triggers installation.
+     *
+     * @param onProgress Lambda called with (progress: Float, downloadedBytes: Long, totalBytes: Long)
+     *                   progress is in range 0.0f..1.0f (or -1.0f if total length is unknown)
+     * @return Result containing the downloaded File on success
+     */
+    suspend fun downloadAndInstall(
+        context: Context,
+        asset: Release.Asset,
+        onProgress: (progress: Float, downloaded: Long, total: Long) -> Unit
+    ): Result<File> = withContext(Dispatchers.IO) {
+        runCatching {
+            val downloadUrl = asset.downloadUrl.toString()
+            Timber.d("Starting APK download from $downloadUrl (${asset.size} bytes)")
+
+            val request = Request.Builder()
+                .url(downloadUrl)
+                .header("User-Agent", "TwiMusic")
+                .build()
+
+            val response = httpClient.newCall(request).execute()
+            if (!response.isSuccessful) {
+                throw IOException("Download failed with HTTP ${response.code}: ${response.message}")
+            }
+
+            val body = response.body ?: throw IOException("Empty response body from update server")
+            val totalBytes = if (body.contentLength() > 0) body.contentLength() else asset.size
+
+            val updatesDir = File(context.cacheDir, "updates").apply { mkdirs() }
+            val apkFile = File(updatesDir, "TwiMusic-${asset.name.takeIf { it.isNotBlank() } ?: "update.apk"}")
+
+            body.byteStream().use { input ->
+                apkFile.outputStream().use { output ->
+                    val buffer = ByteArray(32 * 1024)
+                    var bytesRead = 0L
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        output.write(buffer, 0, read)
+                        bytesRead += read
+                        val progress = if (totalBytes > 0) (bytesRead.toFloat() / totalBytes).coerceIn(0f, 1f) else -1f
+                        withContext(Dispatchers.Main) {
+                            onProgress(progress, bytesRead, totalBytes)
+                        }
+                    }
+                    output.flush()
+                }
+            }
+
+            Timber.d("Download complete: ${apkFile.absolutePath} (${apkFile.length()} bytes)")
+
+            withContext(Dispatchers.Main) {
+                installApk(context, apkFile)
+            }
+
+            apkFile
+        }.onFailure { e ->
+            Timber.e(e, "Failed to download and install update")
+        }
+    }
+
+    /**
+     * Prompts the system package installer to install the downloaded APK.
+     */
+    fun installApk(context: Context, apkFile: File) {
+        runCatching {
+            val authority = "${context.packageName}.fileprovider"
+            val contentUri = FileProvider.getUriForFile(context, authority, apkFile)
+
+            val installIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, "application/vnd.android.package-archive")
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+            }
+
+            context.startActivity(installIntent)
+        }.onFailure { e ->
+            Timber.e(e, "Failed to launch package installer")
+            context.toast("Failed to open installer: ${e.message}")
+        }
+    }
+}

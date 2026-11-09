@@ -135,7 +135,9 @@ kotlin {
         languageVersion.set(KotlinVersion.KOTLIN_2_5)
 
         freeCompilerArgs.addAll(
-            "-Xconsistent-data-class-copy-visibility"
+            "-Xconsistent-data-class-copy-visibility",
+            "-Xstring-concat=inline",
+            "-Xjvm-default=all"
         )
     }
 }
