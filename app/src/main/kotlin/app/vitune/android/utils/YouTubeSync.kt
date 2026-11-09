@@ -6,6 +6,7 @@ import androidx.core.net.toUri
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import app.vitune.android.Database
+import app.vitune.android.inTransaction
 import app.vitune.android.models.Playlist
 import app.vitune.android.models.SongPlaylistMap
 import app.vitune.android.preferences.AccountPreferences
@@ -106,17 +107,19 @@ object YouTubeSync {
                     val playlistPage = YouTube.playlist(playlistItem.id).completed().getOrNull()
                     val songs: List<SongItem> = playlistPage?.songs.orEmpty()
                     if (songs.isNotEmpty()) {
-                        Database.clearPlaylist(localPlaylist.id)
-                        val mediaItems = songs.map { it.asMediaItem }
-                        mediaItems.forEach { Database.insert(it) }
-                        val maps = mediaItems.mapIndexed { idx, item ->
-                            SongPlaylistMap(
-                                songId = item.mediaId,
-                                playlistId = localPlaylist.id,
-                                position = idx
-                            )
+                        inTransaction {
+                            Database.clearPlaylist(localPlaylist.id)
+                            val mediaItems = songs.map { it.asMediaItem }
+                            mediaItems.forEach { Database.insert(it) }
+                            val maps = mediaItems.mapIndexed { idx, item ->
+                                SongPlaylistMap(
+                                    songId = item.mediaId,
+                                    playlistId = localPlaylist.id,
+                                    position = idx
+                                )
+                            }
+                            Database.insertSongPlaylistMaps(maps)
                         }
-                        Database.insertSongPlaylistMaps(maps)
                         playlistCount++
                         songCount += songs.size
                     }
@@ -132,12 +135,14 @@ object YouTubeSync {
                     YouTube.playlist("VLLM").completed().getOrThrow()
                 }
                 val likedSongs: List<SongItem> = likedResult.getOrNull()?.songs.orEmpty()
-                likedSongs.forEach { songItem ->
-                    val mediaItem = songItem.asMediaItem
-                    Database.insert(mediaItem)
-                    Database.like(songItem.id, System.currentTimeMillis())
-                }
                 if (likedSongs.isNotEmpty()) {
+                    inTransaction {
+                        likedSongs.forEach { songItem ->
+                            val mediaItem = songItem.asMediaItem
+                            Database.insert(mediaItem)
+                            Database.like(songItem.id, System.currentTimeMillis())
+                        }
+                    }
                     songCount += likedSongs.size
                 }
             } catch (e: Exception) {

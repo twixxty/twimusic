@@ -15,13 +15,23 @@ suspend fun <T : Innertube.Item> Innertube.searchPage(
     body: SearchBody,
     fromMusicShelfRendererContent: (MusicShelfRenderer.Content) -> T?
 ) = runCatchingCancellable {
-    val response = client.post(SEARCH) {
-        setBody(body)
-        @Suppress("all")
-        mask(
-            "contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents.musicShelfRenderer(continuations,contents.$MUSIC_RESPONSIVE_LIST_ITEM_RENDERER_MASK)"
-        )
-    }.body<SearchResponse>()
+    val response = runCatching {
+        client.post(SEARCH) {
+            setBody(body)
+            @Suppress("all")
+            mask(
+                "contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents.musicShelfRenderer(continuations,contents.$MUSIC_RESPONSIVE_LIST_ITEM_RENDERER_MASK)"
+            )
+        }.body<SearchResponse>()
+    }.recoverCatching {
+        unauthenticatedClient.post(SEARCH) {
+            setBody(body)
+            @Suppress("all")
+            mask(
+                "contents.tabbedSearchResultsRenderer.tabs.tabRenderer.content.sectionListRenderer.contents.musicShelfRenderer(continuations,contents.$MUSIC_RESPONSIVE_LIST_ITEM_RENDERER_MASK)"
+            )
+        }.body<SearchResponse>()
+    }.getOrThrow()
 
     response
         .contents

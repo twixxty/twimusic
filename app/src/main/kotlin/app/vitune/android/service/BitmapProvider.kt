@@ -83,9 +83,6 @@ class BitmapProvider(
             return
         }
 
-        // Clear stale bitmap immediately so notification/lockscreen don't show previous song's art
-        lastBitmap = null
-
         val oldTask = currentTask
         currentTask = context.applicationContext.imageLoader.enqueue(
             ImageRequest.Builder(context.applicationContext)

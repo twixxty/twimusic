@@ -13,10 +13,17 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 
 suspend fun Innertube.discoverPage() = runCatchingCancellable {
-    val response = client.post(BROWSE) {
-        setBody(BrowseBody(browseId = "FEmusic_explore"))
-        mask("contents")
-    }.body<BrowseResponse>()
+    val response = runCatching {
+        client.post(BROWSE) {
+            setBody(BrowseBody(browseId = "FEmusic_explore"))
+            mask("contents")
+        }.body<BrowseResponse>()
+    }.recoverCatching {
+        unauthenticatedClient.post(BROWSE) {
+            setBody(BrowseBody(browseId = "FEmusic_explore"))
+            mask("contents")
+        }.body<BrowseResponse>()
+    }.getOrThrow()
 
     val sections = response
         .contents

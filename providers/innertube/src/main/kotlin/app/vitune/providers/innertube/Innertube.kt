@@ -41,6 +41,24 @@ object Innertube {
     var dataSyncId: String? = null
     var authUser: String = "0"
 
+    fun extractSapisid(cookie: String): String? {
+        return cookie.split(";").mapNotNull {
+            val parts = it.trim().split("=", limit = 2)
+            if (parts.size == 2) parts[0].trim() to parts[1].trim() else null
+        }.firstOrNull { (name, _) ->
+            name == "SAPISID" || name == "__Secure-3PAPISID" || name == "__Secure-1PAPISID"
+        }?.second?.takeIf { it.isNotBlank() }
+    }
+
+    fun generateSapisidHash(sapisid: String, origin: String): String {
+        val timestamp = System.currentTimeMillis() / 1000
+        val payload = "$timestamp $sapisid $origin"
+        val md = java.security.MessageDigest.getInstance("SHA-1")
+        val digest = md.digest(payload.toByteArray(Charsets.UTF_8))
+        val hash = digest.joinToString("") { "%02x".format(it) }
+        return "SAPISIDHASH ${timestamp}_$hash"
+    }
+
     private val OriginInterceptor = createClientPlugin("OriginInterceptor") {
         client.sendPipeline.intercept(HttpSendPipeline.State) {
             context.headers {
@@ -50,7 +68,15 @@ object Innertube {
                 set("host", host)
                 set("x-origin", origin)
                 set("origin", origin)
-                cookie?.let { set("cookie", it) }
+
+                val currentCookie = cookie
+                val sapisid = currentCookie?.let { extractSapisid(it) }
+                if (!sapisid.isNullOrBlank()) {
+                    set("cookie", currentCookie!!)
+                    set("Authorization", generateSapisidHash(sapisid, origin))
+                    set("X-Goog-AuthUser", authUser)
+                }
+
                 visitorData?.let { set("x-goog-visitor-id", it) }
             }
         }
@@ -90,6 +116,45 @@ object Innertube {
                 contentType(ContentType.Application.Json)
                 headers {
                     set("X-Goog-Api-Key", API_KEY)
+                }
+                parameters {
+                    set("prettyPrint", "false")
+                    set("key", API_KEY)
+                }
+            }
+        }
+    }
+
+    val unauthenticatedClient = HttpClient(OkHttp) {
+        expectSuccess = true
+
+        HttpResponseValidator {
+            handleResponseExceptionWithRequest { cause, _ ->
+                val ex = cause as? ResponseException ?: return@handleResponseExceptionWithRequest
+                val code = ex.response.status.value
+                if (code !in (100..<600)) throw InvalidHttpCodeException(code)
+            }
+        }
+
+        install(ContentNegotiation) {
+            json(json)
+        }
+
+        install(ContentEncoding) {
+            brotli(1.0f)
+            gzip(0.9f)
+            deflate(0.8f)
+        }
+    }.config {
+        defaultRequest {
+            url(scheme = "https", host = "music.youtube.com") {
+                contentType(ContentType.Application.Json)
+                headers {
+                    set("X-Goog-Api-Key", API_KEY)
+                    set("X-Youtube-Bootstrap-Logged-In", "false")
+                    set("host", "music.youtube.com")
+                    set("x-origin", "https://music.youtube.com")
+                    set("origin", "https://music.youtube.com")
                 }
                 parameters {
                     set("prettyPrint", "false")

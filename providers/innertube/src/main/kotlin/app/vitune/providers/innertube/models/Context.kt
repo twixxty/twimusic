@@ -8,6 +8,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import java.util.Locale
+import app.vitune.providers.innertube.Innertube
 
 @Serializable
 data class Context(
@@ -72,7 +73,8 @@ data class Context(
 
             headers {
                 referer?.let { set("Referer", it) }
-                set("X-Youtube-Bootstrap-Logged-In", "false")
+                val hasAuth = !Innertube.cookie.isNullOrBlank() && Innertube.extractSapisid(Innertube.cookie.orEmpty()) != null
+                set("X-Youtube-Bootstrap-Logged-In", if (hasAuth) "true" else "false")
                 set("X-YouTube-Client-Name", clientId.toString())
                 set("X-YouTube-Client-Version", clientVersion)
                 apiKey?.let { set("X-Goog-Api-Key", it) }

@@ -1146,3 +1146,5 @@ fun transaction(block: () -> Unit) = with(DatabaseDependency.instance) {
         runInTransaction(block)
     }
 }
+
+fun <T> inTransaction(block: () -> T): T = DatabaseDependency.instance.runInTransaction(block)

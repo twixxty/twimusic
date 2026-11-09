@@ -17,9 +17,15 @@ import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 
 suspend fun Innertube.browse(body: BrowseBody) = runCatchingCancellable {
-    val response = client.post(BROWSE) {
-        setBody(body)
-    }.body<BrowseResponse>()
+    val response = runCatching {
+        client.post(BROWSE) {
+            setBody(body)
+        }.body<BrowseResponse>()
+    }.recoverCatching {
+        unauthenticatedClient.post(BROWSE) {
+            setBody(body)
+        }.body<BrowseResponse>()
+    }.getOrThrow()
 
     BrowseResult(
         title = response
