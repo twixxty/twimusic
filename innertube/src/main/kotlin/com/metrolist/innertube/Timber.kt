@@ -1,4 +1,4 @@
-package timber.log
+package com.metrolist.innertube
 
 @Suppress("UnusedParameter", "unused")
 object Timber {
