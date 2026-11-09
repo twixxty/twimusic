@@ -319,7 +319,7 @@ fun TaperedWaveSlider(
                 cachedPath.reset()
                 cachedPath.moveTo(0f, centerY)
 
-                val step = 8f
+                val step = 2f
                 var x = 0f
                 val activeReach = (totalWidth * 0.40f).coerceAtLeast(100f)
 

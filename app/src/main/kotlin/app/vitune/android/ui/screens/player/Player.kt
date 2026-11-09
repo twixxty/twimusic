@@ -464,10 +464,7 @@ fun Player(
         val containerModifier = Modifier
             .padding(
                 windowInsets
-                    .only(
-                        if (isCanvasActive && !isShowingLyrics) WindowInsetsSides.Horizontal
-                        else (WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    )
+                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     .asPaddingValues()
             )
             .padding(bottom = playerBottomSheetState.collapsedBound)
@@ -478,6 +475,7 @@ fun Player(
                 Box(
                     modifier = innerModifier
                         .fillMaxSize()
+                        .clip(20.dp.roundedShape)
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
@@ -488,24 +486,21 @@ fun Player(
                     BackgroundVideoView(
                         videoUrl = videoUrl,
                         isPlaying = isPlayingState && !isShowingLyrics,
-                        modifier = Modifier.fillMaxSize()
-                    )
-
-                    // Bottom subtle fade matching background
-                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.35f)
-                            .align(Alignment.BottomCenter)
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        androidx.compose.ui.graphics.Color.Transparent,
-                                        colorPalette.background0.copy(alpha = 0.5f),
-                                        colorPalette.background0
-                                    )
+                            .fillMaxSize()
+                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(
+                                    brush = Brush.verticalGradient(
+                                        0.0f to androidx.compose.ui.graphics.Color.White,
+                                        0.65f to androidx.compose.ui.graphics.Color.White,
+                                        0.85f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
+                                        1.0f to androidx.compose.ui.graphics.Color.Transparent
+                                    ),
+                                    blendMode = BlendMode.DstIn
                                 )
-                            )
+                            }
                     )
                 }
             }
@@ -639,7 +634,7 @@ fun Player(
             ) {
                 val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 12.dp else if (isCanvasActive && !isShowingLyrics) 0.dp else 32.dp,
+                    targetValue = if (isLyricsFullscreen) 12.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeTopPadding"
                 )
@@ -668,7 +663,7 @@ fun Player(
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             } else if (isCanvasActive) {
-                                canvasContent(Modifier.fillMaxSize())
+                                canvasContent(Modifier.fillMaxSize().padding(horizontal = 8.dp))
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 16.dp))
                             }
@@ -695,13 +690,13 @@ fun Player(
             ) {
                 val totalHeight = maxHeight
                 val topPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 16.dp else if (isCanvasActive && !isShowingLyrics) 0.dp else 54.dp,
+                    targetValue = if (isLyricsFullscreen) 16.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerTopPadding"
                 )
                 val availableHeight = (totalHeight - topPadding).coerceAtLeast(0.dp)
                 val controlsTargetHeight = remember(availableHeight, isShowingLyrics) {
-                    val ratio = if (isShowingLyrics) (1f / 3.2f) else (1f / 2.25f)
+                    val ratio = if (isShowingLyrics) (1f / 3.0f) else (1f / 2.6f)
                     availableHeight * ratio
                 }
                 val animatedControlsHeight by animateDpAsState(
@@ -730,7 +725,12 @@ fun Player(
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             } else if (isCanvasActive) {
-                                canvasContent(Modifier.fillMaxSize())
+                                canvasContent(
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .fillMaxHeight()
+                                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                                )
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }

@@ -26,6 +26,7 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -45,6 +46,12 @@ fun LavaLampBackground(
     overlayAlpha: Float = 0.40f,
     fallbackColor: Color = Color(0xff121216)
 ) {
+    val baseImageBitmap = remember(bitmap) {
+        if (bitmap != null && bitmap.width > 0 && bitmap.height > 0) {
+            bitmap.asImageBitmap()
+        } else null
+    }
+
     val processedBitmaps = remember(bitmap) {
         if (bitmap == null || bitmap.width <= 0 || bitmap.height <= 0) {
             null
@@ -114,20 +121,36 @@ fun LavaLampBackground(
             .background(fallbackColor)
             .clipToBounds()
     ) {
+        if (baseImageBitmap != null) {
+            Image(
+                bitmap = baseImageBitmap,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = 1.35f
+                        scaleY = 1.35f
+                    }
+                    .blur(blurRadius)
+            )
+        }
+
         if (processedBitmaps != null) {
             val (enhanced, topLeft, bottomRight) = processedBitmaps
 
-            // Blur container for the morphing blobs
+            // Blur container for the morphing blobs with Offscreen compositing
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
                         scaleX = 1.3f
                         scaleY = 1.3f
+                        compositingStrategy = CompositingStrategy.Offscreen
                     }
                     .blur(blurRadius)
             ) {
-                // Base background layer
+                // Saturated background wash layer
                 Image(
                     bitmap = enhanced,
                     contentDescription = null,
@@ -137,6 +160,7 @@ fun LavaLampBackground(
                         .graphicsLayer {
                             scaleX = 1.2f
                             scaleY = 1.2f
+                            alpha = 0.55f
                         }
                 )
 
