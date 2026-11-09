@@ -69,10 +69,14 @@ import app.vitune.compose.persist.persist
 import app.vitune.core.ui.Dimensions
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.isLandscape
+import app.vitune.android.preferences.AccountPreferences
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.providers.innertube.Innertube
 import app.vitune.providers.innertube.models.NavigationEndpoint
+import app.vitune.providers.innertube.models.Thumbnail
 import app.vitune.providers.innertube.models.bodies.NextBody
 import app.vitune.providers.innertube.requests.relatedPage
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChanged
 
 @Route
@@ -98,7 +102,7 @@ fun QuickPicks(
         else DataPreferences.cachedQuickPicks = Innertube.RelatedPage()
     }
 
-    LaunchedEffect(DataPreferences.quickPicksSource) {
+    LaunchedEffect(DataPreferences.quickPicksSource, AccountPreferences.isLoggedIn) {
         if (
             DataPreferences.shouldCacheQuickPicks && !DataPreferences.cachedQuickPicks.let {
                 it.albums.isNullOrEmpty() &&
@@ -107,6 +111,14 @@ fun QuickPicks(
                     it.songs.isNullOrEmpty()
             }
         ) relatedPageResult = Result.success(DataPreferences.cachedQuickPicks)
+
+        if (AccountPreferences.isLoggedIn) {
+            val accountFeed = YouTubeSync.fetchAccountHomeFeed()
+            if (accountFeed != null && (!accountFeed.songs.isNullOrEmpty() || !accountFeed.albums.isNullOrEmpty())) {
+                relatedPageResult = Result.success(accountFeed)
+                return@LaunchedEffect
+            }
+        }
 
         suspend fun handleSong(song: Song?) {
             if (relatedPageResult == null || trending?.id != song?.id) relatedPageResult =

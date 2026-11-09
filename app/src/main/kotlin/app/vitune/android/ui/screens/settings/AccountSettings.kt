@@ -95,6 +95,7 @@ fun AccountSettings(
                 isLoggedIn = true
                 Toast.makeText(context, "Account token saved", Toast.LENGTH_SHORT).show()
             }
+            YouTubeSync.schedulePeriodicSync(context)
             YouTubeSync.syncAll(context)
         }
     }
@@ -202,6 +203,7 @@ fun AccountSettings(
                             app.vitune.providers.innertube.Innertube.cookie = null
                             app.vitune.providers.innertube.Innertube.visitorData = null
                             CookieManager.getInstance().removeAllCookies(null)
+                            YouTubeSync.cancelPeriodicSync(context)
                             isLoggedIn = false
                             accountName = ""
                             accountHandle = ""

@@ -571,10 +571,11 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 
         // Auto-sync library in background when logged in (delayed to not block app start or playback)
         if (AccountPreferences.isLoggedIn) {
+            YouTubeSync.schedulePeriodicSync(this)
             CoroutineScope(Dispatchers.IO).launch {
-                kotlinx.coroutines.delay(60_000L) // Wait 60 seconds after startup so UI is completely idle
+                kotlinx.coroutines.delay(10_000L) // Wait 10 seconds after startup so UI is loaded
                 val lastSync = YouTubeSync.lastSyncTime.value ?: 0L
-                if (System.currentTimeMillis() - lastSync > 3_600_000L) { // Only auto-sync at most once an hour
+                if (System.currentTimeMillis() - lastSync > 1_800_000L) { // Only auto-sync at most once every 30m
                     YouTubeSync.syncAll()
                 }
             }

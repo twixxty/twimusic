@@ -425,15 +425,19 @@ fun MediaItemMenu(
                         icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
                         color = colorPalette.favoritesIcon,
                         onClick = {
+                            val shouldBeLiked = likedAt == null
                             query {
                                 if (
                                     Database.like(
                                         songId = mediaItem.mediaId,
-                                        likedAt = if (likedAt == null) System.currentTimeMillis() else null
+                                        likedAt = if (shouldBeLiked) System.currentTimeMillis() else null
                                     ) != 0
                                 ) return@query
 
                                 Database.insert(mediaItem, Song::toggleLike)
+                            }
+                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                                app.vitune.android.utils.YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
                             }
                         },
                         modifier = Modifier

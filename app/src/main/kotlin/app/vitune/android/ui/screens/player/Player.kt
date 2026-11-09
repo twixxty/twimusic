@@ -233,9 +233,13 @@ fun Player(
             value = null,
             policy = object : SnapshotMutationPolicy<Long?> {
                 override fun equivalent(a: Long?, b: Long?): Boolean {
-                    mediaItem?.mediaId?.let {
+                    mediaItem?.mediaId?.let { videoId ->
                         query {
-                            Database.like(it, b)
+                            Database.like(videoId, b)
+                        }
+                        // Push like/unlike to YouTube Music account in background
+                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
+                            app.vitune.android.utils.YouTubeSync.pushLikeToYouTube(videoId, b != null)
                         }
                     }
                     return a == b

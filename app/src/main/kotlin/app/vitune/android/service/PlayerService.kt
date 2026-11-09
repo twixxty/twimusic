@@ -85,6 +85,7 @@ import app.vitune.android.utils.GlyphInterface
 import app.vitune.android.utils.InvincibleService
 import app.vitune.android.utils.TimerJob
 import app.vitune.android.utils.YouTubeRadio
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.android.utils.activityPendingIntent
 import app.vitune.android.utils.asDataSource
 import app.vitune.android.utils.broadcastPendingIntent
@@ -1290,13 +1291,17 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private fun likeAction() = mediaItemState.value?.let { mediaItem ->
+        val newLiked = !isLikedState.value
         query {
             runCatching {
                 Database.like(
                     songId = mediaItem.mediaId,
-                    likedAt = if (isLikedState.value) null else System.currentTimeMillis()
+                    likedAt = if (newLiked) System.currentTimeMillis() else null
                 )
             }
+        }
+        coroutineScope.launch(Dispatchers.IO) {
+            YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, newLiked)
         }
     }.let { }
 
