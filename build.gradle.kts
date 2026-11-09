@@ -22,7 +22,9 @@ val topLevelLibs = libs
 
 allprojects {
     group = "com.twixxty"
-    version = "1.2.6"
+    version = providers.environmentVariable("ANDROID_VERSION_NAME")
+        .orElse(providers.gradleProperty("version"))
+        .getOrElse("1.2.7")
 
     apply(plugin = "dev.detekt")
 

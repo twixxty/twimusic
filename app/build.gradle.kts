@@ -25,7 +25,7 @@ android {
         targetSdk = 37
 
         versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 27
-        versionName = project.version.toString()
+        versionName = System.getenv("ANDROID_VERSION_NAME") ?: project.version.toString()
 
         ndk {
             //noinspection ChromeOsAbiSupport
@@ -71,7 +71,6 @@ android {
         }
 
         release {
-            versionNameSuffix = "-RELEASE"
             isMinifyEnabled = true
             isShrinkResources = true
             manifestPlaceholders["appName"] = "TwiMusic"

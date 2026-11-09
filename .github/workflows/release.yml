@@ -62,7 +62,8 @@ jobs:
       - name: Build Release APKs
         env:
           ANDROID_VERSION_CODE: ${{ github.run_number }}
-        run: ./gradlew assembleRelease --stacktrace
+          ANDROID_VERSION_NAME: ${{ steps.vars.outputs.version }}
+        run: ./gradlew assembleRelease -Pversion=${{ steps.vars.outputs.version }} --stacktrace
 
       - name: Prepare Release Assets
         run: |
