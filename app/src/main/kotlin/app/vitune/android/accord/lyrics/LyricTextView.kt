@@ -53,6 +53,7 @@ class LyricTextView(
                 this.agent = lyric.agent
                 if (lyric.isBackground) {
                     setBackgroundContent()
+                    lineTextAlpha = 0f
                 }
             }
             is SyncedLyric -> {
@@ -61,6 +62,7 @@ class LyricTextView(
                 this.agent = lyric.agent
                 if (lyric.isBackground) {
                     setBackgroundContent()
+                    lineTextAlpha = 0f
                 }
                 liftupWindows = LyricTiming.liftupWindows(
                     relativeTime = lyric.relativeTime,
@@ -145,6 +147,9 @@ class LyricTextView(
             drawMagicLyric(canvas)
             return
         }
+        if (isBackgroundLine && lineTextAlpha <= 0.001f) {
+            return
+        }
         val count = canvas.save()
         canvas.scale(
             lineTextScale,
@@ -175,34 +180,42 @@ class LyricTextView(
         canvas.scale(
             lineTextScale,
             lineTextScale,
-            horizontalMargin.toFloat(),
+            width / 2f,
             height / 2f
         )
 
-        val dotRadius = 5.dp.px
-        val dotSpacing = 22.dp.px
-        val startX = horizontalMargin.toFloat() + dotRadius
+        val dotRadius = 4.5.dp.px
+        val dotSpacing = 20.dp.px
+        val totalWidth = 2 * dotSpacing
+        val startX = (width - totalWidth) / 2f
         val centerY = height / 2f
         val now = System.currentTimeMillis()
 
         for (i in 0..2) {
-            val dotX = startX + i * dotSpacing
-            val bouncePhase = (now / 220.0) - i * 0.85
-            val bounceSin = kotlin.math.sin(bouncePhase).toFloat()
+            val phase = (now % 1400L) / 1400.0
+            val dotOffset = i * 0.22
+            val dotPhase = ((phase - dotOffset + 1.0) % 1.0)
+            val pulse = if (dotPhase < 0.40) {
+                kotlin.math.sin(dotPhase / 0.40 * Math.PI).toFloat()
+            } else {
+                0f
+            }
 
-            val bounceY = if (isLineActive) bounceSin * 4.5.dp.px else 0f
-            val dotScale = if (isLineActive) 1f + 0.22f * maxOf(0f, bounceSin) else 0.85f
-
-            val baseAlpha = if (isLineActive) 1f else 0.3f
-            val finalAlpha = (baseAlpha * 255 * this.alpha * lineTextAlpha).toInt().coerceIn(0, 255)
+            val dotScale = if (isLineActive) 1f + 0.35f * pulse else 0.85f
+            val dotAlpha = if (isLineActive) {
+                (0.35f + 0.65f * pulse) * this.alpha * lineTextAlpha
+            } else {
+                0.20f * this.alpha * lineTextAlpha
+            }
+            val finalAlpha = (dotAlpha * 255).toInt().coerceIn(0, 255)
 
             magicDotPaint.color = Color.WHITE
             magicDotPaint.alpha = finalAlpha
 
-            if (isLineActive) {
+            if (isLineActive && pulse > 0.05f) {
                 val glowCol = if (accentColor != Color.WHITE && accentColor != 0) accentColor else Color.WHITE
                 magicDotPaint.setShadowLayer(
-                    8.dp.px * (1f + maxOf(0f, bounceSin) * 0.5f),
+                    10.dp.px * pulse,
                     0f,
                     0f,
                     glowCol
@@ -211,7 +224,8 @@ class LyricTextView(
                 magicDotPaint.clearShadowLayer()
             }
 
-            canvas.drawCircle(dotX, centerY - bounceY, dotRadius * dotScale, magicDotPaint)
+            val dotX = startX + i * dotSpacing
+            canvas.drawCircle(dotX, centerY, dotRadius * dotScale, magicDotPaint)
         }
 
         canvas.restoreToCount(count)
@@ -355,7 +369,9 @@ class LyricTextView(
         forceActive: Boolean = false
     ) {
         val isActivated = index == targetIndex || forceActive
-        val targetAlpha = if (!isAutoScroll) {
+        val targetAlpha = if (isBackgroundLine && !isActivated) {
+            0f
+        } else if (!isAutoScroll) {
             if (isActivated) ACTIVE_LINE_ALPHA else 0.75f
         } else {
             if (isActivated) ACTIVE_LINE_ALPHA else INACTIVE_LINE_ALPHA
@@ -384,7 +400,7 @@ class LyricTextView(
 
     fun resetLineStyle() {
         cancelLineStyleAnimations()
-        lineTextAlpha = INACTIVE_LINE_ALPHA
+        lineTextAlpha = if (isBackgroundLine) 0f else INACTIVE_LINE_ALPHA
         lineTextScale = INACTIVE_LINE_SCALE
         lineBlurRadius = 0f
     }

@@ -545,13 +545,14 @@ fun Lyrics(
                 val accordLyricsData = remember(parsedEntries) {
                     val rawItems = mutableListOf<Triple<LyricBase, Long, Long>>()
                     val validEntries = parsedEntries.filter { it.text.isNotBlank() }
+                    val bracketRegex = Regex("""^(.*?)\s*([(\[][^)\]]{1,200}[)\]])\s*$""")
 
-                    // Check intro magic lyric (if first lyric begins after 3000ms)
+                    // Check intro magic lyric (if first lyric begins after 2000ms)
                     val firstEntry = validEntries.firstOrNull()
                     if (firstEntry != null) {
                         val firstStartTime = firstEntry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
                             ?: firstEntry.time
-                        if (firstStartTime > 3000L) {
+                        if (firstStartTime > 2000L) {
                             rawItems.add(
                                 Triple(
                                     Lyric(content = "•••", isMagicLyric = true),
@@ -565,63 +566,129 @@ fun Lyrics(
                     // Process each entry
                     validEntries.forEachIndexed { idx, entry ->
                         val lineText = entry.text
-                        val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
                         val lineStartTime = entry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
                             ?: entry.time
+
+                        val nextEntry = validEntries.getOrNull(idx + 1)
+                        val nextStart = nextEntry?.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
+                            ?: nextEntry?.time
 
                         val calculatedEndTime = if (!entry.words.isNullOrEmpty()) {
                             (entry.words.last().endTime * 1000).toLong().coerceAtLeast(lineStartTime + 800L)
                         } else {
-                            val nextEntry = validEntries.getOrNull(idx + 1)
-                            val nextStart = nextEntry?.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
-                                ?: nextEntry?.time
-                            nextStart?.coerceAtLeast(lineStartTime + 500L) ?: (lineStartTime + 4000L)
+                            if (nextStart != null) {
+                                val gap = nextStart - lineStartTime
+                                val singingDuration = minOf(4000L, (gap * 0.7f).toLong()).coerceAtLeast(1000L)
+                                (lineStartTime + singingDuration).coerceAtMost(nextStart)
+                            } else {
+                                lineStartTime + 4000L
+                            }
                         }
 
-                        val lyricItem = if (!entry.words.isNullOrEmpty()) {
-                            val words = entry.words
-                            val list = words.map { word ->
-                                val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                Lyric(content, isBackground = isBg, agent = entry.agent)
+                        val match = bracketRegex.find(lineText)
+                        val hasSeparateBg = match != null && match.groupValues[1].isNotBlank()
+
+                        if (hasSeparateBg) {
+                            val mainText = match!!.groupValues[1].trim()
+                            val bgText = match.groupValues[2].trim()
+
+                            if (!entry.words.isNullOrEmpty()) {
+                                val words = entry.words
+                                val bracketWordIdx = words.indexOfFirst { it.text.contains("(") || it.text.contains("[") }
+                                if (bracketWordIdx > 0) {
+                                    val mainWords = words.subList(0, bracketWordIdx)
+                                    val bgWords = words.subList(bracketWordIdx, words.size)
+
+                                    val mainStart = (mainWords.first().startTime * 1000).toLong()
+                                    val mainEnd = (mainWords.last().endTime * 1000).toLong().coerceAtLeast(mainStart + 600L)
+
+                                    val bgStart = (bgWords.first().startTime * 1000).toLong()
+                                    val bgEnd = (bgWords.last().endTime * 1000).toLong().coerceAtLeast(bgStart + 600L)
+
+                                    val effectiveEnd = maxOf(mainEnd, bgEnd, calculatedEndTime)
+
+                                    val mainList = mainWords.map { word ->
+                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
+                                        Lyric(content, isBackground = false, agent = entry.agent)
+                                    }
+                                    val mainRelative = LongArray(mainWords.size) { i ->
+                                        val word = mainWords[i]
+                                        val next = if (i < mainWords.lastIndex) mainWords[i + 1].startTime else word.endTime
+                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                                    }
+                                    val mainLyric = SyncedLyric(mainList, mainRelative, isBackground = false, agent = entry.agent)
+
+                                    val bgList = bgWords.map { word ->
+                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
+                                        Lyric(content, isBackground = true, agent = entry.agent)
+                                    }
+                                    val bgRelative = LongArray(bgWords.size) { i ->
+                                        val word = bgWords[i]
+                                        val next = if (i < bgWords.lastIndex) bgWords[i + 1].startTime else word.endTime
+                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                                    }
+                                    val bgLyric = SyncedLyric(bgList, bgRelative, isBackground = true, agent = entry.agent)
+
+                                    rawItems.add(Triple(mainLyric, mainStart, effectiveEnd))
+                                    rawItems.add(Triple(bgLyric, bgStart, effectiveEnd))
+                                } else {
+                                    val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
+                                    val list = words.map { word ->
+                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
+                                        Lyric(content, isBackground = isBg, agent = entry.agent)
+                                    }
+                                    val relativeTime = LongArray(words.size) { i ->
+                                        val word = words[i]
+                                        val next = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
+                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                                    }
+                                    rawItems.add(Triple(SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent), lineStartTime, calculatedEndTime))
+                                }
+                            } else {
+                                rawItems.add(Triple(Lyric(mainText, isBackground = false, agent = entry.agent), lineStartTime, calculatedEndTime))
+                                rawItems.add(Triple(Lyric(bgText, isBackground = true, agent = entry.agent), lineStartTime, calculatedEndTime))
                             }
-                            val relativeTime = LongArray(words.size) { i ->
-                                val word = words[i]
-                                val nextStart = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
-                                ((nextStart - word.startTime) * 1000).toLong().coerceAtLeast(10L)
-                            }
-                            SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
                         } else {
-                            val duration = (calculatedEndTime - lineStartTime).coerceAtLeast(800L)
-                            val rawTokens = lineText.split(Regex("(?<=\\s)|(?=\\s+)")).filter { it.isNotEmpty() }
-                            val tokens = if (rawTokens.isEmpty()) listOf(lineText) else rawTokens
-                            val totalChars = tokens.sumOf { it.trim().length }.coerceAtLeast(1)
-                            val list = tokens.map { token ->
-                                Lyric(token, isBackground = isBg, agent = entry.agent)
+                            val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
+                            val lyricItem = if (!entry.words.isNullOrEmpty()) {
+                                val words = entry.words
+                                val list = words.map { word ->
+                                    val content = if (word.hasTrailingSpace) "${word.text} " else word.text
+                                    Lyric(content, isBackground = isBg, agent = entry.agent)
+                                }
+                                val relativeTime = LongArray(words.size) { i ->
+                                    val word = words[i]
+                                    val next = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
+                                    ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
+                                }
+                                SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
+                            } else {
+                                val duration = (calculatedEndTime - lineStartTime).coerceAtLeast(800L)
+                                val rawTokens = lineText.split(Regex("(?<=\\s)|(?=\\s+)")).filter { it.isNotEmpty() }
+                                val tokens = if (rawTokens.isEmpty()) listOf(lineText) else rawTokens
+                                val totalChars = tokens.sumOf { it.trim().length }.coerceAtLeast(1)
+                                val list = tokens.map { token ->
+                                    Lyric(token, isBackground = isBg, agent = entry.agent)
+                                }
+                                val relativeTime = LongArray(tokens.size) { i ->
+                                    val trimmedLen = tokens[i].trim().length
+                                    val weight = if (trimmedLen > 0) trimmedLen.toDouble() / totalChars else (1.0 / tokens.size)
+                                    (duration * weight).toLong().coerceAtLeast(20L)
+                                }
+                                SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
                             }
-                            val relativeTime = LongArray(tokens.size) { i ->
-                                val trimmedLen = tokens[i].trim().length
-                                val weight = if (trimmedLen > 0) trimmedLen.toDouble() / totalChars else (1.0 / tokens.size)
-                                (duration * weight).toLong().coerceAtLeast(20L)
-                            }
-                            SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
+                            rawItems.add(Triple(lyricItem, lineStartTime, calculatedEndTime))
                         }
-
-                        rawItems.add(Triple(lyricItem, lineStartTime, calculatedEndTime))
 
                         // Check instrumental break between this line and the next line
-                        val nextEntry = validEntries.getOrNull(idx + 1)
-                        if (nextEntry != null) {
-                            val nextStartTime = nextEntry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
-                                ?: nextEntry.time
-                            if (nextStartTime - calculatedEndTime >= 4500L) {
-                                rawItems.add(
-                                    Triple(
-                                        Lyric(content = "•••", isMagicLyric = true),
-                                        calculatedEndTime,
-                                        nextStartTime
-                                    )
+                        if (nextStart != null && nextStart - calculatedEndTime >= 2200L) {
+                            rawItems.add(
+                                Triple(
+                                    Lyric(content = "•••", isMagicLyric = true),
+                                    calculatedEndTime,
+                                    nextStart
                                 )
-                            }
+                            )
                         }
                     }
 
@@ -1142,11 +1209,13 @@ fun MultiProviderSearchDialog(
         delay(500.milliseconds)
 
         val parts = q.split(" - ", limit = 2)
-        val (parsedTitle, parsedArtist) = if (parts.size == 2) {
+        val (rawTitle, parsedArtist) = if (parts.size == 2) {
             parts[0].trim() to parts[1].trim()
         } else {
             q to initialArtist
         }
+        val cleanTitle = LyricsUtils.cleanTitleForSearch(rawTitle)
+        val parsedTitle = cleanTitle.ifBlank { rawTitle }
 
         val allProviders = LyricsProviderRegistry.providerNames
             .mapNotNull { LyricsProviderRegistry.getProviderByName(it) }
@@ -1158,8 +1227,14 @@ fun MultiProviderSearchDialog(
                 launch {
                     runCatching {
                         withTimeoutOrNull(8000L) {
-                            val syncedTracks = runCatching { LrcLib.lyrics(query = q, synced = true)?.getOrNull() }.getOrNull().orEmpty()
-                            val plainTracks = runCatching { LrcLib.lyrics(query = q, synced = false)?.getOrNull() }.getOrNull().orEmpty()
+                            val syncedTracks = runCatching {
+                                LrcLib.lyrics(trackName = parsedTitle, artistName = parsedArtist, synced = true)?.getOrNull()
+                                    ?: LrcLib.lyrics(query = q, synced = true)?.getOrNull()
+                            }.getOrNull().orEmpty()
+                            val plainTracks = runCatching {
+                                LrcLib.lyrics(trackName = parsedTitle, artistName = parsedArtist, synced = false)?.getOrNull()
+                                    ?: LrcLib.lyrics(query = q, synced = false)?.getOrNull()
+                            }.getOrNull().orEmpty()
                             val allTracks = (syncedTracks + plainTracks).distinctBy { it.id }
 
                             val lrclibResults = allTracks.mapNotNull { track ->
@@ -1292,13 +1367,25 @@ fun MultiProviderSearchDialog(
                     .padding(all = 24.dp)
             )
         } else {
+            val sortedResults = remember(results.toList()) {
+                results.sortedWith(
+                    compareBy<LyricsSearchResult> {
+                        when (it.syncType) {
+                            LyricsUtils.SyncType.WORD -> 0
+                            LyricsUtils.SyncType.LINE -> 1
+                            LyricsUtils.SyncType.NONE -> 2
+                        }
+                    }.thenBy { it.provider }
+                )
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
                     .heightIn(max = 350.dp)
             ) {
-                items(results.size) { i ->
-                    val item = results[i]
+                items(sortedResults.size) { i ->
+                    val item = sortedResults[i]
                     val previewLines = item.lyrics
                         .lines()
                         .map { it.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").replace(Regex("""<[^>]+>"""), "").trim() }

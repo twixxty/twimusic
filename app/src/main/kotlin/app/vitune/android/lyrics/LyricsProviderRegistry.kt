@@ -25,14 +25,14 @@ object LyricsProviderRegistry {
     )
 
     val providerNames = listOf(
-        "Musixmatch",
-        "YouLyPlus",
-        "Paxsenix",
         "BetterLyrics",
-        "LrcLib",
-        "KuGou",
+        "Paxsenix",
+        "YouLyPlus",
         "Unison",
         "BiniLyrics",
+        "Musixmatch",
+        "LrcLib",
+        "KuGou",
         "Spotify",
         "LrcRed",
         "YouTubeSubtitle",
@@ -59,14 +59,14 @@ object LyricsProviderRegistry {
     }
 
     fun getDefaultProviderOrder(): List<String> = listOf(
-        "Musixmatch",
-        "YouLyPlus",
-        "Paxsenix",
         "BetterLyrics",
-        "LrcLib",
-        "KuGou",
+        "Paxsenix",
+        "YouLyPlus",
         "Unison",
         "BiniLyrics",
+        "Musixmatch",
+        "LrcLib",
+        "KuGou",
         "Spotify",
         "LrcRed",
         "YouTubeSubtitle",

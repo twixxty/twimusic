@@ -20,6 +20,6 @@ object LyricsPreferences : GlobalPreferencesHolder() {
 
     var lyricsPrioritizeSyncAccuracy by boolean(true)
     var lyricsProviderOrder by string(
-        "Musixmatch,YouLyPlus,Paxsenix,BetterLyrics,LrcLib,KuGou,Unison,BiniLyrics,Spotify,LrcRed,YouTubeSubtitle,YouTube,LyricsPlus,Zemer"
+        "BetterLyrics,Paxsenix,YouLyPlus,Unison,BiniLyrics,Musixmatch,LrcLib,KuGou,Spotify,LrcRed,YouTubeSubtitle,YouTube,LyricsPlus,Zemer"
     )
 }

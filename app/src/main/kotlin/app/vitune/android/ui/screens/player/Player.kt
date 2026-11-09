@@ -475,7 +475,6 @@ fun Player(
                 Box(
                     modifier = innerModifier
                         .fillMaxSize()
-                        .clip(20.dp.roundedShape)
                         .clickable(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
@@ -494,8 +493,9 @@ fun Player(
                                 drawRect(
                                     brush = Brush.verticalGradient(
                                         0.0f to androidx.compose.ui.graphics.Color.White,
-                                        0.65f to androidx.compose.ui.graphics.Color.White,
-                                        0.85f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.5f),
+                                        0.40f to androidx.compose.ui.graphics.Color.White,
+                                        0.75f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
+                                        0.90f to androidx.compose.ui.graphics.Color.Transparent,
                                         1.0f to androidx.compose.ui.graphics.Color.Transparent
                                     ),
                                     blendMode = BlendMode.DstIn
@@ -663,7 +663,7 @@ fun Player(
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             } else if (isCanvasActive) {
-                                canvasContent(Modifier.fillMaxSize().padding(horizontal = 8.dp))
+                                canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 16.dp))
                             }
@@ -725,12 +725,7 @@ fun Player(
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             } else if (isCanvasActive) {
-                                canvasContent(
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .fillMaxHeight()
-                                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                                )
+                                canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }
