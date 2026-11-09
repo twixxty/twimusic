@@ -1,7 +1,7 @@
 <div align="center">
     <img src="./app/src/main/ic_launcher-playstore.png" width="128" height="128" style="display: block; margin: 0 auto"/>
     <h1>TwiMusic</h1>
-    <p>An Android application for seamless music streaming</p>
+    <p>a vitune fork nobody asked for</p>
 </div>
 
 ---
@@ -16,24 +16,39 @@
   <img src="./fastlane/metadata/android/en-US/images/phoneScreenshots/6.png" width="30%" />
 </p>
 
-## Features
+## what is this
 
-- Play (almost) any song or video from YouTube Music
-- Play music from your device
-- Play songs in the background
-- Cache song for offline playback
-- Search for songs, albums, artists videos and playlists
-- Discover new songs by mood/genre
-- Import playlists from YouTube
-- Fetch, display and edit songs lyrics or synchronized lyrics
-- Manage your playlists locally or synchronize with the cloud
-- Highly customizable (dynamic theme, Material You, ...)
-- Normalize audio for the perfect listening experience
-- Listen from your car using Android Auto
-- Open YouTube/YouTube Music links (`watch`, `playlist`, `channel`, etc.) with TwiMusic
-- Ridiculously lightweight APK
+an android music player for youtube music. i forked [vitune](https://github.com/25huizengek1/ViTune) and kept adding stuff until it felt like mine.
 
-## Installation
+## features
+
+everything vitune does:
+
+- play (almost) any song or video from youtube music
+- play music from your device
+- background playback
+- offline caching
+- search songs, albums, artists, videos and playlists
+- discover music by mood/genre
+- import youtube playlists
+- synced lyrics, editable
+- local playlists or cloud sync
+- dynamic theme, material you, lots of customization
+- audio normalization
+- android auto
+- opens youtube/youtube music links
+- ridiculously lightweight apk
+
+and what i added:
+
+- **spotify canvas** looping video behind the player (there's a toggle if you hate fun)
+- **word-by-word lyrics** on by default, inactive lines blurred
+- **lyrics fallback** through lrclib, musixmatch and kugou
+- **tapered wave visualizer** under the controls
+- **auto playlist sync** so your playlists aren't empty until you poke them
+- **in-app updater** that pulls from github releases, no browser needed
+
+## installation
 
 [<img src="https://github.com/machiav3lli/oandbackupx/blob/034b226cea5c1b30eb4f6a6f313e4dadcbb0ece4/badge_github.png"
 alt="Get it on GitHub"
@@ -45,19 +60,22 @@ alt="Get it on Obtainium"
 height="54"
 align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/twixxty/twimusic/)
 
-## Acknowledgments
+## credits
 
-- [**YouTube-Internal-Clients**](https://github.com/zerodytrash/YouTube-Internal-Clients): A Python
-  script that discovers hidden YouTube API clients. Just a research project.
-- [**ionicons**](https://github.com/ionic-team/ionicons): Premium hand-crafted icons built by Ionic,
-  for Ionic apps and web apps everywhere.
-- [**Flaticon: Ilham Fitrotul Hayat**](https://www.flaticon.com/authors/ilham-fitrotul-hayat): the
-  app's logo uses a music note icon.
+i mostly glued other people's work together, so:
 
-## Disclaimer
+- [**ViTune**](https://github.com/25huizengek1/ViTune): the codebase i forked
+- [**ViMusic**](https://github.com/vfsfitvnm/ViMusic): where all of this started
+- [**InnerTune**](https://github.com/z-huang/InnerTune): dynamic colors, equalizer, replaygain
+- [**Metrolist InnerTube**](https://github.com/metrolistgroup/innertube): the innertube client
+- [**LRCLIB**](https://lrclib.net): synced lyrics
+- **Spotify Canvas**: reverse-engineered endpoints for the canvas loops
+- [**YouTube-Internal-Clients**](https://github.com/zerodytrash/YouTube-Internal-Clients): hidden youtube api client research
+- [**ionicons**](https://github.com/ionic-team/ionicons): icons
+- [**Flaticon: Ilham Fitrotul Hayat**](https://www.flaticon.com/authors/ilham-fitrotul-hayat): the music note in the logo
 
-This project and its contents are not affiliated with, funded, authorized, endorsed by, or in any
-way associated with YouTube, Google LLC or any of its affiliates and subsidiaries.
+made by [twixxty](https://github.com/twixxty).
 
-Any trademark, service mark, trade name, or other intellectual property rights used in this project
-are owned by the respective owners.
+## disclaimer
+
+not affiliated with, funded, authorized or endorsed by youtube, google llc, spotify or any of their affiliates. all trademarks belong to their owners. if it breaks something, that's your problem.
