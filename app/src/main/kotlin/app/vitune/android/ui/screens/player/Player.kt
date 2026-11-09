@@ -643,6 +643,29 @@ fun Player(
                             .align(Alignment.TopCenter)
                     )
                 }
+
+                // Fading gradient background behind controls to protect contrast when canvas is full screen
+                AnimatedVisibility(
+                    visible = !isShowingLyrics && !isLyricsFullscreen,
+                    enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
+                    exit = fadeOut(tween(350, easing = FastOutSlowInEasing)),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.60f)
+                            .align(Alignment.BottomCenter)
+                            .background(
+                                Brush.verticalGradient(
+                                    0.0f to Color.Transparent,
+                                    0.25f to colorPalette.background0.copy(alpha = 0.55f),
+                                    0.65f to colorPalette.background0.copy(alpha = 0.90f),
+                                    1.0f to colorPalette.background0
+                                )
+                            )
+                    )
+                }
             }
 
             if (isLandscape) BoxWithConstraints(

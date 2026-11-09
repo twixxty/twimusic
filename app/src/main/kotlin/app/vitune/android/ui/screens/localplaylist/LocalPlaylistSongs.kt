@@ -63,6 +63,7 @@ import app.vitune.android.utils.forcePlayFromBeginning
 import app.vitune.android.utils.launchYouTubeMusic
 import app.vitune.android.utils.playingSong
 import app.vitune.android.utils.toast
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.compose.reordering.animateItemPlacement
 import app.vitune.compose.reordering.draggedItem
 import app.vitune.compose.reordering.rememberReorderingState
@@ -337,6 +338,9 @@ private suspend fun sync(
     playlist: Playlist,
     browseId: String
 ) = runCatching {
+    if (YouTubeSync.syncPlaylist(playlist.id, browseId)) {
+        return@runCatching
+    }
     Innertube.playlistPage(
         BrowseBody(browseId = browseId)
     )?.completed()?.getOrNull()?.let { remotePlaylist ->

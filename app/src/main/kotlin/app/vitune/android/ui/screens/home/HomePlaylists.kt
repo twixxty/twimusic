@@ -35,10 +35,12 @@ import app.vitune.android.R
 import app.vitune.android.models.PipedSession
 import app.vitune.android.models.Playlist
 import app.vitune.android.models.PlaylistPreview
+import app.vitune.android.preferences.AccountPreferences
 import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.preferences.OrderPreferences
 import app.vitune.android.preferences.UIStatePreferences
 import app.vitune.android.query
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import app.vitune.android.ui.components.themed.Header
 import app.vitune.android.ui.components.themed.HeaderIconButton
@@ -99,7 +101,13 @@ fun HomePlaylists(
                 this@LaunchedEffect.async {
                     Piped.playlist.list(session = session.toApiSession())?.getOrNull()
                 }
-            }.mapValues { [_, value] -> value.await() }
+            }.mapValues { (_, value) -> value.await() }
+        }
+    }
+
+    LaunchedEffect(AccountPreferences.isLoggedIn) {
+        if (AccountPreferences.isLoggedIn) {
+            YouTubeSync.syncPlaylistsIfNeeded()
         }
     }
 

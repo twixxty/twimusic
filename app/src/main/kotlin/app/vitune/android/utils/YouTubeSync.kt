@@ -111,6 +111,63 @@ object YouTubeSync {
     }
 
     /**
+     * Non-suspending async full sync that launches on the persistent [syncScope].
+     * Survives screen dismissals and navigation transitions safely.
+     */
+    fun syncAllAsync(context: Context? = null) {
+        if (!AccountPreferences.isLoggedIn) return
+        syncScope.launch {
+            syncAll(context)
+        }
+    }
+
+    /**
+     * Automatically triggers a sync if library is empty or last sync was > 15 minutes ago.
+     */
+    fun syncPlaylistsIfNeeded(context: Context? = null) {
+        if (!AccountPreferences.isLoggedIn) return
+        syncScope.launch {
+            val lastSync = _lastSyncTime.value ?: 0L
+            val existing = runCatching { Database.allPlaylists().first() }.getOrElse { emptyList() }
+            if (existing.isEmpty() || System.currentTimeMillis() - lastSync > 15 * 60 * 1000L) {
+                syncAll(context)
+            }
+        }
+    }
+
+    /**
+     * Sync a single playlist by ID and browseId (e.g. from LocalPlaylistSongs).
+     * Works with both clean playlist ID ("PL...") and browseId ("VLPL...").
+     */
+    suspend fun syncPlaylist(playlistId: Long, browseId: String): Boolean = withContext(Dispatchers.IO) {
+        ensureAuth()
+        val cleanId = browseId.removePrefix("VL")
+        val playlistPage = runCatching {
+            YouTube.playlist(cleanId).completed().getOrNull()
+        }.getOrNull()
+
+        val songs = playlistPage?.songs.orEmpty()
+        if (songs.isNotEmpty()) {
+            inTransaction {
+                Database.clearPlaylist(playlistId)
+                val mediaItems = songs.map { it.asMediaItem }
+                mediaItems.forEach { Database.insert(it) }
+                val maps = mediaItems.mapIndexed { idx, item ->
+                    SongPlaylistMap(
+                        songId = item.mediaId,
+                        playlistId = playlistId,
+                        position = idx
+                    )
+                }
+                Database.insertSongPlaylistMaps(maps)
+            }
+            true
+        } else {
+            false
+        }
+    }
+
+    /**
      * Fetch personalized home feed from the account and convert to Innertube.RelatedPage.
      * Contains user's Quick Picks, Listen Again, Mixes, Recommended Albums, Similar Artists.
      */
@@ -257,19 +314,31 @@ object YouTubeSync {
             var playlistCount = 0
             var songCount = 0
 
-            // 1. Fetch user's YouTube Music playlists
-            val libraryResult = YouTube.library("FEmusic_liked_playlists").completed()
-                .recoverCatching { YouTube.library("FEmusic_library_playlists").completed().getOrThrow() }
-                .recoverCatching { YouTube.library("FEmusic_library_corpus_playlists").completed().getOrThrow() }
-                .recoverCatching { YouTube.library("FEmusic_library_landing").completed().getOrThrow() }
+            // 1. Fetch user's YouTube Music playlists (both liked and created/library playlists)
+            val likedPlaylists = runCatching {
+                YouTube.library("FEmusic_liked_playlists").completed().getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
+            }.getOrElse { emptyList() }
 
-            val playlistItems = libraryResult.getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
-            val existingPlaylists = Database.allPlaylists().first()
+            val userLibraryPlaylists = runCatching {
+                YouTube.library("FEmusic_library_playlists").completed().getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
+            }.getOrElse { emptyList() }
+
+            val corpusPlaylists = if (likedPlaylists.isEmpty() && userLibraryPlaylists.isEmpty()) {
+                runCatching {
+                    YouTube.library("FEmusic_library_corpus_playlists").completed().getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
+                }.recoverCatching {
+                    YouTube.library("FEmusic_library_landing").completed().getOrNull()?.items?.filterIsInstance<PlaylistItem>().orEmpty()
+                }.getOrElse { emptyList() }
+            } else emptyList()
+
+            val playlistItems = (likedPlaylists + userLibraryPlaylists + corpusPlaylists).distinctBy { it.id }
+            val existingPlaylists = Database.allPlaylists().first().toMutableList()
 
             playlistItems.forEachIndexed { index, playlistItem ->
                 try {
                     _syncStatus.value = "Syncing playlist ${index + 1}/${playlistItems.size}..."
-                    val browseId = "VL${playlistItem.id}"
+                    val cleanId = playlistItem.id.removePrefix("VL")
+                    val browseId = if (playlistItem.id.startsWith("VL")) playlistItem.id else "VL${playlistItem.id}"
                     val localPlaylist = existingPlaylists.find { it.browseId == browseId || it.name == playlistItem.title }
                         ?: run {
                             val newId = Database.insert(
@@ -279,10 +348,12 @@ object YouTubeSync {
                                     thumbnail = playlistItem.thumbnail
                                 )
                             ).takeIf { it > 0 } ?: (Database.playlistByBrowseId(browseId).first()?.id ?: 0L)
-                            Playlist(id = newId, name = playlistItem.title, browseId = browseId, thumbnail = playlistItem.thumbnail)
+                            val created = Playlist(id = newId, name = playlistItem.title, browseId = browseId, thumbnail = playlistItem.thumbnail)
+                            existingPlaylists.add(created)
+                            created
                         }
 
-                    val playlistPage = YouTube.playlist(playlistItem.id).completed().getOrNull()
+                    val playlistPage = YouTube.playlist(cleanId).completed().getOrNull()
                     val songs: List<SongItem> = playlistPage?.songs.orEmpty()
                     if (songs.isNotEmpty()) {
                         inTransaction {

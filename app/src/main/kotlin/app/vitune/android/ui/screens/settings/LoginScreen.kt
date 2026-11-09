@@ -245,9 +245,7 @@ fun LoginScreen(
         // Kick off background sync and schedule periodic sync, then dismiss
         withContext(Dispatchers.Main) {
             app.vitune.android.utils.YouTubeSync.schedulePeriodicSync(context)
-            coroutineScope.launch {
-                app.vitune.android.utils.YouTubeSync.syncAll(context)
-            }
+            app.vitune.android.utils.YouTubeSync.syncAllAsync(context)
             onDismiss()
         }
     }
