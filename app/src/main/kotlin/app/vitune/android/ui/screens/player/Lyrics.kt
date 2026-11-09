@@ -1227,14 +1227,21 @@ fun MultiProviderSearchDialog(
                 launch {
                     runCatching {
                         withTimeoutOrNull(8000L) {
-                            val syncedTracks = runCatching {
-                                LrcLib.lyrics(trackName = parsedTitle, artistName = parsedArtist, synced = true)?.getOrNull()
+                            val searchQuery = if (parsedArtist.isNotBlank()) "$parsedTitle $parsedArtist" else parsedTitle
+                            val syncedTracks = (if (parsedArtist.isNotBlank()) {
+                                runCatching { LrcLib.lyrics(artist = parsedArtist, title = parsedTitle, synced = true)?.getOrNull() }.getOrNull()
+                            } else null) ?: runCatching {
+                                LrcLib.lyrics(query = searchQuery, synced = true)?.getOrNull()
                                     ?: LrcLib.lyrics(query = q, synced = true)?.getOrNull()
                             }.getOrNull().orEmpty()
-                            val plainTracks = runCatching {
-                                LrcLib.lyrics(trackName = parsedTitle, artistName = parsedArtist, synced = false)?.getOrNull()
+
+                            val plainTracks = (if (parsedArtist.isNotBlank()) {
+                                runCatching { LrcLib.lyrics(artist = parsedArtist, title = parsedTitle, synced = false)?.getOrNull() }.getOrNull()
+                            } else null) ?: runCatching {
+                                LrcLib.lyrics(query = searchQuery, synced = false)?.getOrNull()
                                     ?: LrcLib.lyrics(query = q, synced = false)?.getOrNull()
                             }.getOrNull().orEmpty()
+
                             val allTracks = (syncedTracks + plainTracks).distinctBy { it.id }
 
                             val lrclibResults = allTracks.mapNotNull { track ->
