@@ -209,6 +209,13 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 valueText = { it.displayName() }
             )
 
+            SwitchSettingsEntry(
+                title = "Canvas & Motion Artwork",
+                text = "Show animated video canvases and Motion Artwork in player",
+                isChecked = PlayerPreferences.enableCanvas,
+                onCheckedChange = { PlayerPreferences.enableCanvas = it }
+            )
+
             EnumValueSelectorSettingsEntry(
                 title = stringResource(R.string.lyrics_animation_style),
                 selectedValue = PlayerPreferences.lyricsAnimationStyle,

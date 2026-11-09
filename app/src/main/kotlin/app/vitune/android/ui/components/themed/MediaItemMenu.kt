@@ -59,6 +59,7 @@ import app.vitune.android.models.Info
 import app.vitune.android.models.Playlist
 import app.vitune.android.models.Song
 import app.vitune.android.models.SongPlaylistMap
+import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.query
 import app.vitune.android.service.PrecacheService
 import app.vitune.android.service.isLocal
@@ -543,6 +544,17 @@ fun MediaItemMenu(
                     onClick = {
                         onDismiss()
                         onShowNormalizationDialog()
+                    }
+                )
+            }
+
+            if (onShowSpeedDialog != null) {
+                MenuEntry(
+                    icon = R.drawable.film,
+                    text = if (PlayerPreferences.enableCanvas) "Disable Canvas" else "Enable Canvas",
+                    onClick = {
+                        PlayerPreferences.enableCanvas = !PlayerPreferences.enableCanvas
+                        onDismiss()
                     }
                 )
             }

@@ -37,14 +37,14 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var stopOnMinimumVolume by boolean(true)
 
     var isShowingLyrics by boolean(false)
-    var isShowingSynchronizedLyrics by boolean(false)
+    var isShowingSynchronizedLyrics by boolean(true)
 
     var isShowingPrevButtonCollapsed by boolean(false)
     var horizontalSwipeToClose by boolean(false)
     var horizontalSwipeToRemoveItem by boolean(false)
 
     var playerLayout by enum(PlayerLayout.New)
-    var seekBarStyle by enum(SeekBarStyle.Squiggly)
+    var seekBarStyle by enum(SeekBarStyle.TaperedWave)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
@@ -53,7 +53,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsTextPosition by enum(LyricsTextPosition.Left)
     var playerBackgroundStyle by enum(PlayerBackgroundStyle.LavaLamp)
     var lyricsAnimationStyle by enum(LyricsAnimationStyle.Metrolist)
-    var lyricsLineBlur by boolean(false)
+    var lyricsLineBlur by boolean(true)
     var showLyricsFullscreenButton by boolean(true)
     var enableCanvas by boolean(true)
     var canvasLoadOnlyWifi by boolean(false)
