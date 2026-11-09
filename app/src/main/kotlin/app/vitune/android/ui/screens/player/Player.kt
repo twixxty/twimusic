@@ -237,10 +237,7 @@ fun Player(
                         query {
                             Database.like(videoId, b)
                         }
-                        // Push like/unlike to YouTube Music account in background
-                        kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-                            app.vitune.android.utils.YouTubeSync.pushLikeToYouTube(videoId, b != null)
-                        }
+                        app.vitune.android.utils.YouTubeSync.pushLikeToYouTube(videoId, b != null)
                     }
                     return a == b
                 }

@@ -1300,9 +1300,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                 )
             }
         }
-        coroutineScope.launch(Dispatchers.IO) {
-            YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, newLiked)
-        }
+        YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, newLiked)
     }.let { }
 
     private fun loopAction() {

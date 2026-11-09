@@ -23,11 +23,13 @@ import com.metrolist.innertube.YouTube
 import com.metrolist.innertube.models.PlaylistItem
 import com.metrolist.innertube.models.SongItem
 import com.metrolist.innertube.utils.completed
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.util.concurrent.TimeUnit
@@ -89,18 +91,22 @@ object YouTubeSync {
         YouTube.useLoginForBrowse = AccountPreferences.useLoginForBrowse
     }
 
+    private val syncScope = CoroutineScope(Dispatchers.IO)
+
     /**
-     * Push a like/unlike action to YouTube Music immediately.
+     * Push a like/unlike action to YouTube Music immediately in background.
      * Called when the user taps the heart button in player, menu, or notifications.
      * [liked] = true means the song is now liked; false means unliked.
      */
-    suspend fun pushLikeToYouTube(videoId: String, liked: Boolean) = withContext(Dispatchers.IO) {
-        if (!AccountPreferences.isLoggedIn) return@withContext
-        ensureAuth()
-        runCatching {
-            YouTube.likeVideo(videoId, liked)
-        }.onFailure { e ->
-            Timber.w(e, "Failed to push like/unlike to YouTube: $videoId liked=$liked")
+    fun pushLikeToYouTube(videoId: String, liked: Boolean) {
+        if (!AccountPreferences.isLoggedIn) return
+        syncScope.launch {
+            ensureAuth()
+            runCatching {
+                YouTube.likeVideo(videoId, liked)
+            }.onFailure { e ->
+                Timber.w(e, "Failed to push like/unlike to YouTube: $videoId liked=$liked")
+            }
         }
     }
 

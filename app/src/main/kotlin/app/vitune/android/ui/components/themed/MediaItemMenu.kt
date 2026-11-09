@@ -78,6 +78,7 @@ import app.vitune.android.utils.launchYouTubeMusic
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.semiBold
 import app.vitune.android.utils.toast
+import app.vitune.android.utils.YouTubeSync
 import app.vitune.core.data.enums.PlaylistSortBy
 import app.vitune.core.data.enums.SortOrder
 import app.vitune.core.ui.Dimensions
@@ -437,9 +438,7 @@ fun MediaItemMenu(
 
                                 Database.insert(mediaItem, Song::toggleLike)
                             }
-                            kotlinx.coroutines.GlobalScope.launch(Dispatchers.IO) {
-                                app.vitune.android.utils.YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
-                            }
+                            YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
                         },
                         modifier = Modifier
                             .padding(all = 4.dp)
