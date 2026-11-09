@@ -71,7 +71,6 @@ class BitmapProvider(
     ) {
         if (lastUri == uri && (lastBitmap != null || uri == null)) {
             listener?.invoke(lastBitmap)
-            onDone(bitmap)
             return
         }
 

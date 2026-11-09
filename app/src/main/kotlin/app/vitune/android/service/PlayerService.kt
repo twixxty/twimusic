@@ -1009,9 +1009,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         val mediaMetadata = player.mediaMetadata
 
-        bitmapProvider.load(mediaMetadata.artworkUri) {
-            maybeShowSongCoverInLockScreen()
-            updateNotification()
+        if (bitmapProvider.lastUri != mediaMetadata.artworkUri) {
+            bitmapProvider.load(mediaMetadata.artworkUri) {
+                maybeShowSongCoverInLockScreen()
+                updateNotification()
+            }
         }
 
         return {
