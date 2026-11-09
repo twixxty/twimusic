@@ -9,9 +9,9 @@ plugins {
 }
 
 android {
-    val appId = "${project.group}.android"
+    val appId = "com.twixxty.twimusic"
 
-    namespace = appId
+    namespace = "app.vitune.android"
     compileSdk = 37
 
     val abis = listOf("arm64-v8a", "x86_64")
