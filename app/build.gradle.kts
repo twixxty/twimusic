@@ -37,16 +37,26 @@ android {
         abi {
             isEnable = true
             reset()
-            isUniversalApk = false
+            isUniversalApk = true
         }
     }
 
     signingConfigs {
+        create("release") {
+            val keystoreFile = rootProject.file("signing/release.keystore")
+            if (keystoreFile.exists()) {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "twimusic"
+                keyAlias = System.getenv("KEY_ALIAS") ?: "twimusic"
+                keyPassword = System.getenv("KEY_PASSWORD") ?: "twimusic"
+            }
+        }
         create("ci") {
             storeFile = System.getenv("ANDROID_NIGHTLY_KEYSTORE")?.let { file(it) }
-            storePassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("ANDROID_NIGHTLY_KEYSTORE_ALIAS")
-            keyPassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD")
+                ?: rootProject.file("signing/release.keystore").takeIf { it.exists() }
+            storePassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD") ?: "twimusic"
+            keyAlias = System.getenv("ANDROID_NIGHTLY_KEYSTORE_ALIAS") ?: "twimusic"
+            keyPassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD") ?: "twimusic"
         }
     }
 
@@ -55,6 +65,9 @@ android {
             applicationIdSuffix = ".debug"
             versionNameSuffix = "-DEBUG"
             manifestPlaceholders["appName"] = "TwiMusic Debug"
+            signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true }?.let {
+                signingConfig = it
+            }
         }
 
         release {
@@ -66,6 +79,9 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfigs.findByName("release")?.takeIf { it.storeFile?.exists() == true }?.let {
+                signingConfig = it
+            }
         }
 
         create("nightly") {

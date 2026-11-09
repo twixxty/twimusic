@@ -1,0 +1,105 @@
+name: Publish Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Version tag (e.g. v1.2.7)'
+        required: true
+        default: 'v1.2.7'
+      release_title:
+        description: 'Release Title'
+        required: false
+        default: ''
+      release_notes:
+        description: 'Release notes / changelog'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'oracle'
+          java-version: '25'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: false
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Determine Version & Tag
+        id: vars
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag_name }}"
+          else
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Release APKs
+        env:
+          ANDROID_VERSION_CODE: ${{ github.run_number }}
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Prepare Release Assets
+        run: |
+          mkdir -p staging
+          TAG="${{ steps.vars.outputs.tag }}"
+          
+          # Copy and rename APKs
+          for apk in app/build/outputs/apk/release/*.apk; do
+            filename=$(basename "$apk")
+            if [[ "$filename" == *"arm64-v8a"* ]]; then
+              cp "$apk" "staging/TwiMusic-${TAG}-arm64-v8a.apk"
+            elif [[ "$filename" == *"universal"* ]]; then
+              cp "$apk" "staging/TwiMusic-${TAG}-universal.apk"
+            elif [[ "$filename" == *"x86_64"* ]]; then
+              cp "$apk" "staging/TwiMusic-${TAG}-x86_64.apk"
+            elif [[ "$filename" == *"release-unsigned"* ]]; then
+              continue
+            else
+              cp "$apk" "staging/TwiMusic-${TAG}-${filename}"
+            fi
+          done
+
+          # Generate SHA-256 Checksums
+          cd staging
+          sha256sum *.apk > sha256sums.txt
+          cd ..
+          ls -la staging/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: ${{ github.event.inputs.release_title || steps.vars.outputs.tag }}
+          body: ${{ github.event.inputs.release_notes || '' }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: staging/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
