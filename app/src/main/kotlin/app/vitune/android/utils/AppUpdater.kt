@@ -31,7 +31,7 @@ object AppUpdater {
         contentType: String = "application/vnd.android.package-archive"
     ): Result<Release?> = withContext(Dispatchers.IO) {
         val currentVersion = currentVersionName.version
-        GitHub.releases(owner = repoOwner, repo = repoName).mapCatching { releases ->
+        GitHub.releases(owner = repoOwner, repo = repoName)?.mapCatching { releases ->
             releases
                 .sortedByDescending { it.publishedAt }
                 .firstOrNull { release ->
@@ -43,7 +43,7 @@ object AppUpdater {
                                 asset.state == Release.Asset.State.Uploaded
                         }
                 }
-        }
+        } ?: Result.failure(Exception("Failed to fetch releases from GitHub"))
     }
 
     private val httpClient by lazy {
