@@ -173,8 +173,8 @@ fun Thumbnail(
                 AsyncImage(
                     model = currentWindow.mediaItem.mediaMetadata.artworkUri
                         ?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
-                    placeholder = painterResource(id = R.drawable.ic_launcher_foreground),
-                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                    placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
+                    error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                     contentDescription = null,
                     contentScale = contentScale,
                     modifier = Modifier

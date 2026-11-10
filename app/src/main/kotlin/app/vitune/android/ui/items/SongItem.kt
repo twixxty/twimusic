@@ -158,7 +158,7 @@ private fun SongItem(
             ) {
                 AsyncImage(
                     model = thumbnailUrl,
-                    error = painterResource(id = R.drawable.ic_launcher_foreground),
+                    error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()

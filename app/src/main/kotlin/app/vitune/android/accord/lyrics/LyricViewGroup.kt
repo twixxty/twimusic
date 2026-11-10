@@ -64,8 +64,9 @@ class LyricViewGroup @JvmOverloads constructor(
             return rawPos
         }
 
-        // Seek or large track jump (> 1000ms): immediately sync ground truth
-        if (kotlin.math.abs(rawPos - lastEmittedPositionMs) > 1000L) {
+        // Seek or track jump: immediately sync ground truth
+        // Also sync immediately if time traveled backwards (e.g. user tapped earlier line)
+        if (kotlin.math.abs(rawPos - lastEmittedPositionMs) > 200L || rawPos < lastEmittedPositionMs - 50L) {
             lastRawPositionMs = rawPos
             lastRawPositionTimeMs = now
             lastEmittedPositionMs = rawPos
@@ -203,6 +204,7 @@ class LyricViewGroup @JvmOverloads constructor(
             )
             view.setOnClickListener {
                 val time = lineStartTimes.getOrNull(index) ?: 0L
+                seekToLine(index, time)
                 onLineClick?.invoke(index, time)
             }
             addView(view)
@@ -211,6 +213,38 @@ class LyricViewGroup @JvmOverloads constructor(
         currentPrimaryLineIndex = -1
         currentActiveIndices = emptySet()
         requestLayout()
+    }
+
+    fun seekToLine(index: Int, timeMs: Long) {
+        val parentScrollView = parent as? ScrollView
+        lastRawPositionMs = timeMs
+        lastRawPositionTimeMs = SystemClock.elapsedRealtime()
+        lastEmittedPositionMs = timeMs
+        autoScrollEnabled = true
+
+        val (primaryIndex, activeIndices) = getActiveLines(timeMs)
+        val targetPrimary = if (primaryIndex >= 0) primaryIndex else index
+        val targetActive = if (activeIndices.isNotEmpty()) activeIndices else setOf(targetPrimary)
+
+        currentActiveIndices = targetActive
+        currentPrimaryLineIndex = -1
+
+        if (parentScrollView != null) {
+            scrollToLine(
+                scrollView = parentScrollView,
+                index = targetPrimary,
+                animated = true,
+                shouldScrollScrollView = true
+            )
+        }
+
+        for (activeIdx in targetActive) {
+            if (activeIdx in 0 until childCount) {
+                val child = getChildAt(activeIdx) as? LyricTextView ?: continue
+                child.setLineActive(true)
+                child.unblurImmediately()
+            }
+        }
     }
 
     var scrollViewHeight: Int = resources.displayMetrics.heightPixels
@@ -366,6 +400,9 @@ class LyricViewGroup @JvmOverloads constructor(
             if (activeIdx in 0 until childCount) {
                 val child = getChildAt(activeIdx) as? LyricTextView ?: continue
                 child.setLineActive(true)
+                if (child.isRenderEffectBlurred()) {
+                    child.unblurImmediately()
+                }
                 val linePositionMs = safePositionMs - lineStartTimes[activeIdx]
                 updateLineProgress(child, lyrics[activeIdx], linePositionMs)
             }

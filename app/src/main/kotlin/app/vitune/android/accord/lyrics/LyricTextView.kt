@@ -136,6 +136,7 @@ class LyricTextView(
                     }
                 )
             }
+            invalidate()
         }
     private var lineTextAlphaAnimator: ValueAnimator? = null
     private var lineTextScaleAnimator: ValueAnimator? = null
@@ -384,30 +385,63 @@ class LyricTextView(
             0f
         }
 
+        if (isActivated || targetBlurRadius <= 0f) {
+            // Active line MUST unblur immediately! Never schedule blur on active lines
+            lineBlurRadiusAnimator?.cancel()
+            lineBlurRadiusAnimator = null
+            lineBlurRadius = 0f
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setRenderEffect(null)
+            }
+        }
+
         if (!animated || (targetBlurRadius == 0f && lineBlurRadius == 0f && targetAlpha == lineTextAlpha && targetScale == lineTextScale)) {
             cancelLineStyleAnimations()
             lineTextAlpha = targetAlpha
             lineTextScale = targetScale
             lineBlurRadius = targetBlurRadius
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && targetBlurRadius <= 0.5f) {
+                setRenderEffect(null)
+            }
+            invalidate()
             return
         }
 
-        val effectiveDelay = if (isActivated) delayMs + 60L else delayMs + STYLE_SECONDARY_DELAY_MS
+        val effectiveDelay = if (isActivated) delayMs else delayMs + STYLE_SECONDARY_DELAY_MS
         animateLineTextAlpha(targetAlpha, effectiveDelay)
         animateLineTextScale(targetScale, effectiveDelay)
-        animateLineBlurRadius(targetBlurRadius, effectiveDelay)
+        if (!isActivated && targetBlurRadius > 0f) {
+            animateLineBlurRadius(targetBlurRadius, effectiveDelay)
+        }
     }
+
+    fun unblurImmediately() {
+        lineBlurRadiusAnimator?.cancel()
+        lineBlurRadiusAnimator = null
+        lineBlurRadius = 0f
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            setRenderEffect(null)
+        }
+        invalidate()
+    }
+
+    fun isRenderEffectBlurred(): Boolean = lineBlurRadius > 0.5f
 
     fun resetLineStyle() {
         cancelLineStyleAnimations()
         lineTextAlpha = if (isBackgroundLine) 0f else INACTIVE_LINE_ALPHA
         lineTextScale = INACTIVE_LINE_SCALE
         lineBlurRadius = 0f
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            setRenderEffect(null)
+        }
+        invalidate()
     }
 
     private fun animateLineTextAlpha(targetAlpha: Float, delayMs: Long) {
-        if (lineTextAlpha == targetAlpha) return
         lineTextAlphaAnimator?.cancel()
+        lineTextAlphaAnimator = null
+        if (lineTextAlpha == targetAlpha) return
         lineTextAlphaAnimator = ValueAnimator.ofFloat(lineTextAlpha, targetAlpha).apply {
             duration = STYLE_ANIMATION_DURATION_MS
             startDelay = delayMs
@@ -420,8 +454,9 @@ class LyricTextView(
     }
 
     private fun animateLineTextScale(targetScale: Float, delayMs: Long) {
-        if (lineTextScale == targetScale) return
         lineTextScaleAnimator?.cancel()
+        lineTextScaleAnimator = null
+        if (lineTextScale == targetScale) return
         lineTextScaleAnimator = ValueAnimator.ofFloat(lineTextScale, targetScale).apply {
             duration = STYLE_ANIMATION_DURATION_MS
             startDelay = delayMs
@@ -434,8 +469,9 @@ class LyricTextView(
     }
 
     private fun animateLineBlurRadius(targetRadius: Float, delayMs: Long) {
-        if (lineBlurRadius == targetRadius) return
         lineBlurRadiusAnimator?.cancel()
+        lineBlurRadiusAnimator = null
+        if (lineBlurRadius == targetRadius) return
         lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
             duration = BLUR_ANIMATION_DURATION_MS
             startDelay = delayMs

@@ -1,5 +1,9 @@
 package app.vitune.android.ui.screens.settings
 
+import android.content.ComponentName
+import android.content.Context
+import android.content.pm.PackageManager
+import timber.log.Timber
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -35,6 +39,17 @@ fun AppearanceSettings() = with(AppearancePreferences) {
     val isDark = isSystemInDarkTheme()
 
     SettingsCategoryScreen(title = stringResource(R.string.appearance)) {
+        SettingsGroup(title = stringResource(R.string.app_icon)) {
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.app_icon),
+                selectedValue = appLogo,
+                onValueSelect = { newLogo ->
+                    appLogo = newLogo
+                    updateAppIcon(context, newLogo)
+                },
+                valueText = { stringResource(it.displayNameRes) }
+            )
+        }
         SettingsGroup(title = stringResource(R.string.colors)) {
             EnumValueSelectorSettingsEntry(
                 title = stringResource(R.string.color_source),
@@ -317,3 +332,29 @@ val ThumbnailRoundness.nameLocalized
             ThumbnailRoundness.Heaviest -> R.string.thumbnail_roundness_heaviest
         }
     )
+
+fun updateAppIcon(context: Context, appLogo: AppearancePreferences.AppLogo) {
+    val pm = context.packageManager
+    val defaultComponent = ComponentName(context, "app.vitune.android.MainActivity")
+    val classicComponent = ComponentName(context, "app.vitune.android.MainActivityClassic")
+
+    val (enableComponent, disableComponent) = when (appLogo) {
+        AppearancePreferences.AppLogo.New -> defaultComponent to classicComponent
+        AppearancePreferences.AppLogo.Classic -> classicComponent to defaultComponent
+    }
+
+    try {
+        pm.setComponentEnabledSetting(
+            enableComponent,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+            PackageManager.DONT_KILL_APP
+        )
+        pm.setComponentEnabledSetting(
+            disableComponent,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        )
+    } catch (e: Exception) {
+        Timber.e(e, "Failed to update app icon")
+    }
+}

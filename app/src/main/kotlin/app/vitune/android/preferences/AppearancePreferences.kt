@@ -1,5 +1,6 @@
 package app.vitune.android.preferences
 
+import app.vitune.android.R
 import app.vitune.android.GlobalPreferencesHolder
 import app.vitune.android.preferences.OldPreferences.ColorPaletteMode
 import app.vitune.android.preferences.OldPreferences.ColorPaletteName
@@ -10,6 +11,24 @@ import app.vitune.core.ui.Darkness
 import app.vitune.core.ui.ThumbnailRoundness
 
 object AppearancePreferences : GlobalPreferencesHolder() {
+    enum class AppLogo {
+        New,
+        Classic;
+
+        val displayNameRes: Int
+            get() = when (this) {
+                New -> R.string.app_icon_new
+                Classic -> R.string.app_icon_classic
+            }
+
+        val iconDrawableRes: Int
+            get() = when (this) {
+                New -> R.drawable.ic_launcher_foreground
+                Classic -> R.drawable.ic_launcher_classic_foreground
+            }
+    }
+
+    var appLogo by enum(AppLogo.New)
     var colorSource by enum(
         when (OldPreferences.oldColorPaletteName) {
             ColorPaletteName.Default, ColorPaletteName.PureBlack -> ColorSource.Default

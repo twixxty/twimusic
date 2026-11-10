@@ -173,7 +173,7 @@ fun Modifier.pip(
             setActions(
                 actions.all.values.map {
                     RemoteAction(
-                        it.icon ?: Icon.createWithResource(activity, R.drawable.ic_launcher_foreground),
+                        it.icon ?: Icon.createWithResource(activity, app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                         it.title.orEmpty(),
                         it.contentDescription.orEmpty(),
                         with(activity) { it.pendingIntent }
