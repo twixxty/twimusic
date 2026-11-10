@@ -4,7 +4,11 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.content.FileProvider
+import app.vitune.android.BuildConfig
+import app.vitune.core.data.utils.version
+import app.vitune.providers.github.GitHub
 import app.vitune.providers.github.models.Release
+import app.vitune.providers.github.requests.releases
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
@@ -14,6 +18,34 @@ import java.io.File
 import java.io.IOException
 
 object AppUpdater {
+    val currentVersionName: String = BuildConfig.VERSION_NAME.substringBeforeLast("-")
+    const val REPO_OWNER = "twixxty"
+    const val REPO_NAME = "twimusic"
+
+    /**
+     * Queries GitHub for releases and returns the latest Release if it is newer than the current version.
+     */
+    suspend fun getNewerVersion(
+        repoOwner: String = REPO_OWNER,
+        repoName: String = REPO_NAME,
+        contentType: String = "application/vnd.android.package-archive"
+    ): Result<Release?> = withContext(Dispatchers.IO) {
+        val currentVersion = currentVersionName.version
+        GitHub.releases(owner = repoOwner, repo = repoName).mapCatching { releases ->
+            releases
+                .sortedByDescending { it.publishedAt }
+                .firstOrNull { release ->
+                    !release.draft &&
+                        !release.preRelease &&
+                        release.tag.version > currentVersion &&
+                        release.assets.any { asset ->
+                            (asset.contentType == contentType || asset.name.endsWith(".apk", ignoreCase = true)) &&
+                                asset.state == Release.Asset.State.Uploaded
+                        }
+                }
+        }
+    }
+
     private val httpClient by lazy {
         OkHttpClient.Builder()
             .followRedirects(true)

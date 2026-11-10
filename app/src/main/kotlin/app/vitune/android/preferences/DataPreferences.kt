@@ -22,7 +22,7 @@ object DataPreferences : GlobalPreferencesHolder() {
     val topListPeriodProperty = enum(TopListPeriod.AllTime)
     var topListPeriod by topListPeriodProperty
     var quickPicksSource by enum(QuickPicksSource.Trending)
-    var versionCheckPeriod by enum(VersionCheckPeriod.Off)
+    var checkUpdatesOnStartup by boolean(true)
     var shouldCacheQuickPicks by boolean(true)
     var cachedQuickPicks by json(Innertube.RelatedPage())
     var autoSyncPlaylists by boolean(true)
@@ -41,16 +41,5 @@ object DataPreferences : GlobalPreferencesHolder() {
     enum class QuickPicksSource(val displayName: @Composable () -> String) {
         Trending(displayName = { stringResource(R.string.trending) }),
         LastInteraction(displayName = { stringResource(R.string.last_interaction) })
-    }
-
-    @Suppress("unused")
-    enum class VersionCheckPeriod(
-        val displayName: @Composable () -> String,
-        val period: Duration?
-    ) {
-        Off(displayName = { stringResource(R.string.off_text) }, period = null),
-        Hourly(displayName = { stringResource(R.string.hourly) }, period = 1.hours),
-        Daily(displayName = { stringResource(R.string.daily) }, period = 1.days),
-        Weekly(displayName = { stringResource(R.string.weekly) }, period = 7.days)
     }
 }

@@ -39,6 +39,7 @@ import androidx.compose.material3.LocalRippleConfiguration
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
@@ -64,6 +65,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.work.Configuration
+import androidx.work.WorkManager
 import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.service.PlayerService
@@ -72,6 +74,9 @@ import app.vitune.android.service.downloadState
 import app.vitune.android.ui.components.BottomSheetMenu
 import app.vitune.android.ui.components.rememberBottomSheetState
 import app.vitune.android.ui.components.themed.LinearProgressIndicator
+import app.vitune.android.ui.components.themed.UpdateDialog
+import app.vitune.android.utils.AppUpdater
+import app.vitune.providers.github.models.Release
 import app.vitune.android.ui.screens.albumRoute
 import app.vitune.android.ui.screens.artistRoute
 import app.vitune.android.ui.screens.home.HomeScreen
@@ -146,6 +151,8 @@ private val coroutineScope = CoroutineScope(Dispatchers.IO)
 // Viewmodel in order to avoid recreating the entire Player state (WORKAROUND)
 class MainViewModel : ViewModel() {
     var binder: PlayerService.Binder? by mutableStateOf(null)
+    var startupUpdateRelease: Release? by mutableStateOf(null)
+    var hasCheckedForUpdates: Boolean = false
 
     suspend fun awaitBinder(): PlayerService.Binder =
         binder ?: snapshotFlow { binder }.filterNotNull().first()
@@ -365,6 +372,34 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                     }
                 }
             }
+
+            LaunchedEffect(Unit) {
+                if (!vm.hasCheckedForUpdates) {
+                    vm.hasCheckedForUpdates = true
+                    if (DataPreferences.checkUpdatesOnStartup) {
+                        withContext(Dispatchers.IO) {
+                            AppUpdater.getNewerVersion()
+                                .onSuccess { release ->
+                                    if (release != null) {
+                                        withContext(Dispatchers.Main) {
+                                            vm.startupUpdateRelease = release
+                                        }
+                                    }
+                                }
+                                .onFailure { e ->
+                                    Log.d(TAG, "Startup update check failed: ${e.message}")
+                                }
+                        }
+                    }
+                }
+            }
+
+            vm.startupUpdateRelease?.let { release ->
+                UpdateDialog(
+                    release = release,
+                    onDismiss = { vm.startupUpdateRelease = null }
+                )
+            }
         }
     }
 
@@ -568,6 +603,12 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 
         MonetCompat.enablePaletteCompat()
         ServiceNotifications.createAll()
+
+        // Cancel legacy background version check worker from previous versions
+        runCatching {
+            WorkManager.getInstance(this).cancelUniqueWork("version_check_worker")
+            WorkManager.getInstance(this).cancelAllWorkByTag("version_check_worker")
+        }
 
         // Auto-sync library in background when logged in
         if (AccountPreferences.isLoggedIn) {
