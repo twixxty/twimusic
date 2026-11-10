@@ -49,45 +49,59 @@ class LyricViewGroup @JvmOverloads constructor(
     var isPlayingProvider: (() -> Boolean)? = null
 
     private var lastRawPositionMs = 0L
-    private var lastRawPositionTimeMs = 0L
     private var lastEmittedPositionMs = 0L
+    private var pendingSeekTargetMs = -1L
+    private var pendingSeekTimeMs = 0L
 
     fun getSmoothPositionMs(): Long {
-        val rawPos = positionProvider?.invoke() ?: 0L
+        val rawPos = (positionProvider?.invoke() ?: 0L).coerceAtLeast(0L)
         val isPlaying = isPlayingProvider?.invoke() ?: false
         val now = SystemClock.elapsedRealtime()
 
         if (!isPlaying) {
             lastRawPositionMs = rawPos
-            lastRawPositionTimeMs = now
+            lastEmittedPositionMs = rawPos
+            pendingSeekTimeMs = 0L
+            pendingSeekTargetMs = -1L
+            return rawPos
+        }
+
+        // Handle in-flight seek from lyric line tap (prevent stale pre-seek ExoPlayer frames)
+        if (pendingSeekTimeMs > 0L) {
+            val seekElapsed = now - pendingSeekTimeMs
+            if (kotlin.math.abs(rawPos - pendingSeekTargetMs) < 500L || seekElapsed > 800L) {
+                // Seek reached destination or timed out
+                pendingSeekTimeMs = 0L
+                pendingSeekTargetMs = -1L
+                lastRawPositionMs = rawPos
+                lastEmittedPositionMs = rawPos
+                return rawPos
+            } else {
+                // ExoPlayer is still processing seek; hold / progress smoothly from seek target
+                val estimated = pendingSeekTargetMs + seekElapsed
+                lastEmittedPositionMs = estimated
+                return estimated
+            }
+        }
+
+        // Seek detection:
+        // A seek occurs when the player position jumps backwards by > 250ms
+        // or jumps forward by > 1200ms
+        val rawDiff = rawPos - lastRawPositionMs
+        val isBackwardSeek = lastRawPositionMs > 0L && rawDiff < -250L
+        val isForwardSeek = lastRawPositionMs > 0L && rawDiff > 1200L
+        val isDesynced = kotlin.math.abs(rawPos - lastEmittedPositionMs) > 1500L
+
+        if (isBackwardSeek || isForwardSeek || isDesynced) {
+            lastRawPositionMs = rawPos
             lastEmittedPositionMs = rawPos
             return rawPos
         }
 
-        // Seek or track jump: immediately sync ground truth
-        // Also sync immediately if time traveled backwards (e.g. user tapped earlier line)
-        if (kotlin.math.abs(rawPos - lastEmittedPositionMs) > 200L || rawPos < lastEmittedPositionMs - 50L) {
-            lastRawPositionMs = rawPos
-            lastRawPositionTimeMs = now
-            lastEmittedPositionMs = rawPos
-            return rawPos
-        }
+        lastRawPositionMs = rawPos
 
-        if (rawPos != lastRawPositionMs) {
-            lastRawPositionMs = rawPos
-            lastRawPositionTimeMs = now
-        }
-
-        // Safe monotonic interpolation for frame smoothness (up to 500ms between ExoPlayer clock updates)
-        val elapsed = if (lastRawPositionTimeMs > 0L) {
-            (now - lastRawPositionTimeMs).coerceIn(0L, 500L)
-        } else {
-            0L
-        }
-
-        val computed = rawPos + elapsed
         // Strictly monotonic: time NEVER travels backwards during playback
-        lastEmittedPositionMs = maxOf(lastEmittedPositionMs, computed)
+        lastEmittedPositionMs = maxOf(lastEmittedPositionMs, rawPos)
         return lastEmittedPositionMs
     }
 
@@ -217,8 +231,9 @@ class LyricViewGroup @JvmOverloads constructor(
 
     fun seekToLine(index: Int, timeMs: Long) {
         val parentScrollView = parent as? ScrollView
+        pendingSeekTargetMs = timeMs
+        pendingSeekTimeMs = SystemClock.elapsedRealtime()
         lastRawPositionMs = timeMs
-        lastRawPositionTimeMs = SystemClock.elapsedRealtime()
         lastEmittedPositionMs = timeMs
         autoScrollEnabled = true
 
@@ -257,8 +272,9 @@ class LyricViewGroup @JvmOverloads constructor(
     fun stopPlayback() {
         cancelScrollAnimation()
         lastRawPositionMs = 0L
-        lastRawPositionTimeMs = 0L
         lastEmittedPositionMs = 0L
+        pendingSeekTargetMs = -1L
+        pendingSeekTimeMs = 0L
         currentPrimaryLineIndex = -1
         currentActiveIndices = emptySet()
         forEach { child ->
