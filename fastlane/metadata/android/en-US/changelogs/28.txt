@@ -1,0 +1,4 @@
+* New modern branding and app icon with Android 13+ themed (Monet) icon support
+* Added option in Settings > Appearance to revert to the classic ViTune logo
+* Fixed a bug where tapping a lyric line kept the active line blurred until the line changed
+* Updated Android TV banner and notification icons with new branding
