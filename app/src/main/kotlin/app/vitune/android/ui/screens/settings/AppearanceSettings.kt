@@ -337,24 +337,30 @@ fun updateAppIcon(context: Context, appLogo: AppearancePreferences.AppLogo) {
     val pm = context.packageManager
     val defaultComponent = ComponentName(context, "app.vitune.android.MainActivity")
     val classicComponent = ComponentName(context, "app.vitune.android.MainActivityClassic")
+    val headphonesComponent = ComponentName(context, "app.vitune.android.MainActivityHeadphones")
 
-    val (enableComponent, disableComponent) = when (appLogo) {
-        AppearancePreferences.AppLogo.New -> defaultComponent to classicComponent
-        AppearancePreferences.AppLogo.Classic -> classicComponent to defaultComponent
+    val activeComponent = when (appLogo) {
+        AppearancePreferences.AppLogo.New -> defaultComponent
+        AppearancePreferences.AppLogo.Classic -> classicComponent
+        AppearancePreferences.AppLogo.Headphones -> headphonesComponent
     }
 
-    try {
-        pm.setComponentEnabledSetting(
-            enableComponent,
-            PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
-            PackageManager.DONT_KILL_APP
-        )
-        pm.setComponentEnabledSetting(
-            disableComponent,
-            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
-            PackageManager.DONT_KILL_APP
-        )
-    } catch (e: Exception) {
-        Timber.e(e, "Failed to update app icon")
+    val allComponents = listOf(defaultComponent, classicComponent, headphonesComponent)
+
+    for (component in allComponents) {
+        val state = if (component == activeComponent) {
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED
+        } else {
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED
+        }
+        try {
+            pm.setComponentEnabledSetting(
+                component,
+                state,
+                PackageManager.DONT_KILL_APP
+            )
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to update app icon for $component")
+        }
     }
 }

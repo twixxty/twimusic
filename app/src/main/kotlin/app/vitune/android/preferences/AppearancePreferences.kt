@@ -13,18 +13,21 @@ import app.vitune.core.ui.ThumbnailRoundness
 object AppearancePreferences : GlobalPreferencesHolder() {
     enum class AppLogo {
         New,
-        Classic;
+        Classic,
+        Headphones;
 
         val displayNameRes: Int
             get() = when (this) {
                 New -> R.string.app_icon_new
                 Classic -> R.string.app_icon_classic
+                Headphones -> R.string.app_icon_headphones
             }
 
         val iconDrawableRes: Int
             get() = when (this) {
                 New -> R.drawable.ic_launcher_foreground
                 Classic -> R.drawable.ic_launcher_classic_foreground
+                Headphones -> R.drawable.ic_launcher_headphones_foreground
             }
     }
 
