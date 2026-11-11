@@ -1,5 +1,5 @@
 <div align="center">
-    <img src="./app/src/main/ic_launcher-playstore.png" width="128" height="128" style="display: block; margin: 0 auto"/>
+    <img src="./banner.webp" width="128" height="128" style="display: block; margin: 0 auto"/>
     <h1>TwiMusic</h1>
     <p>a vitune fork nobody asked for</p>
 </div>
