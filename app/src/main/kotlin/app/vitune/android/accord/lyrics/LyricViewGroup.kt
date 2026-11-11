@@ -47,11 +47,13 @@ class LyricViewGroup @JvmOverloads constructor(
     var onLineClick: ((index: Int, timeMs: Long) -> Unit)? = null
     var positionProvider: (() -> Long)? = null
     var isPlayingProvider: (() -> Boolean)? = null
+    var speedProvider: (() -> Float)? = null
 
-    private var lastRawPositionMs = 0L
-    private var lastEmittedPositionMs = 0L
+    private var smoothPositionMs = 0L
+    private var lastFrameTimeMs = 0L
     private var pendingSeekTargetMs = -1L
     private var pendingSeekTimeMs = 0L
+    private var wasPlaying = false
 
     fun getSmoothPositionMs(): Long {
         val rawPos = (positionProvider?.invoke() ?: 0L).coerceAtLeast(0L)
@@ -59,50 +61,65 @@ class LyricViewGroup @JvmOverloads constructor(
         val now = SystemClock.elapsedRealtime()
 
         if (!isPlaying) {
-            lastRawPositionMs = rawPos
-            lastEmittedPositionMs = rawPos
+            wasPlaying = false
+            smoothPositionMs = rawPos
+            lastFrameTimeMs = now
             pendingSeekTimeMs = 0L
             pendingSeekTargetMs = -1L
             return rawPos
         }
 
-        // Handle in-flight seek from lyric line tap (prevent stale pre-seek ExoPlayer frames)
-        if (pendingSeekTimeMs > 0L) {
-            val seekElapsed = now - pendingSeekTimeMs
-            if (kotlin.math.abs(rawPos - pendingSeekTargetMs) < 500L || seekElapsed > 800L) {
-                // Seek reached destination or timed out
-                pendingSeekTimeMs = 0L
-                pendingSeekTargetMs = -1L
-                lastRawPositionMs = rawPos
-                lastEmittedPositionMs = rawPos
-                return rawPos
-            } else {
-                // ExoPlayer is still processing seek; hold / progress smoothly from seek target
-                val estimated = pendingSeekTargetMs + seekElapsed
-                lastEmittedPositionMs = estimated
-                return estimated
-            }
-        }
-
-        // Seek detection:
-        // A seek occurs when the player position jumps backwards by > 250ms
-        // or jumps forward by > 1200ms
-        val rawDiff = rawPos - lastRawPositionMs
-        val isBackwardSeek = lastRawPositionMs > 0L && rawDiff < -250L
-        val isForwardSeek = lastRawPositionMs > 0L && rawDiff > 1200L
-        val isDesynced = kotlin.math.abs(rawPos - lastEmittedPositionMs) > 1500L
-
-        if (isBackwardSeek || isForwardSeek || isDesynced) {
-            lastRawPositionMs = rawPos
-            lastEmittedPositionMs = rawPos
+        // Just started playing or resumed from pause
+        if (!wasPlaying || lastFrameTimeMs == 0L) {
+            wasPlaying = true
+            smoothPositionMs = rawPos
+            lastFrameTimeMs = now
+            pendingSeekTimeMs = 0L
+            pendingSeekTargetMs = -1L
             return rawPos
         }
 
-        lastRawPositionMs = rawPos
+        val dt = (now - lastFrameTimeMs).coerceIn(1L, 100L)
+        lastFrameTimeMs = now
 
-        // Strictly monotonic: time NEVER travels backwards during playback
-        lastEmittedPositionMs = maxOf(lastEmittedPositionMs, rawPos)
-        return lastEmittedPositionMs
+        // Handle in-flight seek from lyric line tap (hold and progress smoothly from target while player seeks)
+        if (pendingSeekTimeMs > 0L) {
+            val seekElapsed = now - pendingSeekTimeMs
+            if (kotlin.math.abs(rawPos - pendingSeekTargetMs) < 300L || seekElapsed > 800L) {
+                // Seek reached destination or timed out
+                pendingSeekTimeMs = 0L
+                pendingSeekTargetMs = -1L
+                smoothPositionMs = rawPos
+                return smoothPositionMs
+            } else {
+                val speed = speedProvider?.invoke() ?: 1.0f
+                smoothPositionMs = pendingSeekTargetMs + (seekElapsed * speed).toLong()
+                return smoothPositionMs
+            }
+        }
+
+        // Detect user seek or track change (large sudden jump in player position)
+        val error = rawPos - smoothPositionMs
+        if (kotlin.math.abs(error) > 400L) {
+            smoothPositionMs = rawPos
+            return smoothPositionMs
+        }
+
+        // Continuous high-FPS PLL clock tracking:
+        // Advances smoothly with each display frame (60fps/120fps), while gently steering toward rawPos
+        val speed = speedProvider?.invoke() ?: 1.0f
+        val baseDelta = (dt * speed).toLong()
+
+        // Proportional correction: adjust by a fraction of the error to absorb AudioTrack buffer jitter
+        val correction = (error * 0.15f).toLong()
+        val maxAdjustment = (baseDelta * 0.5f).toLong().coerceAtLeast(1L)
+        val clampedCorrection = correction.coerceIn(-maxAdjustment, maxAdjustment)
+
+        // Monotonic progression: step is always >= 1ms during playback (never goes backward or freezes)
+        val step = maxOf(1L, baseDelta + clampedCorrection)
+        smoothPositionMs += step
+
+        return smoothPositionMs
     }
 
     var autoScrollEnabled: Boolean = true
@@ -231,10 +248,11 @@ class LyricViewGroup @JvmOverloads constructor(
 
     fun seekToLine(index: Int, timeMs: Long) {
         val parentScrollView = parent as? ScrollView
+        val now = SystemClock.elapsedRealtime()
         pendingSeekTargetMs = timeMs
-        pendingSeekTimeMs = SystemClock.elapsedRealtime()
-        lastRawPositionMs = timeMs
-        lastEmittedPositionMs = timeMs
+        pendingSeekTimeMs = now
+        smoothPositionMs = timeMs
+        lastFrameTimeMs = now
         autoScrollEnabled = true
 
         val (primaryIndex, activeIndices) = getActiveLines(timeMs)
@@ -271,10 +289,11 @@ class LyricViewGroup @JvmOverloads constructor(
 
     fun stopPlayback() {
         cancelScrollAnimation()
-        lastRawPositionMs = 0L
-        lastEmittedPositionMs = 0L
+        smoothPositionMs = 0L
+        lastFrameTimeMs = 0L
         pendingSeekTargetMs = -1L
         pendingSeekTimeMs = 0L
+        wasPlaying = false
         currentPrimaryLineIndex = -1
         currentActiveIndices = emptySet()
         forEach { child ->

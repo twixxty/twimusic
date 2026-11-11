@@ -781,6 +781,9 @@ fun Lyrics(
                                     isPlayingProvider = {
                                         binder?.player?.isPlaying ?: false
                                     }
+                                    speedProvider = {
+                                        binder?.player?.playbackParameters?.speed ?: 1.0f
+                                    }
                                 }
                                 accordScrollView = scrollView
                                 accordLyricViewGroup = lyricViewGroup
@@ -813,6 +816,16 @@ fun Lyrics(
                             },
                             update = { scrollView ->
                                 val lyricViewGroup = scrollView.getChildAt(0) as? LyricViewGroup ?: return@AndroidView
+                                lyricViewGroup.positionProvider = {
+                                    val player = binder?.player
+                                    (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
+                                }
+                                lyricViewGroup.isPlayingProvider = {
+                                    binder?.player?.isPlaying ?: false
+                                }
+                                lyricViewGroup.speedProvider = {
+                                    binder?.player?.playbackParameters?.speed ?: 1.0f
+                                }
                                 lyricViewGroup.accentColor = accentArgb
                                 lyricViewGroup.autoScrollEnabled = isAutoScrollEnabled
                                 if (lyricViewGroup.tag != accordLyricsData.first) {
