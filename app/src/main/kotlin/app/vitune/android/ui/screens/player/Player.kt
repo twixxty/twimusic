@@ -594,8 +594,7 @@ fun Player(
                 PlayerPreferences.PlayerBackgroundStyle.Blur -> {
                     BlurredArtworkBackground(
                         bitmap = sampleBitmap,
-                        blurRadius = if (isShowingLyrics) 60.dp else 40.dp,
-                        overlayAlpha = darkOverlayAlpha,
+                        overlayAlpha = { darkOverlayAlpha },
                         fallbackColor = colorPalette.background0,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -603,8 +602,7 @@ fun Player(
                 PlayerPreferences.PlayerBackgroundStyle.LavaLamp -> {
                     LavaLampBackground(
                         bitmap = sampleBitmap,
-                        blurRadius = if (isShowingLyrics) 70.dp else 50.dp,
-                        overlayAlpha = darkOverlayAlpha,
+                        overlayAlpha = { darkOverlayAlpha },
                         fallbackColor = colorPalette.background0,
                         modifier = Modifier.fillMaxSize()
                     )

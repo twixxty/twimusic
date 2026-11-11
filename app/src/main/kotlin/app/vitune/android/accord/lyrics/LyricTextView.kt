@@ -4,9 +4,12 @@ import android.animation.Animator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.BlendMode
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Rect
+import android.graphics.RectF
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.os.Build
@@ -21,6 +24,7 @@ import androidx.core.graphics.withClip
 import androidx.core.graphics.withTranslation
 import app.vitune.android.R
 import app.vitune.android.preferences.PlayerPreferences
+import app.vitune.android.utils.BitmapBlur
 import kotlin.math.abs
 
 class LyricTextView(
@@ -96,6 +100,7 @@ class LyricTextView(
     var lyric: String = ""
         set(value) {
             field = value
+            releaseLegacyBlur()
             requestLayout()
             invalidate()
         }
@@ -135,6 +140,8 @@ class LyricTextView(
                         RenderEffect.createBlurEffect(value, value, Shader.TileMode.CLAMP)
                     }
                 )
+            } else if (value <= 0.5f) {
+                releaseLegacyBlur()
             }
             invalidate()
         }
@@ -143,18 +150,128 @@ class LyricTextView(
     private var lineBlurRadiusAnimator: ValueAnimator? = null
     private val lineStyleInterpolator = DecelerateInterpolator()
 
-    override fun onDraw(canvas: Canvas) {
-        if (isMagicLyric) {
-            drawMagicLyric(canvas)
-            return
+    // region Blur on Android 11 and below
+    //
+    // View.setRenderEffect (and therefore GPU blur) only exists on Android 12+. On older versions a
+    // blurred line is instead rendered ONCE into a small bitmap, blurred on the CPU (BitmapBlur) and
+    // then simply drawn - with the line's alpha and scale still animating - until its blur radius
+    // changes. The bitmap is rendered at a fraction of the view's size (the blur hides the lost
+    // detail), so it is tiny, cheap to create and cheap to hold on to.
+    private var legacyBlur: Bitmap? = null
+    private var legacyBlurWidth = 0
+    private var legacyBlurHeight = 0
+    private var legacyBlurRadiusPx = 0f
+    private var isCapturingBlur = false
+    private val legacyBlurPaint = Paint(Paint.FILTER_BITMAP_FLAG)
+    private val legacyBlurSrc = Rect()
+    private val legacyBlurDst = RectF()
+
+    private val usesLegacyBlur: Boolean
+        get() = Build.VERSION.SDK_INT < Build.VERSION_CODES.S && lineBlurRadius > 0.5f
+
+    private fun releaseLegacyBlur() {
+        // Deliberately not recycled: the bitmap may still be referenced by a recorded display list
+        // that has not been rendered yet, and recycling it would crash the render thread.
+        legacyBlur = null
+    }
+
+    private fun obtainLegacyBlur(): Bitmap? {
+        val w = width
+        val h = height
+        if (w <= 0 || h <= 0) return null
+        val radius = lineBlurRadius
+
+        legacyBlur?.let {
+            if (legacyBlurWidth == w && legacyBlurHeight == h && abs(legacyBlurRadiusPx - radius) < 0.5f) {
+                return it
+            }
         }
-        if (isBackgroundLine && lineTextAlpha <= 0.001f) {
-            return
+
+        val downscale = (radius / LEGACY_BLUR_TARGET_SIGMA).toInt().coerceIn(1, LEGACY_BLUR_MAX_DOWNSCALE)
+        val bw = (w + downscale - 1) / downscale
+        val bh = (h + downscale - 1) / downscale
+        val bitmap = try {
+            Bitmap.createBitmap(bw, bh, Bitmap.Config.ARGB_8888)
+        } catch (e: OutOfMemoryError) {
+            return null
         }
+
+        val canvas = Canvas(bitmap)
+        canvas.scale(bw.toFloat() / w, bh.toFloat() / h)
+        isCapturingBlur = true
+        try {
+            renderLine(canvas, 1f)
+        } finally {
+            isCapturingBlur = false
+        }
+
+        val pixels = IntArray(bw * bh)
+        bitmap.getPixels(pixels, 0, bw, 0, 0, bw, bh)
+        BitmapBlur.blurArgb(pixels, bw, bh, radius * bw / w)
+        bitmap.setPixels(pixels, 0, bw, 0, 0, bw, bh)
+
+        legacyBlur = bitmap
+        legacyBlurWidth = w
+        legacyBlurHeight = h
+        legacyBlurRadiusPx = radius
+        return bitmap
+    }
+
+    private fun drawLegacyBlurred(canvas: Canvas) {
+        val fade = lineTextAlpha * this.alpha
+        if (fade <= 0.001f) return
+        val bitmap = obtainLegacyBlur() ?: return
+
         val count = canvas.save()
         canvas.scale(
             lineTextScale,
             lineTextScale,
+            if (isMagicLyric) width / 2f else horizontalMargin.toFloat(),
+            height / 2f
+        )
+        legacyBlurPaint.alpha = (fade * 255f).toInt().coerceIn(0, 255)
+        legacyBlurSrc.set(0, 0, bitmap.width, bitmap.height)
+        legacyBlurDst.set(0f, 0f, width.toFloat(), height.toFloat())
+        canvas.drawBitmap(bitmap, legacyBlurSrc, legacyBlurDst, legacyBlurPaint)
+        canvas.restoreToCount(count)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        releaseLegacyBlur()
+    }
+
+    override fun onDetachedFromWindow() {
+        releaseLegacyBlur()
+        super.onDetachedFromWindow()
+    }
+    // endregion
+
+    override fun onDraw(canvas: Canvas) {
+        if (usesLegacyBlur) {
+            drawLegacyBlurred(canvas)
+        } else {
+            renderLine(canvas, lineTextScale)
+        }
+    }
+
+    /**
+     * Draws the line at [scale]. Also used to capture the line into the legacy blur bitmap, in which
+     * case ([isCapturingBlur]) it is drawn at rest and at full opacity: the line's own alpha is
+     * applied when the captured bitmap is drawn, so it can keep animating without re-capturing.
+     */
+    private fun renderLine(canvas: Canvas, scale: Float) {
+        if (isMagicLyric) {
+            drawMagicLyric(canvas, scale)
+            return
+        }
+        if (!isCapturingBlur && isBackgroundLine && lineTextAlpha <= 0.001f) {
+            return
+        }
+        val count = canvas.save()
+        canvas.scale(
+            scale,
+            scale,
             horizontalMargin.toFloat(),
             height / 2f
         )
@@ -163,7 +280,7 @@ class LyricTextView(
             verticalMargin.toFloat()
         ) {
             if (syncedLyric != null) {
-                if (animationUnit >= 0 && endOffsetChar >= 0) {
+                if (!isCapturingBlur && animationUnit >= 0 && endOffsetChar >= 0) {
                     drawContentLayerWithProgress(canvas)
                     drawHighlightLayer(canvas)
                 } else {
@@ -176,11 +293,11 @@ class LyricTextView(
         canvas.restoreToCount(count)
     }
 
-    private fun drawMagicLyric(canvas: Canvas) {
+    private fun drawMagicLyric(canvas: Canvas, scale: Float = lineTextScale) {
         val count = canvas.save()
         canvas.scale(
-            lineTextScale,
-            lineTextScale,
+            scale,
+            scale,
             width / 2f,
             height / 2f
         )
@@ -191,6 +308,7 @@ class LyricTextView(
         val startX = (width - totalWidth) / 2f
         val centerY = height / 2f
         val now = System.currentTimeMillis()
+        val fade = if (isCapturingBlur) 1f else this.alpha * lineTextAlpha
 
         for (i in 0..2) {
             val phase = (now % 1400L) / 1400.0
@@ -204,9 +322,9 @@ class LyricTextView(
 
             val dotScale = if (isLineActive) 1f + 0.35f * pulse else 0.85f
             val dotAlpha = if (isLineActive) {
-                (0.35f + 0.65f * pulse) * this.alpha * lineTextAlpha
+                (0.35f + 0.65f * pulse) * fade
             } else {
-                0.20f * this.alpha * lineTextAlpha
+                0.20f * fade
             }
             val finalAlpha = (dotAlpha * 255).toInt().coerceIn(0, 255)
 
@@ -231,7 +349,7 @@ class LyricTextView(
 
         canvas.restoreToCount(count)
 
-        if (isLineActive) {
+        if (isLineActive && !isCapturingBlur) {
             postInvalidateOnAnimation()
         }
     }
@@ -473,7 +591,9 @@ class LyricTextView(
         lineBlurRadiusAnimator = null
         if (lineBlurRadius == targetRadius) return
         lineBlurRadiusAnimator = ValueAnimator.ofFloat(lineBlurRadius, targetRadius).apply {
-            duration = BLUR_ANIMATION_DURATION_MS
+            // Below Android 12 every radius change needs a fresh CPU blur, so jump straight to the
+            // target (after the delay) instead of re-blurring on every animation frame.
+            duration = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) BLUR_ANIMATION_DURATION_MS else 1L
             startDelay = delayMs
             interpolator = lineStyleInterpolator
             addUpdateListener {
@@ -667,7 +787,7 @@ class LyricTextView(
     private fun drawContentLayer(canvas: Canvas) {
         val layout = staticLayout ?: return
 
-        val activeProgress = if (isLineActive && syncedLyric == null) {
+        val activeProgress = if (isLineActive && !isCapturingBlur && syncedLyric == null) {
             ((lineTextAlpha - INACTIVE_LINE_ALPHA) / (ACTIVE_LINE_ALPHA - INACTIVE_LINE_ALPHA)).coerceIn(0f, 1f)
         } else if (isHolding) {
             0.5f
@@ -994,6 +1114,7 @@ class LyricTextView(
         animate().cancel()
         cancelLineStyleAnimations()
         cancelLiftupReturnAnimator()
+        releaseLegacyBlur()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             setRenderEffect(null)
         }
@@ -1029,7 +1150,11 @@ class LyricTextView(
     }
 
     private fun getScopeAlpha(currentAlpha: Float): Int =
-        (currentAlpha * 255 * this.alpha * lineTextAlpha).toInt()
+        if (isCapturingBlur) {
+            (currentAlpha * 255).toInt()
+        } else {
+            (currentAlpha * 255 * this.alpha * lineTextAlpha).toInt()
+        }
 
     companion object {
         const val ACTIVE_SHADE_TRANSPARENCY = .85F
@@ -1058,5 +1183,10 @@ class LyricTextView(
         private const val STYLE_ANIMATION_DURATION_MS = 500L
         private const val BLUR_ANIMATION_DURATION_MS = 100L
         private const val STYLE_SECONDARY_DELAY_MS = 250L
+
+        // Legacy (Android 11 and below) blur: aim for a ~2px sigma on the downscaled bitmap, which
+        // keeps it tiny while still being smooth once scaled back up.
+        private const val LEGACY_BLUR_TARGET_SIGMA = 2.2f
+        private const val LEGACY_BLUR_MAX_DOWNSCALE = 12
     }
 }

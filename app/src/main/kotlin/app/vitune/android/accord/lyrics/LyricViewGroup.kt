@@ -216,6 +216,7 @@ class LyricViewGroup @JvmOverloads constructor(
         } else {
             rebuildTimeline()
         }
+        rebuildActiveLineCache()
 
         forEach { child: View ->
             (child as? LyricTextView)?.release()
@@ -305,19 +306,67 @@ class LyricViewGroup @JvmOverloads constructor(
         }
     }
 
+    // The set of active lines only changes when playback crosses a line boundary, but it used to be
+    // recomputed (allocating sets and scanning every line) on every single frame - 60-120x a second.
+    // Instead, every time at which the result can change is collected once into a sorted array; the
+    // result is then cached per interval between two boundaries and found with a binary search.
+    private var activeLineBoundaries = LongArray(0)
+    private var cachedBoundaryInterval = -1
+    private var cachedActiveLines: Pair<Int, Set<Int>>? = null
+
+    private fun lineStartOf(i: Int) = lineStartTimes.getOrElse(i) { 0L }
+
+    private fun lineRawEndOf(i: Int) = lineEndTimes.getOrElse(i) {
+        if (i + 1 < lineStartTimes.size) lineStartTimes[i + 1] else lineStartOf(i) + 4000L
+    }
+
+    // Seamless handoff: eliminate dead-zone gap between sequential lines without boundary collision
+    private fun hasNextSequential(i: Int) =
+        i + 1 < lineStartTimes.size && lineRawEndOf(i) <= lineStartTimes[i + 1]
+
+    private fun lineEndOf(i: Int) =
+        if (hasNextSequential(i)) lineStartTimes[i + 1] else lineRawEndOf(i)
+
+    private fun rebuildActiveLineCache() {
+        cachedBoundaryInterval = -1
+        cachedActiveLines = null
+        val boundaries = java.util.TreeSet<Long>()
+        for (i in lyrics.indices) {
+            boundaries.add(lineStartOf(i))
+            val end = lineEndOf(i)
+            boundaries.add(end)
+            // Lines without a sequential successor stay active *through* their end time (inclusive).
+            if (!hasNextSequential(i)) boundaries.add(end + 1)
+        }
+        activeLineBoundaries = boundaries.toLongArray()
+    }
+
     private fun getActiveLines(positionMs: Long): Pair<Int, Set<Int>> {
+        // Number of boundaries <= positionMs; identical for every position inside the same interval.
+        var low = 0
+        var high = activeLineBoundaries.size
+        while (low < high) {
+            val mid = (low + high) ushr 1
+            if (activeLineBoundaries[mid] <= positionMs) low = mid + 1 else high = mid
+        }
+
+        if (low == cachedBoundaryInterval) {
+            cachedActiveLines?.let { return it }
+        }
+        val result = computeActiveLines(positionMs)
+        cachedBoundaryInterval = low
+        cachedActiveLines = result
+        return result
+    }
+
+    private fun computeActiveLines(positionMs: Long): Pair<Int, Set<Int>> {
         if (lyrics.isEmpty()) return -1 to emptySet()
 
         val active = mutableSetOf<Int>()
         for (i in lyrics.indices) {
-            val start = lineStartTimes.getOrElse(i) { 0L }
-            val rawEnd = lineEndTimes.getOrElse(i) {
-                if (i + 1 < lineStartTimes.size) lineStartTimes[i + 1] else start + 4000L
-            }
-            // Seamless handoff: eliminate dead-zone gap between sequential lines without boundary collision
-            val hasNextSequential = i + 1 < lineStartTimes.size && rawEnd <= lineStartTimes[i + 1]
-            val end = if (hasNextSequential) lineStartTimes[i + 1] else rawEnd
-            val isActive = if (hasNextSequential) {
+            val start = lineStartOf(i)
+            val end = lineEndOf(i)
+            val isActive = if (hasNextSequential(i)) {
                 positionMs >= start && positionMs < end
             } else {
                 positionMs in start..end
