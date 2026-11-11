@@ -12,26 +12,29 @@ import app.vitune.core.ui.ThumbnailRoundness
 
 object AppearancePreferences : GlobalPreferencesHolder() {
     enum class AppLogo {
+        Headphones,
         New,
         Classic,
-        Headphones;
+        ViMusic;
 
         val displayNameRes: Int
             get() = when (this) {
+                Headphones -> R.string.app_icon_headphones
                 New -> R.string.app_icon_new
                 Classic -> R.string.app_icon_classic
-                Headphones -> R.string.app_icon_headphones
+                ViMusic -> R.string.app_icon_vimusic
             }
 
         val iconDrawableRes: Int
             get() = when (this) {
+                Headphones -> R.drawable.ic_launcher_headphones_foreground
                 New -> R.drawable.ic_launcher_foreground
                 Classic -> R.drawable.ic_launcher_classic_foreground
-                Headphones -> R.drawable.ic_launcher_headphones_foreground
+                ViMusic -> R.drawable.ic_launcher_vimusic_foreground
             }
     }
 
-    var appLogo by enum(AppLogo.New)
+    var appLogo by enum(AppLogo.Headphones)
     var colorSource by enum(
         when (OldPreferences.oldColorPaletteName) {
             ColorPaletteName.Default, ColorPaletteName.PureBlack -> ColorSource.Default

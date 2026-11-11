@@ -427,7 +427,8 @@
     <string name="searching_providers">Searching providers…</string>
     <string name="app_icon">App Icon</string>
     <string name="app_icon_description">Choose your preferred app launcher icon</string>
-    <string name="app_icon_new">New Logo</string>
+    <string name="app_icon_new">TwiMusic Logo</string>
     <string name="app_icon_classic">Classic ViTune Logo</string>
-    <string name="app_icon_headphones">Headphones</string>
+    <string name="app_icon_headphones">Headphones (Default)</string>
+    <string name="app_icon_vimusic">ViMusic Logo</string>
 </resources>

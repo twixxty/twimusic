@@ -2,4 +2,5 @@
 <resources>
     <color name="ic_launcher_background">#000000</color>
     <color name="ic_launcher_classic_background">#08041D</color>
+    <color name="ic_launcher_vimusic_background">#4046bf</color>
 </resources>

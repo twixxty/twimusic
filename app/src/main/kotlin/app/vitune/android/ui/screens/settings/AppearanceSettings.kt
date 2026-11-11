@@ -336,16 +336,25 @@ val ThumbnailRoundness.nameLocalized
 fun updateAppIcon(context: Context, appLogo: AppearancePreferences.AppLogo) {
     val pm = context.packageManager
     val defaultComponent = ComponentName(context, "app.vitune.android.MainActivity")
+    val newComponent = ComponentName(context, "app.vitune.android.MainActivityNew")
     val classicComponent = ComponentName(context, "app.vitune.android.MainActivityClassic")
-    val headphonesComponent = ComponentName(context, "app.vitune.android.MainActivityHeadphones")
+    val viMusicComponent = ComponentName(context, "app.vitune.android.MainActivityViMusic")
+    val headphonesAliasComponent = ComponentName(context, "app.vitune.android.MainActivityHeadphones")
 
     val activeComponent = when (appLogo) {
-        AppearancePreferences.AppLogo.New -> defaultComponent
+        AppearancePreferences.AppLogo.Headphones -> defaultComponent
+        AppearancePreferences.AppLogo.New -> newComponent
         AppearancePreferences.AppLogo.Classic -> classicComponent
-        AppearancePreferences.AppLogo.Headphones -> headphonesComponent
+        AppearancePreferences.AppLogo.ViMusic -> viMusicComponent
     }
 
-    val allComponents = listOf(defaultComponent, classicComponent, headphonesComponent)
+    val allComponents = listOf(
+        defaultComponent,
+        newComponent,
+        classicComponent,
+        viMusicComponent,
+        headphonesAliasComponent
+    )
 
     for (component in allComponents) {
         val state = if (component == activeComponent) {

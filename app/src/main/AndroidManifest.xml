@@ -51,9 +51,9 @@
         android:configChanges="colorMode|density|fontScale|keyboard|keyboardHidden|layoutDirection|locale|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode"
         android:enableOnBackInvokedCallback="true"
         android:hardwareAccelerated="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@mipmap/ic_launcher_headphones"
         android:label="${appName}"
-        android:roundIcon="@mipmap/ic_launcher_round"
+        android:roundIcon="@mipmap/ic_launcher_headphones_round"
         android:supportsRtl="false"
         android:theme="@style/Theme.ViTune.NoActionBar"
         android:appCategory="audio"
@@ -63,6 +63,8 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:icon="@mipmap/ic_launcher_headphones"
+            android:roundIcon="@mipmap/ic_launcher_headphones_round"
             android:launchMode="singleTask"
             android:theme="@style/Theme.ViTune.NoActionBar"
             android:windowSoftInputMode="adjustResize"
@@ -175,12 +177,48 @@
         </activity>
 
         <activity-alias
+            android:name=".MainActivityNew"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MUSIC_PLAYER" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.APP_MUSIC" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
             android:name=".MainActivityClassic"
             android:targetActivity=".MainActivity"
             android:enabled="false"
             android:exported="true"
             android:icon="@mipmap/ic_launcher_classic"
             android:roundIcon="@mipmap/ic_launcher_classic_round">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <action android:name="android.intent.action.MUSIC_PLAYER" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.APP_MUSIC" />
+                <category android:name="android.intent.category.LAUNCHER" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".MainActivityViMusic"
+            android:targetActivity=".MainActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_vimusic"
+            android:roundIcon="@mipmap/ic_launcher_vimusic_round">
 
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
