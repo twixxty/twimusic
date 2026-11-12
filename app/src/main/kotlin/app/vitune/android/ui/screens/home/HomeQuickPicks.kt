@@ -116,39 +116,43 @@ private fun relatedPageToSections(
     recommendedPlaylistsTitle: String
 ): List<DynamicHomeSection> {
     val list = mutableListOf<DynamicHomeSection>()
-    if (!related.songs.isNullOrEmpty()) {
+    val songs = related.songs
+    if (!songs.isNullOrEmpty()) {
         list.add(
             DynamicHomeSection(
                 id = "related_songs",
                 title = quickPicksTitle,
-                items = related.songs.map { DynamicHomeItem.Song(it) }
+                items = songs.map { DynamicHomeItem.Song(it) }
             )
         )
     }
-    if (!related.albums.isNullOrEmpty()) {
+    val albums = related.albums
+    if (!albums.isNullOrEmpty()) {
         list.add(
             DynamicHomeSection(
                 id = "related_albums",
                 title = relatedAlbumsTitle,
-                items = related.albums.map { DynamicHomeItem.Album(it) }
+                items = albums.map { DynamicHomeItem.Album(it) }
             )
         )
     }
-    if (!related.artists.isNullOrEmpty()) {
+    val artists = related.artists
+    if (!artists.isNullOrEmpty()) {
         list.add(
             DynamicHomeSection(
                 id = "related_artists",
                 title = similarArtistsTitle,
-                items = related.artists.map { DynamicHomeItem.Artist(it) }
+                items = artists.map { DynamicHomeItem.Artist(it) }
             )
         )
     }
-    if (!related.playlists.isNullOrEmpty()) {
+    val playlists = related.playlists
+    if (!playlists.isNullOrEmpty()) {
         list.add(
             DynamicHomeSection(
                 id = "related_playlists",
                 title = recommendedPlaylistsTitle,
-                items = related.playlists.map { DynamicHomeItem.Playlist(it) }
+                items = playlists.map { DynamicHomeItem.Playlist(it) }
             )
         )
     }
@@ -320,7 +324,7 @@ fun QuickPicks(
                 val res = Innertube.relatedPage(
                     body = NextBody(videoId = (song?.id ?: "J7p4bzqLvCw"))
                 )
-                dynamicSectionsResult = res.map { related ->
+                dynamicSectionsResult = res?.map { related ->
                     related?.let {
                         relatedPageToSections(
                             related = it,
