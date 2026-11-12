@@ -1,5 +1,6 @@
 package app.vitune.android.ui.screens.player
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -446,7 +447,29 @@ fun Player(
         var isShowingLyricsDialog by rememberSaveable { mutableStateOf(false) }
         var isLyricsFullscreen by rememberSaveable { mutableStateOf(false) }
 
-        if (!isShowingLyrics) {
+        BackHandler(enabled = isShowingLyrics && isLyricsFullscreen) {
+            isLyricsFullscreen = false
+        }
+
+        LaunchedEffect(isShowingLyrics) {
+            if (!isShowingLyrics) {
+                isLyricsFullscreen = false
+            }
+        }
+
+        LaunchedEffect(shouldBePlaying) {
+            if (!shouldBePlaying && isLyricsFullscreen) {
+                isLyricsFullscreen = false
+            }
+        }
+
+        LaunchedEffect(layoutState.expanded) {
+            if (!layoutState.expanded && isLyricsFullscreen) {
+                isLyricsFullscreen = false
+            }
+        }
+
+        LaunchedEffect(mediaItem?.mediaId) {
             isLyricsFullscreen = false
         }
 
@@ -554,7 +577,10 @@ fun Player(
                 shouldBePlaying = shouldBePlaying,
                 position = position,
                 isShowingLyrics = isShowingLyrics,
-                onToggleLyrics = { isShowingLyrics = !isShowingLyrics },
+                onToggleLyrics = {
+                    if (isShowingLyrics) isLyricsFullscreen = false
+                    isShowingLyrics = !isShowingLyrics
+                },
                 modifier = innerModifier
             )
         }
@@ -565,7 +591,10 @@ fun Player(
                 Lyrics(
                     mediaId = currentMedia.mediaId,
                     isDisplayed = true,
-                    onDismiss = { isShowingLyrics = false },
+                    onDismiss = {
+                        isLyricsFullscreen = false
+                        isShowingLyrics = false
+                    },
                     ensureSongInserted = { Database.insert(currentMedia) },
                     mediaMetadataProvider = { currentMedia.mediaMetadata },
                     durationProvider = { duration },
@@ -672,7 +701,7 @@ fun Player(
             ) {
                 val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 12.dp else 24.dp,
+                    targetValue = if (isShowingLyrics && isLyricsFullscreen) 12.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeTopPadding"
                 )
@@ -691,7 +720,7 @@ fun Player(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
-                            .padding(bottom = if (isLyricsFullscreen) 0.dp else 16.dp)
+                            .padding(bottom = if (isShowingLyrics && isLyricsFullscreen) 0.dp else 16.dp)
                     ) {
                         AnimatedContent(
                             targetState = isShowingLyrics,
@@ -709,7 +738,7 @@ fun Player(
                     }
 
                     AnimatedVisibility(
-                        visible = !isLyricsFullscreen,
+                        visible = !isShowingLyrics || !isLyricsFullscreen,
                         enter = expandHorizontally(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
                         exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
@@ -728,7 +757,7 @@ fun Player(
             ) {
                 val totalHeight = maxHeight
                 val topPadding by animateDpAsState(
-                    targetValue = if (isLyricsFullscreen) 16.dp else 24.dp,
+                    targetValue = if (isShowingLyrics && isLyricsFullscreen) 16.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerTopPadding"
                 )
@@ -770,6 +799,7 @@ fun Player(
                                             indication = null,
                                             interactionSource = remember { MutableInteractionSource() }
                                         ) {
+                                            if (isShowingLyrics) isLyricsFullscreen = false
                                             isShowingLyrics = !isShowingLyrics
                                         }
                                 )
@@ -780,7 +810,7 @@ fun Player(
                     }
 
                     AnimatedVisibility(
-                        visible = !isLyricsFullscreen,
+                        visible = !isShowingLyrics || !isLyricsFullscreen,
                         enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
                         exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
@@ -896,7 +926,10 @@ fun Player(
                 IconButton(
                     icon = R.drawable.lyrics,
                     color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
-                    onClick = { isShowingLyrics = !isShowingLyrics },
+                    onClick = {
+                        if (isShowingLyrics) isLyricsFullscreen = false
+                        isShowingLyrics = !isShowingLyrics
+                    },
                     modifier = Modifier
                         .padding(vertical = 8.dp)
                         .size(20.dp)

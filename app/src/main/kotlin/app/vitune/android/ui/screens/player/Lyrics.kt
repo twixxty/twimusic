@@ -117,6 +117,8 @@ import app.vitune.android.lyrics.LyricsUtils
 import app.vitune.android.lyrics.WordTimestamp
 import androidx.media3.common.C
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import app.vitune.android.utils.shouldBePlaying
 import app.vitune.android.Database
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
@@ -222,6 +224,39 @@ fun Lyrics(
         if (showSynchronizedLyrics) lyrics?.synced else lyrics?.fixed
     }
     var invalidLrc by remember(text) { mutableStateOf(false) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            onSetFullscreen?.invoke(false)
+        }
+    }
+
+    var isPlayerPlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
+    DisposableEffect(binder) {
+        val player = binder?.player ?: return@DisposableEffect onDispose { }
+        isPlayerPlaying = player.shouldBePlaying
+        val listener = object : Player.Listener {
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isPlayerPlaying = player.shouldBePlaying
+            }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                isPlayerPlaying = player.shouldBePlaying
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                isPlayerPlaying = player.shouldBePlaying
+            }
+        }
+        player.addListener(listener)
+        onDispose {
+            player.removeListener(listener)
+        }
+    }
+
+    LaunchedEffect(isPlayerPlaying) {
+        if (!isPlayerPlaying && isFullscreen) {
+            onSetFullscreen?.invoke(false)
+        }
+    }
 
     DisposableEffect(shouldKeepScreenAwake) {
         view.keepScreenOn = shouldKeepScreenAwake
@@ -400,7 +435,10 @@ fun Lyrics(
                 }
             }
             .pointerInput(Unit) {
-                detectTapGestures(onTap = { onDismiss() })
+                detectTapGestures(onTap = {
+                    onSetFullscreen?.invoke(false)
+                    onDismiss()
+                })
             }
             .fillMaxSize()
             .background(Color.Transparent)
@@ -565,20 +603,21 @@ fun Lyrics(
                     lastInteractionTime,
                     isFullscreen,
                     isDesynced,
+                    isPlayerPlaying,
                     PlayerPreferences.hideLyricsFullscreenButton,
                     onSetFullscreen
                 ) {
                     if (!PlayerPreferences.hideLyricsFullscreenButton || onSetFullscreen == null) return@LaunchedEffect
 
-                    if (isFullscreen && isDesynced) {
+                    if (isFullscreen && (!isPlayerPlaying || isDesynced)) {
                         onSetFullscreen(false)
-                    } else if (!isFullscreen && !isDesynced) {
+                    } else if (!isFullscreen && !isDesynced && isPlayerPlaying) {
                         val elapsed = android.os.SystemClock.elapsedRealtime() - lastInteractionTime
                         val remaining = 5000L - elapsed
                         if (remaining > 0) {
                             delay(remaining)
                         }
-                        if (!isDesynced && (android.os.SystemClock.elapsedRealtime() - lastInteractionTime) >= 5000L) {
+                        if (!isDesynced && isPlayerPlaying && (android.os.SystemClock.elapsedRealtime() - lastInteractionTime) >= 5000L) {
                             onSetFullscreen(true)
                         }
                     }
