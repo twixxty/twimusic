@@ -429,6 +429,8 @@
     <string name="lyrics_fade_description">Animate upward syllable lift and fade transitions while singing</string>
     <string name="lyrics_glow">Lyrics text glow</string>
     <string name="lyrics_glow_description">Add bouncing glowing shadows behind syllables during vocal playback</string>
+    <string name="lyrics_bouncy_scroll">Bouncy lyrics scroll</string>
+    <string name="lyrics_bouncy_scroll_description">Enable spring physics bounce animation when auto-scrolling up to the next lyric line</string>
     <string name="lyrics_translation">Show lyrics translation</string>
     <string name="lyrics_translation_description">Display translation subtitle text when provided by the lyrics provider</string>
     <string name="show_lyrics_fullscreen_button">Show fullscreen lyrics button</string>

@@ -102,7 +102,7 @@ fun KaraokeLyricsView(
     itemSpacing: Dp = 16.dp,
     scrollAnimationSpec: AnimationSpec<Float> = tween(650, easing = FastOutSlowInEasing),
     autoScrollResumeDelayMillis: Long = 2500,
-    scrollChain: LyricsScrollChain? = LyricsScrollChain(),
+    scrollChain: LyricsScrollChain? = if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null,
 ) {
     val currentProvider by rememberUpdatedState(currentPosition)
     val timeProvider = remember { { currentProvider() } }

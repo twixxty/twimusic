@@ -277,6 +277,13 @@ fun AppearanceSettings() = with(AppearancePreferences) {
             )
 
             SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_bouncy_scroll),
+                text = stringResource(R.string.lyrics_bouncy_scroll_description),
+                isChecked = PlayerPreferences.lyricsBouncyScroll,
+                onCheckedChange = { PlayerPreferences.lyricsBouncyScroll = it }
+            )
+
+            SwitchSettingsEntry(
                 title = stringResource(R.string.lyrics_translation),
                 text = stringResource(R.string.lyrics_translation_description),
                 isChecked = PlayerPreferences.lyricsShowTranslation,

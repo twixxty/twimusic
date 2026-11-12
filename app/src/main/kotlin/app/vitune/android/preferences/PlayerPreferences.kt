@@ -58,6 +58,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsShine by boolean(true)
     var lyricsFade by boolean(true)
     var lyricsGlow by boolean(true)
+    var lyricsBouncyScroll by boolean(true)
     var lyricsShowTranslation by boolean(true)
     var showLyricsFullscreenButton by boolean(true)
     var enableCanvas by boolean(true)

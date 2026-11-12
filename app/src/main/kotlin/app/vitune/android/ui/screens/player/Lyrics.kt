@@ -63,6 +63,7 @@ import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.derivedStateOf
 import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.KaraokeLyricsView
 import com.mocharealm.accompanist.lyrics.ui.composable.list.rememberLyricsLazyListState
+import com.mocharealm.accompanist.lyrics.ui.composable.list.LyricsScrollChain
 import app.vitune.android.lyrics.toSyncedLyrics
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.coroutineScope
@@ -447,15 +448,54 @@ fun Lyrics(
         invalidLrc = showSynchronizedLyrics && !lyrics?.synced.isNullOrBlank() && parsedEntries.isEmpty()
 
         var currentPositionMs by remember { mutableLongStateOf(0L) }
-        LaunchedEffect(binder?.player) {
+        LaunchedEffect(binder?.player, lyrics?.startTime) {
             val player = binder?.player ?: return@LaunchedEffect
+            val lyricsStart = lyrics?.startTime ?: 0L
+            var smoothPositionMs = (player.currentPosition - lyricsStart).coerceAtLeast(0L)
+            var lastFrameTimeMs = android.os.SystemClock.elapsedRealtime()
+            var wasPlaying = false
+
             while (isActive) {
-                currentPositionMs = (player.currentPosition) - (lyrics?.startTime ?: 0L)
-                if (player.isPlaying) {
-                    withFrameMillis { }
-                } else {
+                val isPlaying = player.isPlaying
+                val rawPos = (player.currentPosition - lyricsStart).coerceAtLeast(0L)
+                val now = android.os.SystemClock.elapsedRealtime()
+
+                if (!isPlaying) {
+                    wasPlaying = false
+                    smoothPositionMs = rawPos
+                    lastFrameTimeMs = now
+                    currentPositionMs = rawPos
                     delay(250.milliseconds)
+                    continue
                 }
+
+                if (!wasPlaying || lastFrameTimeMs == 0L) {
+                    wasPlaying = true
+                    smoothPositionMs = rawPos
+                    lastFrameTimeMs = now
+                    currentPositionMs = rawPos
+                    withFrameMillis { }
+                    continue
+                }
+
+                val dt = (now - lastFrameTimeMs).coerceIn(1L, 100L)
+                lastFrameTimeMs = now
+
+                val error = rawPos - smoothPositionMs
+                if (kotlin.math.abs(error) > 400L) {
+                    smoothPositionMs = rawPos
+                } else {
+                    val speed = player.playbackParameters.speed
+                    val baseDelta = (dt * speed).toLong()
+                    val correction = (error * 0.15f).toLong()
+                    val maxAdjustment = (baseDelta * 0.5f).toLong().coerceAtLeast(1L)
+                    val clampedCorrection = correction.coerceIn(-maxAdjustment, maxAdjustment)
+                    val step = maxOf(1L, baseDelta + clampedCorrection)
+                    smoothPositionMs += step
+                }
+
+                currentPositionMs = smoothPositionMs
+                withFrameMillis { }
             }
         }
 
@@ -623,6 +663,7 @@ fun Lyrics(
                             textColor = colorPalette.text,
                             useBlurEffect = PlayerPreferences.lyricsLineBlur,
                             showTranslation = PlayerPreferences.lyricsShowTranslation,
+                            scrollChain = if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null,
                         )
                     }
 
