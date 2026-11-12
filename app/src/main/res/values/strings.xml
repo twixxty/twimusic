@@ -421,6 +421,16 @@
     <string name="lyrics_style_classic">ViTune Classic</string>
     <string name="lyrics_line_blur">Blur inactive lyric lines</string>
     <string name="lyrics_line_blur_description">Apply distance depth blur on inactive lyric lines (disable for best performance)</string>
+    <string name="lyrics_optimized_android_12">Optimize lyrics blur (Android 12+)</string>
+    <string name="lyrics_optimized_android_12_description">Use pre-cached GPU blur effect arrays on Android 12+ for 60/120fps fluid playback</string>
+    <string name="lyrics_shine">Lyrics text shine</string>
+    <string name="lyrics_shine_description">Apply vibrant blend-mode lighting highlight on active singing lyrics</string>
+    <string name="lyrics_fade">Lyrics word lift &amp; fade</string>
+    <string name="lyrics_fade_description">Animate upward syllable lift and fade transitions while singing</string>
+    <string name="lyrics_glow">Lyrics text glow</string>
+    <string name="lyrics_glow_description">Add bouncing glowing shadows behind syllables during vocal playback</string>
+    <string name="lyrics_translation">Show lyrics translation</string>
+    <string name="lyrics_translation_description">Display translation subtitle text when provided by the lyrics provider</string>
     <string name="show_lyrics_fullscreen_button">Show fullscreen lyrics button</string>
     <string name="show_lyrics_fullscreen_button_description">Show button under lyrics to expand to fullscreen</string>
     <string name="choose_lyrics_result">Select lyrics result</string>
@@ -431,4 +441,7 @@
     <string name="app_icon_classic">Classic ViTune Logo</string>
     <string name="app_icon_headphones">Headphones (Default)</string>
     <string name="app_icon_vimusic">ViMusic Logo</string>
+    <string name="credits_and_licenses">Credits &amp; Licenses</string>
+    <string name="open_source_licenses">Open source licenses</string>
+    <string name="credits_and_licenses_description">Open source libraries and contributors</string>
 </resources>

@@ -133,13 +133,14 @@ class LyricTextView(
             if (field == value) return
             field = value
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                setRenderEffect(
-                    if (value <= 0.5f) {
-                        null
-                    } else {
-                        RenderEffect.createBlurEffect(value, value, Shader.TileMode.CLAMP)
-                    }
-                )
+                if (value <= 0.5f) {
+                    setRenderEffect(null)
+                } else if (PlayerPreferences.lyricsOptimizedAndroid12 && FocusRenderEffects != null) {
+                    val idx = kotlin.math.round(value).toInt().coerceIn(0, 64)
+                    setRenderEffect(FocusRenderEffects[idx])
+                } else {
+                    setRenderEffect(RenderEffect.createBlurEffect(value, value, Shader.TileMode.CLAMP))
+                }
             } else if (value <= 0.5f) {
                 releaseLegacyBlur()
             }
@@ -1157,6 +1158,12 @@ class LyricTextView(
         }
 
     companion object {
+        private val FocusRenderEffects = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            Array<RenderEffect?>(65) { index ->
+                if (index == 0) null else RenderEffect.createBlurEffect(index.toFloat(), index.toFloat(), Shader.TileMode.CLAMP)
+            }
+        } else null
+
         const val ACTIVE_SHADE_TRANSPARENCY = .85F
         const val ACTIVE_OVERLAY_TRANSPARENCY = 1F
 

@@ -28,6 +28,7 @@ private val PAXSENIX_BG_LINE_REGEX = "^\\[bg:\\s*(.*)\\]$".toRegex()
 // Regex for agent and background markers (existing format)
 private val AGENT_REGEX = "\\{agent:([^}]+)\\}".toRegex()
 private val BACKGROUND_REGEX = "^\\{bg\\}".toRegex()
+private val TRANSLATION_REGEX = "\\{tr:([^}]+)\\}".toRegex()
 
 @Suppress("RegExpRedundantEscape")
 object LyricsUtils {
@@ -49,6 +50,7 @@ object LyricsUtils {
                     .replaceFirst(Regex("^\\[\\d\\d:\\d\\d\\.\\d{2,3}\\]"), "")
                     .replaceFirst(Regex("^\\{agent:[^}]+\\}"), "")
                     .replaceFirst(Regex("^\\{bg\\}"), "")
+                    .replaceFirst(Regex("^\\{tr:[^}]+\\}"), "")
                     .replaceFirst(Regex("^\\[bg:.*\\]"), "")
                     .replaceFirst(Regex("^v\\d+:"), "")
                     .trim()
@@ -549,6 +551,13 @@ object LyricsUtils {
                     content = content.replaceFirst(BACKGROUND_REGEX, "")
                 }
 
+                // Parse translation marker {tr:...}
+                val trMatch = TRANSLATION_REGEX.find(content)
+                val translation = trMatch?.groupValues?.get(1)?.trim()
+                if (trMatch != null) {
+                    content = content.replaceFirst(TRANSLATION_REGEX, "")
+                }
+
                 // Parse word-level timestamps from content
                 val wordTimings = parseRichSyncWords(content, index, lines)
                     ?: run {
@@ -564,7 +573,17 @@ object LyricsUtils {
                 if (!isBackground && !agent.isNullOrBlank()) {
                     lastNonBgAgent = agent
                 }
-                result.add(LyricsEntry(lineTimeMs, plainText, wordTimings, agent = if (isBackground) lastNonBgAgent ?: "bg" else agent, isBackground = isBackground))
+                val entry = LyricsEntry(
+                    time = lineTimeMs,
+                    text = plainText,
+                    words = wordTimings,
+                    agent = if (isBackground) lastNonBgAgent ?: "bg" else agent,
+                    isBackground = isBackground
+                )
+                if (!translation.isNullOrBlank()) {
+                    entry.translatedTextFlow.value = translation
+                }
+                result.add(entry)
             }
         }
 
@@ -733,7 +752,9 @@ object LyricsUtils {
 
                     if (wordTimestamps != null) {
                         result.addAll(entries.map { entry ->
-                            LyricsEntry(entry.time, entry.text, wordTimestamps, agent = entry.agent, isBackground = entry.isBackground)
+                            val e = LyricsEntry(entry.time, entry.text, wordTimestamps, agent = entry.agent, isBackground = entry.isBackground)
+                            e.translatedTextFlow.value = entry.translatedTextFlow.value
+                            e
                         })
                     } else {
                         result.addAll(entries)
@@ -742,7 +763,17 @@ object LyricsUtils {
             }
             i++
         }
-        return result.sorted()
+        val sorted = result.sorted()
+        val merged = mutableListOf<LyricsEntry>()
+        for (entry in sorted) {
+            val prev = merged.lastOrNull()
+            if (prev != null && kotlin.math.abs(prev.time - entry.time) < 100 && prev.translatedTextFlow.value == null && entry.words.isNullOrEmpty() && prev.text != entry.text) {
+                prev.translatedTextFlow.value = entry.text
+            } else {
+                merged.add(entry)
+            }
+        }
+        return merged
     }
 
     private fun parseWordTimestamps(data: String): List<WordTimestamp>? {
@@ -787,6 +818,13 @@ object LyricsUtils {
             text = text.replaceFirst(BACKGROUND_REGEX, "")
         }
 
+        // Parse translation marker {tr:...}
+        val trMatch = TRANSLATION_REGEX.find(text)
+        val translation = trMatch?.groupValues?.get(1)?.trim()
+        if (trMatch != null) {
+            text = text.replaceFirst(TRANSLATION_REGEX, "")
+        }
+
         return timeMatchResults
             .map { timeMatchResult ->
                 val min = timeMatchResult.groupValues[1].toLong()
@@ -797,7 +835,11 @@ object LyricsUtils {
                     mil *= 10
                 }
                 val time = min * DateUtils.MINUTE_IN_MILLIS + sec * DateUtils.SECOND_IN_MILLIS + mil
-                LyricsEntry(time, text, words, agent = agent, isBackground = isBackground)
+                val entry = LyricsEntry(time, text, words, agent = agent, isBackground = isBackground)
+                if (!translation.isNullOrBlank()) {
+                    entry.translatedTextFlow.value = translation
+                }
+                entry
             }.toList()
     }
 

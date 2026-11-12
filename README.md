@@ -65,7 +65,9 @@ align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/ht
 i mostly glued other people's work together, so:
 
 - [**ViTune**](https://github.com/25huizengek1/ViTune): the codebase i forked
-- [**ViMusic**](https://github.com/vfsfitvnm/ViMusic): where all of this started
+- [**ViMusic**](https://github.com/vfsfitvnm/ViMusic): where all of this started (and headphones icon)
+- [**accompanist-lyrics**](https://github.com/6xingyv/accompanist-lyrics-ui) by [6xingyv](https://github.com/6xingyv) (Apache-2.0): fluid karaoke lyrics UI and syllable timing models
+- [**lrc.red**](https://lrc.red): community-driven synchronized lyrics and translation provider
 - [**InnerTune**](https://github.com/z-huang/InnerTune): dynamic colors, equalizer, replaygain
 - [**Metrolist InnerTube**](https://github.com/metrolistgroup/innertube): the innertube client
 - [**LRCLIB**](https://lrclib.net): synced lyrics

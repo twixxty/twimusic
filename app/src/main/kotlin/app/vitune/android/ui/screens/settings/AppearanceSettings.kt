@@ -3,6 +3,7 @@ package app.vitune.android.ui.screens.settings
 import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
+import android.os.Build
 import timber.log.Timber
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -243,6 +244,43 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 text = stringResource(R.string.lyrics_line_blur_description),
                 isChecked = PlayerPreferences.lyricsLineBlur,
                 onCheckedChange = { PlayerPreferences.lyricsLineBlur = it }
+            )
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                SwitchSettingsEntry(
+                    title = stringResource(R.string.lyrics_optimized_android_12),
+                    text = stringResource(R.string.lyrics_optimized_android_12_description),
+                    isChecked = PlayerPreferences.lyricsOptimizedAndroid12,
+                    onCheckedChange = { PlayerPreferences.lyricsOptimizedAndroid12 = it }
+                )
+            }
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_shine),
+                text = stringResource(R.string.lyrics_shine_description),
+                isChecked = PlayerPreferences.lyricsShine,
+                onCheckedChange = { PlayerPreferences.lyricsShine = it }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_fade),
+                text = stringResource(R.string.lyrics_fade_description),
+                isChecked = PlayerPreferences.lyricsFade,
+                onCheckedChange = { PlayerPreferences.lyricsFade = it }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_glow),
+                text = stringResource(R.string.lyrics_glow_description),
+                isChecked = PlayerPreferences.lyricsGlow,
+                onCheckedChange = { PlayerPreferences.lyricsGlow = it }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_translation),
+                text = stringResource(R.string.lyrics_translation_description),
+                isChecked = PlayerPreferences.lyricsShowTranslation,
+                onCheckedChange = { PlayerPreferences.lyricsShowTranslation = it }
             )
 
             SwitchSettingsEntry(

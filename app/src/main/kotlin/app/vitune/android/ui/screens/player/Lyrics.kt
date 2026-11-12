@@ -59,6 +59,12 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.runtime.derivedStateOf
+import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.KaraokeLyricsView
+import com.mocharealm.accompanist.lyrics.ui.composable.list.rememberLyricsLazyListState
+import app.vitune.android.lyrics.toSyncedLyrics
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -442,16 +448,22 @@ fun Lyrics(
 
         var currentPositionMs by remember { mutableLongStateOf(0L) }
         LaunchedEffect(binder?.player) {
-            while (true) {
-                val player = binder?.player
-                currentPositionMs = (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                delay(250.milliseconds)
+            val player = binder?.player ?: return@LaunchedEffect
+            while (isActive) {
+                currentPositionMs = (player.currentPosition) - (lyrics?.startTime ?: 0L)
+                if (player.isPlaying) {
+                    withFrameMillis { }
+                } else {
+                    delay(250.milliseconds)
+                }
             }
         }
 
-        val activeIndex = remember(parsedEntries, currentPositionMs) {
-            if (parsedEntries.isEmpty()) -1
-            else parsedEntries.indexOfLast { it.time <= currentPositionMs }
+        val activeIndex by remember(parsedEntries) {
+            derivedStateOf {
+                if (parsedEntries.isEmpty()) -1
+                else parsedEntries.indexOfLast { it.time <= currentPositionMs }
+            }
         }
 
         AnimatedContent(
@@ -460,12 +472,11 @@ fun Lyrics(
             label = ""
         ) { synchronized ->
             val lazyListState = rememberLazyListState()
+            val accompanistListState = rememberLyricsLazyListState()
             val coroutineScope = rememberCoroutineScope()
             var isAnimating by remember { mutableStateOf(false) }
             var isAutoScrollEnabled by rememberSaveable { mutableStateOf(true) }
             var lastPreviewTime by remember { mutableLongStateOf(0L) }
-            var accordScrollView by remember { mutableStateOf<ScrollView?>(null) }
-            var accordLyricViewGroup by remember { mutableStateOf<LyricViewGroup?>(null) }
 
             if (synchronized) {
                 LaunchedEffect(lastPreviewTime) {
@@ -541,166 +552,7 @@ fun Lyrics(
                     }
                 }
 
-                val accentArgb = colorPalette.accent.toArgb()
 
-                val accordLyricsData = remember(parsedEntries) {
-                    val rawItems = mutableListOf<Triple<LyricBase, Long, Long>>()
-                    val validEntries = parsedEntries.filter { it.text.isNotBlank() }
-                    val bracketRegex = Regex("""^(.*?)\s*([(\[][^)\]]{1,200}[)\]])\s*$""")
-
-                    // Check intro magic lyric (if first lyric begins after 2000ms)
-                    val firstEntry = validEntries.firstOrNull()
-                    if (firstEntry != null) {
-                        val firstStartTime = firstEntry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
-                            ?: firstEntry.time
-                        if (firstStartTime > 2000L) {
-                            rawItems.add(
-                                Triple(
-                                    Lyric(content = "•••", isMagicLyric = true),
-                                    0L,
-                                    firstStartTime
-                                )
-                            )
-                        }
-                    }
-
-                    // Process each entry
-                    validEntries.forEachIndexed { idx, entry ->
-                        val lineText = entry.text
-                        val lineStartTime = entry.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
-                            ?: entry.time
-
-                        val nextEntry = validEntries.getOrNull(idx + 1)
-                        val nextStart = nextEntry?.words?.firstOrNull()?.let { (it.startTime * 1000).toLong() }
-                            ?: nextEntry?.time
-
-                        val calculatedEndTime = if (!entry.words.isNullOrEmpty()) {
-                            (entry.words.last().endTime * 1000).toLong().coerceAtLeast(lineStartTime + 800L)
-                        } else {
-                            if (nextStart != null) {
-                                val gap = nextStart - lineStartTime
-                                val singingDuration = minOf(4000L, (gap * 0.7f).toLong()).coerceAtLeast(1000L)
-                                (lineStartTime + singingDuration).coerceAtMost(nextStart)
-                            } else {
-                                lineStartTime + 4000L
-                            }
-                        }
-
-                        val match = bracketRegex.find(lineText)
-                        val hasSeparateBg = match != null && match.groupValues[1].isNotBlank()
-
-                        if (hasSeparateBg) {
-                            val mainText = match!!.groupValues[1].trim()
-                            val bgText = match.groupValues[2].trim()
-
-                            if (!entry.words.isNullOrEmpty()) {
-                                val words = entry.words
-                                val bracketWordIdx = words.indexOfFirst { it.text.contains("(") || it.text.contains("[") }
-                                if (bracketWordIdx > 0) {
-                                    val mainWords = words.subList(0, bracketWordIdx)
-                                    val bgWords = words.subList(bracketWordIdx, words.size)
-
-                                    val mainStart = (mainWords.first().startTime * 1000).toLong()
-                                    val mainEnd = (mainWords.last().endTime * 1000).toLong().coerceAtLeast(mainStart + 600L)
-
-                                    val bgStart = (bgWords.first().startTime * 1000).toLong()
-                                    val bgEnd = (bgWords.last().endTime * 1000).toLong().coerceAtLeast(bgStart + 600L)
-
-                                    val effectiveEnd = maxOf(mainEnd, bgEnd, calculatedEndTime)
-
-                                    val mainList = mainWords.map { word ->
-                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                        Lyric(content, isBackground = false, agent = entry.agent)
-                                    }
-                                    val mainRelative = LongArray(mainWords.size) { i ->
-                                        val word = mainWords[i]
-                                        val next = if (i < mainWords.lastIndex) mainWords[i + 1].startTime else word.endTime
-                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
-                                    }
-                                    val mainLyric = SyncedLyric(mainList, mainRelative, isBackground = false, agent = entry.agent)
-
-                                    val bgList = bgWords.map { word ->
-                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                        Lyric(content, isBackground = true, agent = entry.agent)
-                                    }
-                                    val bgRelative = LongArray(bgWords.size) { i ->
-                                        val word = bgWords[i]
-                                        val next = if (i < bgWords.lastIndex) bgWords[i + 1].startTime else word.endTime
-                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
-                                    }
-                                    val bgLyric = SyncedLyric(bgList, bgRelative, isBackground = true, agent = entry.agent)
-
-                                    rawItems.add(Triple(mainLyric, mainStart, effectiveEnd))
-                                    rawItems.add(Triple(bgLyric, bgStart, effectiveEnd))
-                                } else {
-                                    val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
-                                    val list = words.map { word ->
-                                        val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                        Lyric(content, isBackground = isBg, agent = entry.agent)
-                                    }
-                                    val relativeTime = LongArray(words.size) { i ->
-                                        val word = words[i]
-                                        val next = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
-                                        ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
-                                    }
-                                    rawItems.add(Triple(SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent), lineStartTime, calculatedEndTime))
-                                }
-                            } else {
-                                rawItems.add(Triple(Lyric(mainText, isBackground = false, agent = entry.agent), lineStartTime, calculatedEndTime))
-                                rawItems.add(Triple(Lyric(bgText, isBackground = true, agent = entry.agent), lineStartTime, calculatedEndTime))
-                            }
-                        } else {
-                            val isBg = entry.isBackground || (lineText.startsWith("(") && lineText.endsWith(")"))
-                            val lyricItem = if (!entry.words.isNullOrEmpty()) {
-                                val words = entry.words
-                                val list = words.map { word ->
-                                    val content = if (word.hasTrailingSpace) "${word.text} " else word.text
-                                    Lyric(content, isBackground = isBg, agent = entry.agent)
-                                }
-                                val relativeTime = LongArray(words.size) { i ->
-                                    val word = words[i]
-                                    val next = if (i < words.lastIndex) words[i + 1].startTime else word.endTime
-                                    ((next - word.startTime) * 1000).toLong().coerceAtLeast(10L)
-                                }
-                                SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
-                            } else {
-                                val duration = (calculatedEndTime - lineStartTime).coerceAtLeast(800L)
-                                val rawTokens = lineText.split(Regex("(?<=\\s)|(?=\\s+)")).filter { it.isNotEmpty() }
-                                val tokens = if (rawTokens.isEmpty()) listOf(lineText) else rawTokens
-                                val totalChars = tokens.sumOf { it.trim().length }.coerceAtLeast(1)
-                                val list = tokens.map { token ->
-                                    Lyric(token, isBackground = isBg, agent = entry.agent)
-                                }
-                                val relativeTime = LongArray(tokens.size) { i ->
-                                    val trimmedLen = tokens[i].trim().length
-                                    val weight = if (trimmedLen > 0) trimmedLen.toDouble() / totalChars else (1.0 / tokens.size)
-                                    (duration * weight).toLong().coerceAtLeast(20L)
-                                }
-                                SyncedLyric(list, relativeTime, isBackground = isBg, agent = entry.agent)
-                            }
-                            rawItems.add(Triple(lyricItem, lineStartTime, calculatedEndTime))
-                        }
-
-                        // Check instrumental break between this line and the next line
-                        if (nextStart != null && nextStart - calculatedEndTime >= 2200L) {
-                            rawItems.add(
-                                Triple(
-                                    Lyric(content = "•••", isMagicLyric = true),
-                                    calculatedEndTime,
-                                    nextStart
-                                )
-                            )
-                        }
-                    }
-
-                    // Sort all items strictly by start time
-                    val sorted = rawItems.sortedBy { it.second }
-                    Triple(
-                        sorted.map { it.first },
-                        sorted.map { it.second },
-                        sorted.map { it.third }
-                    )
-                }
 
                 Box(modifier = Modifier.fillMaxSize()) {
                     if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
@@ -751,101 +603,31 @@ fun Lyrics(
                             }
                         }
                     } else {
-                        AndroidView(
-                            factory = { ctx ->
-                                UiUtils.init(ctx)
-                                val scrollView = ScrollView(ctx).apply {
-                                    overScrollMode = View.OVER_SCROLL_NEVER
-                                    isVerticalScrollBarEnabled = false
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.MATCH_PARENT
-                                    )
-                                }
-                                val lyricViewGroup = LyricViewGroup(ctx).apply {
-                                    layoutParams = ViewGroup.LayoutParams(
-                                        ViewGroup.LayoutParams.MATCH_PARENT,
-                                        ViewGroup.LayoutParams.WRAP_CONTENT
-                                    )
-                                    accentColor = accentArgb
-                                    onLineClick = { _, timeMs ->
-                                        binder?.player?.seekTo(timeMs)
-                                        isAutoScrollEnabled = true
-                                        lastPreviewTime = 0L
-                                        autoScrollEnabled = true
-                                    }
-                                    positionProvider = {
-                                        val player = binder?.player
-                                        (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                                    }
-                                    isPlayingProvider = {
-                                        binder?.player?.isPlaying ?: false
-                                    }
-                                    speedProvider = {
-                                        binder?.player?.playbackParameters?.speed ?: 1.0f
-                                    }
-                                }
-                                accordScrollView = scrollView
-                                accordLyricViewGroup = lyricViewGroup
-                                var downY = 0f
-                                var isDragging = false
-                                val touchSlop = ViewConfiguration.get(ctx).scaledTouchSlop
-                                scrollView.setOnTouchListener { _, event ->
-                                    when (event.actionMasked) {
-                                        MotionEvent.ACTION_DOWN -> {
-                                            downY = event.y
-                                            isDragging = false
-                                        }
-                                        MotionEvent.ACTION_MOVE -> {
-                                            if (!isDragging && kotlin.math.abs(event.y - downY) > touchSlop) {
-                                                isDragging = true
-                                                isAutoScrollEnabled = false
-                                                lastPreviewTime = System.currentTimeMillis()
-                                                lyricViewGroup.autoScrollEnabled = false
-                                                lyricViewGroup.cancelScrollAnimation()
-                                            }
-                                        }
-                                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                            isDragging = false
-                                        }
-                                    }
-                                    false
-                                }
-                                scrollView.addView(lyricViewGroup)
-                                scrollView
+                        val syncedLyrics = remember(parsedEntries) {
+                            parsedEntries.toSyncedLyrics()
+                        }
+
+                        KaraokeLyricsView(
+                            listState = accompanistListState,
+                            lyrics = syncedLyrics,
+                            currentPosition = {
+                                currentPositionMs.toInt().coerceAtLeast(0)
                             },
-                            update = { scrollView ->
-                                val lyricViewGroup = scrollView.getChildAt(0) as? LyricViewGroup ?: return@AndroidView
-                                lyricViewGroup.positionProvider = {
-                                    val player = binder?.player
-                                    (player?.currentPosition ?: 0L) - (lyrics?.startTime ?: 0L)
-                                }
-                                lyricViewGroup.isPlayingProvider = {
-                                    binder?.player?.isPlaying ?: false
-                                }
-                                lyricViewGroup.speedProvider = {
-                                    binder?.player?.playbackParameters?.speed ?: 1.0f
-                                }
-                                lyricViewGroup.accentColor = accentArgb
-                                lyricViewGroup.autoScrollEnabled = isAutoScrollEnabled
-                                if (lyricViewGroup.tag != accordLyricsData.first) {
-                                    lyricViewGroup.tag = accordLyricsData.first
-                                    lyricViewGroup.updateLyrics(
-                                        lyrics = accordLyricsData.first,
-                                        startTimes = accordLyricsData.second,
-                                        endTimes = accordLyricsData.third
-                                    )
-                                }
-                                lyricViewGroup.startFrameLoop()
+                            onLineClicked = { line ->
+                                binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
                             },
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .verticalFadingEdge()
+                            onLinePressed = { line ->
+                                binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
+                            },
+                            modifier = Modifier.fillMaxSize(),
+                            textColor = colorPalette.text,
+                            useBlurEffect = PlayerPreferences.lyricsLineBlur,
+                            showTranslation = PlayerPreferences.lyricsShowTranslation,
                         )
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = !isAutoScrollEnabled,
+                        visible = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) !isAutoScrollEnabled else accompanistListState.isManualScrolling,
                         enter = fadeIn() + slideInVertically { it },
                         exit = fadeOut() + slideOutVertically { it },
                         modifier = Modifier
@@ -859,20 +641,14 @@ fun Lyrics(
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(colorPalette.accent)
                                 .clickable {
-                                    isAutoScrollEnabled = true
-                                    lastPreviewTime = 0L
                                     if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                                        isAutoScrollEnabled = true
+                                        lastPreviewTime = 0L
                                         coroutineScope.launch {
                                             performSmoothPageScroll(activeIndex, duration = 800)
                                         }
                                     } else {
-                                        accordLyricViewGroup?.let { vg ->
-                                            vg.autoScrollEnabled = true
-                                            accordScrollView?.let { sv ->
-                                                val target = if (vg.activeLineIndex >= 0) vg.activeLineIndex else 0
-                                                vg.scrollToLine(sv, target, animated = true, shouldScrollScrollView = true)
-                                            }
-                                        }
+                                        accompanistListState.resumeAutoScroll(currentPositionMs.toInt())
                                     }
                                 }
                                 .padding(horizontal = 14.dp, vertical = 6.dp)

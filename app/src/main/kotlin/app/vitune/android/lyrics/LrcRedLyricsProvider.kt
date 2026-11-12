@@ -206,9 +206,11 @@ object LrcRedLyricsProvider : LyricsProvider {
                 
                 val fgPieces = mutableListOf<Pair<Long, String>>()
                 val bgPieces = mutableListOf<Pair<Long, String>>()
+                val translationBuilder = StringBuilder()
                 var currentSpanMs: Long = lineStartMs
                 
                 val bgStack = mutableListOf<Boolean>()
+                val transStack = mutableListOf<Boolean>()
                 val skipStack = mutableListOf<Boolean>()
                 val timeStack = mutableListOf<Long>()
                 
@@ -219,6 +221,7 @@ object LrcRedLyricsProvider : LyricsProvider {
                     if (tag.isNotEmpty()) {
                         if (tag.startsWith("</")) {
                             if (bgStack.isNotEmpty()) bgStack.removeLast()
+                            if (transStack.isNotEmpty()) transStack.removeLast()
                             if (skipStack.isNotEmpty()) skipStack.removeLast()
                             if (timeStack.isNotEmpty()) {
                                 timeStack.removeLast()
@@ -226,11 +229,13 @@ object LrcRedLyricsProvider : LyricsProvider {
                             }
                         } else if (tag.startsWith("<span") || tag.startsWith("<s ")) {
                             val role = roleRegex.find(tag)?.groupValues?.get(1)
-                            val isSkip = role == "x-translation" || role == "x-roman"
+                            val isTrans = role == "x-translation"
+                            val isSkip = role == "x-roman"
                             val isBg = role == "x-bg"
                             
                             bgStack.add(isBg || (bgStack.lastOrNull() ?: false))
-                            skipStack.add(isSkip || (skipStack.lastOrNull() ?: false))
+                            transStack.add(isTrans || (transStack.lastOrNull() ?: false))
+                            skipStack.add(isSkip || isTrans || (skipStack.lastOrNull() ?: false))
                             
                             val tBegin = beginRegex.find(tag)?.groupValues?.get(1)
                             if (tBegin != null) {
@@ -244,6 +249,10 @@ object LrcRedLyricsProvider : LyricsProvider {
                             timeStack.add(currentSpanMs)
                         }
                     } else if (text.isNotEmpty()) {
+                        if (transStack.lastOrNull() == true) {
+                            translationBuilder.append(text)
+                            continue
+                        }
                         if (skipStack.lastOrNull() == true) continue
                         val isBackground = bgStack.lastOrNull() == true
                         val cleanText = text.replace(Regex("""\s+"""), " ")
@@ -254,12 +263,15 @@ object LrcRedLyricsProvider : LyricsProvider {
                     }
                 }
                 
+                val trText = translationBuilder.toString().replace(Regex("""\s+"""), " ").trim()
+
                 fun buildLine(pieces: List<Pair<Long, String>>, isBg: Boolean) {
                     if (pieces.isEmpty()) return
                     val sb = StringBuilder()
                     
                     if (isBg) sb.append("{bg}")
                     if (agent != null) sb.append("{agent:$agent}")
+                    if (trText.isNotEmpty() && !isBg) sb.append("{tr:$trText}")
                     
                     var lastMs = -1L
                     for ((ms, text) in pieces) {
