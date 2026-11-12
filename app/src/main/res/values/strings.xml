@@ -435,6 +435,8 @@
     <string name="lyrics_translation_description">Display translation subtitle text when provided by the lyrics provider</string>
     <string name="show_lyrics_fullscreen_button">Show fullscreen lyrics button</string>
     <string name="show_lyrics_fullscreen_button_description">Show button under lyrics to expand to fullscreen</string>
+    <string name="hide_lyrics_fullscreen_button">Hide fullscreen button</string>
+    <string name="hide_lyrics_fullscreen_button_description">Hide fullscreen button and automatically enter fullscreen after 5 seconds of inactivity</string>
     <string name="choose_lyrics_result">Select lyrics result</string>
     <string name="searching_providers">Searching providers…</string>
     <string name="app_icon">App Icon</string>

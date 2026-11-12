@@ -56,7 +56,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameMillis
@@ -187,7 +187,8 @@ fun Lyrics(
     shouldUpdateLyrics: Boolean = true,
     showControls: Boolean = true,
     isFullscreen: Boolean = false,
-    onToggleFullscreen: (() -> Unit)? = null
+    onToggleFullscreen: (() -> Unit)? = null,
+    onSetFullscreen: ((Boolean) -> Unit)? = null
 ) = AnimatedVisibility(
     visible = isDisplayed,
     enter = fadeIn(),
@@ -382,9 +383,21 @@ fun Lyrics(
         )
     }
 
+    var lastInteractionTime by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
+
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
         modifier = modifier
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (event.changes.any { it.pressed }) {
+                            lastInteractionTime = android.os.SystemClock.elapsedRealtime()
+                        }
+                    }
+                }
+            }
             .pointerInput(Unit) {
                 detectTapGestures(onTap = { onDismiss() })
             }
@@ -524,6 +537,35 @@ fun Lyrics(
                         delay(4000.milliseconds)
                         isAutoScrollEnabled = true
                         lastPreviewTime = 0L
+                    }
+                }
+
+                val isDesynced = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                    !isAutoScrollEnabled
+                } else {
+                    accompanistListState.isManualScrolling
+                }
+
+                LaunchedEffect(
+                    lastInteractionTime,
+                    isFullscreen,
+                    isDesynced,
+                    PlayerPreferences.hideLyricsFullscreenButton,
+                    onSetFullscreen
+                ) {
+                    if (!PlayerPreferences.hideLyricsFullscreenButton || onSetFullscreen == null) return@LaunchedEffect
+
+                    if (isFullscreen && isDesynced) {
+                        onSetFullscreen(false)
+                    } else if (!isFullscreen && !isDesynced) {
+                        val elapsed = android.os.SystemClock.elapsedRealtime() - lastInteractionTime
+                        val remaining = 5000L - elapsed
+                        if (remaining > 0) {
+                            delay(remaining)
+                        }
+                        if (!isDesynced && (android.os.SystemClock.elapsedRealtime() - lastInteractionTime) >= 5000L) {
+                            onSetFullscreen(true)
+                        }
                     }
                 }
 
@@ -751,7 +793,7 @@ fun Lyrics(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val expandAction = onToggleFullscreen ?: onOpenDialog
-                if (PlayerPreferences.showLyricsFullscreenButton && expandAction != null) {
+                if (!PlayerPreferences.hideLyricsFullscreenButton && expandAction != null) {
                     AnimatedContent(
                         targetState = isFullscreen,
                         transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(200)) },

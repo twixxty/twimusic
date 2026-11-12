@@ -60,7 +60,10 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsGlow by boolean(true)
     var lyricsBouncyScroll by boolean(true)
     var lyricsShowTranslation by boolean(true)
-    var showLyricsFullscreenButton by boolean(true)
+    var hideLyricsFullscreenButton by boolean(true)
+    var showLyricsFullscreenButton: Boolean
+        get() = !hideLyricsFullscreenButton
+        set(value) { hideLyricsFullscreenButton = !value }
     var enableCanvas by boolean(true)
     var canvasLoadOnlyWifi by boolean(false)
 

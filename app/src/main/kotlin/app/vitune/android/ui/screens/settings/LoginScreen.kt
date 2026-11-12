@@ -11,6 +11,7 @@ import android.webkit.WebViewClient
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -227,11 +228,17 @@ fun LoginScreen(
 
         // Fetch account info in background — if it fails, we still have a valid session
         try {
-            val accountInfo = YouTube.accountInfo().getOrThrow()
+            val accountInfo = withTimeoutOrNull(5_000) {
+                YouTube.accountInfo().getOrNull()
+            }
             withContext(Dispatchers.Main) {
-                AccountPreferences.accountName = accountInfo.name
-                AccountPreferences.accountEmail = accountInfo.email.orEmpty()
-                AccountPreferences.accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                if (accountInfo != null) {
+                    AccountPreferences.accountName = accountInfo.name
+                    AccountPreferences.accountEmail = accountInfo.email.orEmpty()
+                    AccountPreferences.accountChannelHandle = accountInfo.channelHandle.orEmpty()
+                } else if (AccountPreferences.accountName.isBlank()) {
+                    AccountPreferences.accountName = "YouTube Account"
+                }
             }
         } catch (throwable: Exception) {
             Timber.w(throwable, "Login: Could not fetch account info, using fallback name")
@@ -257,10 +264,12 @@ fun LoginScreen(
         YouTube.dataSyncId = authData.dataSyncId
         YouTube.authUser = authData.authUser
 
-        val availableAccounts = YouTube.accountsList().getOrElse { throwable ->
-            Timber.e(throwable, "Login: Failed to retrieve YouTube channels")
-            emptyList()
-        }
+        val availableAccounts = withTimeoutOrNull(8_000) {
+            YouTube.accountsList().getOrElse { throwable ->
+                Timber.e(throwable, "Login: Failed to retrieve YouTube channels")
+                emptyList()
+            }
+        }.orEmpty()
 
         if (availableAccounts.size > 1) {
             val currentAccount = availableAccounts.firstOrNull { account ->
@@ -281,9 +290,11 @@ fun LoginScreen(
             val stage = loginStage
             loginStage = LoginStage.CheckingAccounts
             coroutineScope.launch {
-                val authData = extractAuthData(webViewRef) ?: run {
+                val authData = withTimeoutOrNull(15_000) { extractAuthData(webViewRef) }
+                if (authData == null) {
+                    android.widget.Toast.makeText(context, R.string.login_failed, android.widget.Toast.LENGTH_SHORT).show()
                     errorMessage = context.getString(R.string.login_failed)
-                    loginStage = stage
+                    loginStage = LoginStage.Authenticating
                     return@launch
                 }
                 if (stage == LoginStage.SwitchingAccount) {
@@ -380,12 +391,21 @@ fun LoginScreen(
                     }
                 )
 
-                if (loginStage != LoginStage.Authenticating) {
+                val isBusy = loginStage == LoginStage.CheckingAccounts ||
+                    loginStage == LoginStage.SwitchingAccount ||
+                    loginStage == LoginStage.Completing
+
+                if (isBusy) {
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .fillMaxSize()
                             .background(colorPalette.background0.copy(alpha = 0.85f))
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {}
+                            )
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             CircularProgressIndicator()
@@ -393,7 +413,6 @@ fun LoginScreen(
                             BasicText(
                                 text = when (loginStage) {
                                     LoginStage.CheckingAccounts -> stringResource(R.string.login_stage_channels)
-                                    LoginStage.SelectingAccount -> stringResource(R.string.select_channel)
                                     LoginStage.SwitchingAccount -> stringResource(R.string.login_stage_auth)
                                     LoginStage.Completing -> stringResource(R.string.login_stage_finishing)
                                     else -> stringResource(R.string.logging_in)

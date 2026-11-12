@@ -575,7 +575,8 @@ fun Player(
                     setShouldShowSynchronizedLyrics = { isShowingSynchronizedLyrics = it },
                     showControls = true,
                     isFullscreen = isLyricsFullscreen,
-                    onToggleFullscreen = { isLyricsFullscreen = !isLyricsFullscreen }
+                    onToggleFullscreen = { isLyricsFullscreen = !isLyricsFullscreen },
+                    onSetFullscreen = { isLyricsFullscreen = it }
                 )
             }
         }

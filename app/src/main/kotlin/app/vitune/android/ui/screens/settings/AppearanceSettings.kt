@@ -291,10 +291,10 @@ fun AppearanceSettings() = with(AppearancePreferences) {
             )
 
             SwitchSettingsEntry(
-                title = stringResource(R.string.show_lyrics_fullscreen_button),
-                text = stringResource(R.string.show_lyrics_fullscreen_button_description),
-                isChecked = PlayerPreferences.showLyricsFullscreenButton,
-                onCheckedChange = { PlayerPreferences.showLyricsFullscreenButton = it }
+                title = stringResource(R.string.hide_lyrics_fullscreen_button),
+                text = stringResource(R.string.hide_lyrics_fullscreen_button_description),
+                isChecked = PlayerPreferences.hideLyricsFullscreenButton,
+                onCheckedChange = { PlayerPreferences.hideLyricsFullscreenButton = it }
             )
 
             SwitchSettingsEntry(
