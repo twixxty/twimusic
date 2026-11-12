@@ -256,8 +256,12 @@ fun KaraokeLyricsView(
                         (focus.allIndices.firstOrNull() ?: focus.firstIndex) - index,
                         index - (focus.allIndices.lastOrNull() ?: focus.firstIndex),
                     )
-                val blur by
-                animateFloatAsState(if (useBlurEffect) distance * blurDelta else 0f, tween(300))
+                val blurState =
+                    animateFloatAsState(
+                        targetValue = if (useBlurEffect) distance * blurDelta else 0f,
+                        animationSpec = tween(300),
+                        label = "blur"
+                    )
                 Column {
                     if (index == 0 && focus.activeIntro)
                         KaraokeBreathingDots(
@@ -302,7 +306,7 @@ fun KaraokeLyricsView(
                                 onLineClicked(line)
                             },
                             onLinePressed = { onLinePressed(line) },
-                            blurRadius = { blur * focusBlurFactor.value },
+                            blurRadius = { blurState.value * focusBlurFactor.value },
                         ) {
                             if (prepared != null)
                                 PreparedLineText(

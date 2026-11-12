@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -25,9 +27,8 @@ import androidx.compose.foundation.lazy.grid.LazyHorizontalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -275,19 +276,23 @@ fun QuickPicks(
         if (DataPreferences.shouldCacheQuickPicks) {
             val sections = dynamicSectionsResult?.getOrNull()
             if (!sections.isNullOrEmpty()) {
-                val allSongs = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Song>().map { it.song } }
-                val allAlbums = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Album>().map { it.album } }
-                val allArtists = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Artist>().map { it.artist } }
-                val allPlaylists = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Playlist>().map { it.playlist } }
-                DataPreferences.cachedQuickPicks = Innertube.RelatedPage(
-                    songs = allSongs.ifEmpty { null },
-                    albums = allAlbums.ifEmpty { null },
-                    artists = allArtists.ifEmpty { null },
-                    playlists = allPlaylists.ifEmpty { null }
-                )
+                withContext(Dispatchers.IO) {
+                    val allSongs = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Song>().map { it.song } }
+                    val allAlbums = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Album>().map { it.album } }
+                    val allArtists = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Artist>().map { it.artist } }
+                    val allPlaylists = sections.flatMap { sec -> sec.items.filterIsInstance<DynamicHomeItem.Playlist>().map { it.playlist } }
+                    DataPreferences.cachedQuickPicks = Innertube.RelatedPage(
+                        songs = allSongs.ifEmpty { null },
+                        albums = allAlbums.ifEmpty { null },
+                        artists = allArtists.ifEmpty { null },
+                        playlists = allPlaylists.ifEmpty { null }
+                    )
+                }
             }
         } else {
-            DataPreferences.cachedQuickPicks = Innertube.RelatedPage()
+            withContext(Dispatchers.IO) {
+                DataPreferences.cachedQuickPicks = Innertube.RelatedPage()
+            }
         }
     }
 
@@ -354,7 +359,7 @@ fun QuickPicks(
         }
     }
 
-    val scrollState = rememberScrollState()
+    val lazyListState = rememberLazyListState()
     val endPaddingValues = windowInsets.only(WindowInsetsSides.End).asPaddingValues()
 
     val sectionTextModifier = Modifier
@@ -362,7 +367,7 @@ fun QuickPicks(
         .padding(top = 24.dp, bottom = 8.dp)
         .padding(endPaddingValues)
 
-    val [currentMediaId, playing] = playingSong(binder)
+    val (currentMediaId, playing) = playingSong(binder)
 
     BoxWithConstraints {
         val quickPicksLazyGridItemWidthFactor =
@@ -370,76 +375,127 @@ fun QuickPicks(
 
         val itemInHorizontalGridWidth = maxWidth * quickPicksLazyGridItemWidthFactor
 
-        Column(
+        LazyColumn(
+            state = lazyListState,
             modifier = Modifier
                 .background(colorPalette.background0)
                 .fillMaxSize()
-                .verticalScroll(scrollState)
                 .padding(
                     windowInsets
                         .only(WindowInsetsSides.Vertical)
                         .asPaddingValues()
                 )
         ) {
-            Header(
-                title = stringResource(R.string.quick_picks),
-                modifier = Modifier.padding(endPaddingValues)
-            )
+            item(key = "header", contentType = "header") {
+                Header(
+                    title = stringResource(R.string.quick_picks),
+                    modifier = Modifier.padding(endPaddingValues)
+                )
+            }
 
-            dynamicSectionsResult?.getOrNull()?.let { sections ->
+            val sections = dynamicSectionsResult?.getOrNull()
+            if (sections != null) {
                 sections.forEachIndexed { secIndex, section ->
                     val isSongsOnly = section.items.isNotEmpty() && section.items.all { it is DynamicHomeItem.Song }
 
-                    Column(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp)
-                            .padding(top = if (secIndex == 0) 8.dp else 24.dp, bottom = 8.dp)
-                            .padding(endPaddingValues)
-                    ) {
-                        if (!section.label.isNullOrBlank()) {
+                    item(key = "title_${section.id}", contentType = "section_title") {
+                        Column(
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp)
+                                .padding(top = if (secIndex == 0) 8.dp else 24.dp, bottom = 8.dp)
+                                .padding(endPaddingValues)
+                        ) {
+                            if (!section.label.isNullOrBlank()) {
+                                BasicText(
+                                    text = section.label.uppercase(),
+                                    style = typography.xxs.semiBold.secondary.color(colorPalette.textSecondary)
+                                )
+                            }
                             BasicText(
-                                text = section.label.uppercase(),
-                                style = typography.xxs.semiBold.secondary.color(colorPalette.textSecondary)
+                                text = section.title,
+                                style = typography.m.semiBold.color(colorPalette.text)
                             )
                         }
-                        BasicText(
-                            text = section.title,
-                            style = typography.m.semiBold.color(colorPalette.text)
-                        )
                     }
 
-                    if (isSongsOnly) {
-                        val songGridState = remember(section.id) { LazyGridState() }
-                        val snapLayoutInfo = rememberSnapLayoutInfo(
-                            lazyGridState = songGridState,
-                            positionInLayout = { layoutSize, itemSize ->
-                                (layoutSize * quickPicksLazyGridItemWidthFactor / 2f - itemSize / 2f)
-                            }
-                        )
+                    item(key = "content_${section.id}", contentType = if (isSongsOnly) "songs_grid" else "items_row") {
+                        if (isSongsOnly) {
+                            val songGridState = remember(section.id) { LazyGridState() }
+                            val snapLayoutInfo = rememberSnapLayoutInfo(
+                                lazyGridState = songGridState,
+                                positionInLayout = { layoutSize, itemSize ->
+                                    (layoutSize * quickPicksLazyGridItemWidthFactor / 2f - itemSize / 2f)
+                                }
+                            )
 
-                        LazyHorizontalGrid(
-                            state = songGridState,
-                            rows = GridCells.Fixed(4),
-                            flingBehavior = rememberSnapFlingBehavior(snapLayoutInfo),
-                            contentPadding = endPaddingValues,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 4)
-                        ) {
-                            if (secIndex == 0 && trending != null) {
-                                val song = trending!!
-                                item(key = "trending_${song.id}") {
+                            LazyHorizontalGrid(
+                                state = songGridState,
+                                rows = GridCells.Fixed(4),
+                                flingBehavior = rememberSnapFlingBehavior(snapLayoutInfo),
+                                contentPadding = endPaddingValues,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height((Dimensions.thumbnails.song + Dimensions.items.verticalPadding * 2) * 4)
+                            ) {
+                                if (secIndex == 0 && trending != null) {
+                                    val song = trending!!
+                                    item(key = "trending_${song.id}") {
+                                        SongItem(
+                                            modifier = Modifier
+                                                .combinedClickable(
+                                                    onLongClick = {
+                                                        menuState.display {
+                                                            NonQueuedMediaItemMenu(
+                                                                onDismiss = menuState::hide,
+                                                                mediaItem = song.asMediaItem,
+                                                                onRemoveFromQuickPicks = {
+                                                                    query { Database.clearEventsFor(song.id) }
+                                                                }
+                                                            )
+                                                        }
+                                                    },
+                                                    onClick = {
+                                                        val mediaItem = song.asMediaItem
+                                                        binder?.stopRadio()
+                                                        binder?.player?.forcePlay(mediaItem)
+                                                        binder?.setupRadio(
+                                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                                        )
+                                                    }
+                                                )
+                                                .animateItem(fadeInSpec = null, fadeOutSpec = null)
+                                                .width(itemInHorizontalGridWidth),
+                                            song = song,
+                                            thumbnailSize = Dimensions.thumbnails.song,
+                                            trailingContent = {
+                                                Image(
+                                                    painter = painterResource(R.drawable.star),
+                                                    contentDescription = null,
+                                                    colorFilter = ColorFilter.tint(colorPalette.accent),
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            },
+                                            showDuration = false,
+                                            isPlaying = playing && currentMediaId == song.id
+                                        )
+                                    }
+                                }
+
+                                items(
+                                    items = section.items.filterIsInstance<DynamicHomeItem.Song>(),
+                                    key = { "${section.id}_${it.key}" }
+                                ) { item ->
+                                    val song = item.song
                                     SongItem(
+                                        song = song,
+                                        thumbnailSize = Dimensions.thumbnails.song,
                                         modifier = Modifier
                                             .combinedClickable(
                                                 onLongClick = {
                                                     menuState.display {
                                                         NonQueuedMediaItemMenu(
                                                             onDismiss = menuState::hide,
-                                                            mediaItem = song.asMediaItem,
-                                                            onRemoveFromQuickPicks = {
-                                                                query { Database.clearEventsFor(song.id) }
-                                                            }
+                                                            mediaItem = song.asMediaItem
                                                         )
                                                     }
                                                 },
@@ -454,157 +510,122 @@ fun QuickPicks(
                                             )
                                             .animateItem(fadeInSpec = null, fadeOutSpec = null)
                                             .width(itemInHorizontalGridWidth),
-                                        song = song,
-                                        thumbnailSize = Dimensions.thumbnails.song,
-                                        trailingContent = {
-                                            Image(
-                                                painter = painterResource(R.drawable.star),
-                                                contentDescription = null,
-                                                colorFilter = ColorFilter.tint(colorPalette.accent),
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                        },
                                         showDuration = false,
-                                        isPlaying = playing && currentMediaId == song.id
+                                        isPlaying = playing && currentMediaId == song.key
                                     )
                                 }
                             }
-
-                            items(
-                                items = section.items.filterIsInstance<DynamicHomeItem.Song>(),
-                                key = { "${section.id}_${it.key}" }
-                            ) { item ->
-                                val song = item.song
-                                SongItem(
-                                    song = song,
-                                    thumbnailSize = Dimensions.thumbnails.song,
-                                    modifier = Modifier
-                                        .combinedClickable(
-                                            onLongClick = {
-                                                menuState.display {
-                                                    NonQueuedMediaItemMenu(
-                                                        onDismiss = menuState::hide,
-                                                        mediaItem = song.asMediaItem
+                        } else {
+                            LazyRow(contentPadding = endPaddingValues) {
+                                items(
+                                    items = section.items,
+                                    key = { "${section.id}_${it.key}" }
+                                ) { item ->
+                                    when (item) {
+                                        is DynamicHomeItem.Album -> {
+                                            AlbumItem(
+                                                album = item.album,
+                                                thumbnailSize = Dimensions.thumbnails.album,
+                                                alternative = true,
+                                                modifier = Modifier.clickable { onAlbumClick(item.album) }
+                                            )
+                                        }
+                                        is DynamicHomeItem.Playlist -> {
+                                            PlaylistItem(
+                                                playlist = item.playlist,
+                                                thumbnailSize = Dimensions.thumbnails.playlist,
+                                                alternative = true,
+                                                modifier = Modifier.clickable { onPlaylistClick(item.playlist) }
+                                            )
+                                        }
+                                        is DynamicHomeItem.Artist -> {
+                                            ArtistItem(
+                                                artist = item.artist,
+                                                thumbnailSize = Dimensions.thumbnails.artist,
+                                                alternative = true,
+                                                modifier = Modifier.clickable { onArtistClick(item.artist) }
+                                            )
+                                        }
+                                        is DynamicHomeItem.Song -> {
+                                            SongItem(
+                                                song = item.song,
+                                                thumbnailSize = Dimensions.thumbnails.song,
+                                                modifier = Modifier.clickable {
+                                                    val mediaItem = item.song.asMediaItem
+                                                    binder?.stopRadio()
+                                                    binder?.player?.forcePlay(mediaItem)
+                                                    binder?.setupRadio(
+                                                        NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
                                                     )
                                                 }
-                                            },
-                                            onClick = {
-                                                val mediaItem = song.asMediaItem
-                                                binder?.stopRadio()
-                                                binder?.player?.forcePlay(mediaItem)
-                                                binder?.setupRadio(
-                                                    NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                                )
-                                            }
-                                        )
-                                        .animateItem(fadeInSpec = null, fadeOutSpec = null)
-                                        .width(itemInHorizontalGridWidth),
-                                    showDuration = false,
-                                    isPlaying = playing && currentMediaId == song.key
-                                )
-                            }
-                        }
-                    } else {
-                        LazyRow(contentPadding = endPaddingValues) {
-                            items(
-                                items = section.items,
-                                key = { "${section.id}_${it.key}" }
-                            ) { item ->
-                                when (item) {
-                                    is DynamicHomeItem.Album -> {
-                                        AlbumItem(
-                                            album = item.album,
-                                            thumbnailSize = Dimensions.thumbnails.album,
-                                            alternative = true,
-                                            modifier = Modifier.clickable { onAlbumClick(item.album) }
-                                        )
-                                    }
-                                    is DynamicHomeItem.Playlist -> {
-                                        PlaylistItem(
-                                            playlist = item.playlist,
-                                            thumbnailSize = Dimensions.thumbnails.playlist,
-                                            alternative = true,
-                                            modifier = Modifier.clickable { onPlaylistClick(item.playlist) }
-                                        )
-                                    }
-                                    is DynamicHomeItem.Artist -> {
-                                        ArtistItem(
-                                            artist = item.artist,
-                                            thumbnailSize = Dimensions.thumbnails.artist,
-                                            alternative = true,
-                                            modifier = Modifier.clickable { onArtistClick(item.artist) }
-                                        )
-                                    }
-                                    is DynamicHomeItem.Song -> {
-                                        SongItem(
-                                            song = item.song,
-                                            thumbnailSize = Dimensions.thumbnails.song,
-                                            modifier = Modifier.clickable {
-                                                val mediaItem = item.song.asMediaItem
-                                                binder?.stopRadio()
-                                                binder?.player?.forcePlay(mediaItem)
-                                                binder?.setupRadio(
-                                                    NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                                )
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-                Unit
-            } ?: dynamicSectionsResult?.exceptionOrNull()?.let {
-                BasicText(
-                    text = stringResource(R.string.error_message),
-                    style = typography.s.secondary.center,
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .padding(all = 16.dp)
-                )
-            } ?: ShimmerHost {
-                repeat(4) {
-                    SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
-                }
-
-                TextPlaceholder(modifier = sectionTextModifier)
-
-                Row {
-                    repeat(2) {
-                        AlbumItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
+            } else if (dynamicSectionsResult?.isFailure == true) {
+                item(key = "error") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        BasicText(
+                            text = stringResource(R.string.error_message),
+                            style = typography.s.secondary.center
                         )
                     }
                 }
+            } else {
+                item(key = "shimmer") {
+                    ShimmerHost {
+                        repeat(4) {
+                            SongItemPlaceholder(thumbnailSize = Dimensions.thumbnails.song)
+                        }
 
-                TextPlaceholder(modifier = sectionTextModifier)
+                        TextPlaceholder(modifier = sectionTextModifier)
 
-                Row {
-                    repeat(2) {
-                        ArtistItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
-                        )
-                    }
-                }
+                        Row {
+                            repeat(2) {
+                                AlbumItemPlaceholder(
+                                    thumbnailSize = Dimensions.thumbnails.album,
+                                    alternative = true
+                                )
+                            }
+                        }
 
-                TextPlaceholder(modifier = sectionTextModifier)
+                        TextPlaceholder(modifier = sectionTextModifier)
 
-                Row {
-                    repeat(2) {
-                        PlaylistItemPlaceholder(
-                            thumbnailSize = Dimensions.thumbnails.album,
-                            alternative = true
-                        )
+                        Row {
+                            repeat(2) {
+                                ArtistItemPlaceholder(
+                                    thumbnailSize = Dimensions.thumbnails.album,
+                                    alternative = true
+                                )
+                            }
+                        }
+
+                        TextPlaceholder(modifier = sectionTextModifier)
+
+                        Row {
+                            repeat(2) {
+                                PlaylistItemPlaceholder(
+                                    thumbnailSize = Dimensions.thumbnails.album,
+                                    alternative = true
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
         FloatingActionsContainerWithScrollToTop(
-            scrollState = scrollState,
+            lazyListState = lazyListState,
             icon = R.drawable.search,
             onClick = onSearchClick
         )

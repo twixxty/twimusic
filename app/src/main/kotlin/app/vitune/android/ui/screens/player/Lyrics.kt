@@ -516,7 +516,21 @@ fun Lyrics(
         val activeIndex by remember(parsedEntries) {
             derivedStateOf {
                 if (parsedEntries.isEmpty()) -1
-                else parsedEntries.indexOfLast { it.time <= currentPositionMs }
+                else {
+                    var low = 0
+                    var high = parsedEntries.size - 1
+                    var ans = -1
+                    while (low <= high) {
+                        val mid = (low + high) ushr 1
+                        if (parsedEntries[mid].time <= currentPositionMs) {
+                            ans = mid
+                            low = mid + 1
+                        } else {
+                            high = mid - 1
+                        }
+                    }
+                    ans
+                }
             }
         }
 
@@ -706,7 +720,9 @@ fun Lyrics(
                             textColor = colorPalette.text,
                             useBlurEffect = PlayerPreferences.lyricsLineBlur,
                             showTranslation = PlayerPreferences.lyricsShowTranslation,
-                            scrollChain = if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null,
+                            scrollChain = remember(PlayerPreferences.lyricsBouncyScroll) {
+                                if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null
+                            },
                         )
                     }
 

@@ -44,7 +44,7 @@ fun LyricsLineItem(
     isInteractive: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val scaleState by
+    val scaleState =
         animateFloatAsState(
             targetValue = if (isFocused) 1f else 0.98f,
             animationSpec =
@@ -56,7 +56,7 @@ fun LyricsLineItem(
             label = "scale",
         )
 
-    val alphaState by
+    val alphaState =
         animateFloatAsState(
             targetValue = if (isFocused) activeAlpha else inactiveAlpha,
             label = "alpha",
@@ -64,13 +64,10 @@ fun LyricsLineItem(
 
     Box(
         modifier =
-            modifier.fillMaxWidth().lyricsVisualLayer(observePaint = {
-                alphaState
-                blurRadius()
-            }) {
-                scaleX = scaleState
-                scaleY = scaleState
-                alpha = alphaState
+            modifier.fillMaxWidth().lyricsVisualLayer(observePaint = {}) {
+                scaleX = scaleState.value
+                scaleY = scaleState.value
+                alpha = alphaState.value
                 transformOrigin = TransformOrigin(if (isRightAligned) 1f else 0f, 1f)
                 this.blendMode = blendMode
                 compositingStrategy = CompositingStrategy.Auto
@@ -81,7 +78,8 @@ fun LyricsLineItem(
 
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                     renderEffect = if (PlayerPreferences.lyricsOptimizedAndroid12) {
-                        FocusBlurEffects[radius.roundToInt().coerceIn(0, 64)]
+                        val clamped = radius.coerceIn(0f, 16f)
+                        FocusBlurEffects[clamped.roundToInt().coerceIn(0, 64)]
                     } else {
                         if (radius <= 0.5f) null else BlurEffect(radius, radius, TileMode.Clamp)
                     }
