@@ -70,10 +70,14 @@ fun List<LyricsEntry>.toSyncedLyrics(title: String = ""): SyncedLyrics {
             )
         } else {
             val syllables = entry.words.map { word ->
+                val wordStart = (word.startTime * 1000).toInt()
                 KaraokeSyllable(
                     content = word.text + if (word.hasTrailingSpace) " " else "",
-                    start = (word.startTime * 1000).toInt(),
-                    end = (word.endTime * 1000).toInt(),
+                    start = wordStart,
+                    // Some providers return words whose end is before their start (fast rap
+                    // sections, e.g. "We Don't Talk About Bruno"). KaraokeSyllable requires
+                    // end >= start and crashed the whole screen, so clamp bad timings.
+                    end = maxOf(wordStart, (word.endTime * 1000).toInt()),
                 )
             }
             if (entry.isBackground) {

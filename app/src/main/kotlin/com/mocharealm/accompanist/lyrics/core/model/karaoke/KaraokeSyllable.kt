@@ -22,7 +22,8 @@ data class KaraokeSyllable(
     fun progress(current: Int): Float {
         return when {
             current < start -> 0f
-            current in start..end -> (current - start).toFloat() / duration
+            current in start..end ->
+                if (duration > 0) (current - start).toFloat() / duration else 1f
             current > end -> 1f
             else -> 0f
         }.coerceIn(0f, 1f)
