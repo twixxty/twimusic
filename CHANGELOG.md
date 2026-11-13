@@ -4,6 +4,9 @@ All notable changes to TwiMusic since the branding update.
 
 ## [Unreleased]
 
+### Added
+- **armeabi-v7a build**: release builds now ship per-ABI APKs for `arm64-v8a`, `armeabi-v7a` and `x86_64`, plus a universal APK (previously only a universal APK with arm64-v8a/x86_64 was produced). The release workflow uploads all four.
+
 ### Fixed
 - **Blur & Lava Lamp backgrounds on Android 11 and below**: `Modifier.blur` is a silent no-op before Android 12, so both backgrounds rendered as a plain un-blurred (or empty) image on older devices. They no longer use a live blur at all (see below), so they now look identical on every Android version.
 - **Blurred inactive lyric lines on Android 11 and below**: line blur relied on `RenderEffect` (Android 12+ only). On older versions each blurred line is now rendered once into a tiny bitmap, blurred on the CPU and drawn from there, with its fade/scale animations intact. Android 12+ keeps the GPU blur path unchanged.

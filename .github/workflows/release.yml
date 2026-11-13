@@ -1,106 +1,79 @@
-name: Publish Release
+name: Release
 
+# Builds signed release APKs for every ABI (arm64-v8a, armeabi-v7a, x86_64) plus a universal APK,
+# and attaches them to a GitHub Release. Trigger by pushing a tag like v1.2.8, or run manually.
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
   workflow_dispatch:
     inputs:
-      tag_name:
-        description: 'Version tag (e.g. v1.2.7)'
-        required: true
-        default: 'v1.2.7'
-      release_title:
-        description: 'Release Title'
+      version_name:
+        description: "Version name (e.g. 1.2.8). Defaults to the tag, or the Gradle default."
         required: false
-        default: ''
-      release_notes:
-        description: 'Release notes / changelog'
+      version_code:
+        description: "Version code. Defaults to the run number."
         required: false
-        default: ''
 
 permissions:
   contents: write
 
 jobs:
   release:
-    name: Build & Publish Release
     runs-on: ubuntu-latest
-
+    env:
+      ANDROID_VERSION_CODE: ${{ inputs.version_code || github.run_number }}
+      # Signing falls back to signing/release.keystore with the defaults in app/build.gradle.kts
+      # when these secrets are not set.
+      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'oracle'
-          java-version: '25'
-
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          validate-wrappers: false
-
-      - name: Make Gradle wrapper executable
-        run: chmod +x gradlew
-
-      - name: Determine Version & Tag
-        id: vars
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag_name }}"
-          else
-            TAG="${GITHUB_REF#refs/tags/}"
-          fi
-          VERSION="${TAG#v}"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-      - name: Build Release APKs
+      # Only export ANDROID_VERSION_NAME when there is one: an empty value would override the
+      # Gradle default with a blank version name.
+      - name: Resolve version name
         env:
-          ANDROID_VERSION_CODE: ${{ github.run_number }}
-          ANDROID_VERSION_NAME: ${{ steps.vars.outputs.version }}
-        run: ./gradlew assembleRelease -Pversion=${{ steps.vars.outputs.version }} --stacktrace
-
-      - name: Prepare Release Assets
+          INPUT_VERSION: ${{ inputs.version_name }}
         run: |
-          mkdir -p staging
-          TAG="${{ steps.vars.outputs.tag }}"
-          
-          # Copy and rename APKs
-          for apk in app/build/outputs/apk/release/*.apk; do
-            filename=$(basename "$apk")
-            if [[ "$filename" == *"arm64-v8a"* ]]; then
-              cp "$apk" "staging/TwiMusic-${TAG}-arm64-v8a.apk"
-            elif [[ "$filename" == *"universal"* ]]; then
-              cp "$apk" "staging/TwiMusic-${TAG}-universal.apk"
-            elif [[ "$filename" == *"x86_64"* ]]; then
-              cp "$apk" "staging/TwiMusic-${TAG}-x86_64.apk"
-            elif [[ "$filename" == *"release-unsigned"* ]]; then
-              continue
-            else
-              cp "$apk" "staging/TwiMusic-${TAG}-${filename}"
-            fi
+          version="$INPUT_VERSION"
+          if [ -z "$version" ] && [ "${GITHUB_REF_TYPE}" = "tag" ]; then version="$GITHUB_REF_NAME"; fi
+          version="${version#v}"
+          if [ -n "$version" ]; then echo "ANDROID_VERSION_NAME=$version" >> "$GITHUB_ENV"; fi
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APKs (per-ABI + universal)
+        run: ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Collect and name the APKs
+        id: apks
+        run: |
+          set -euo pipefail
+          out=release-apks
+          mkdir -p "$out"
+          version="${ANDROID_VERSION_NAME:-dev}"
+          for abi in arm64-v8a armeabi-v7a x86_64 universal; do
+            src=$(ls app/build/outputs/apk/release/*-"$abi"-release*.apk | head -n 1)
+            cp "$src" "$out/TwiMusic-${version}-${abi}.apk"
           done
+          ls -l "$out"
+          echo "dir=$out" >> "$GITHUB_OUTPUT"
 
-          # Generate SHA-256 Checksums
-          cd staging
-          sha256sum *.apk > sha256sums.txt
-          cd ..
-          ls -la staging/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TwiMusic-release-apks
+          path: release-apks/*.apk
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.vars.outputs.tag }}
-          name: ${{ github.event.inputs.release_title || steps.vars.outputs.tag }}
-          body: ${{ github.event.inputs.release_notes || '' }}
+          files: release-apks/*.apk
           generate_release_notes: true
-          draft: false
-          prerelease: false
-          files: staging/*
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

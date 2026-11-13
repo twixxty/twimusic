@@ -14,7 +14,7 @@ android {
     namespace = "app.vitune.android"
     compileSdk = 37
 
-    val abis = listOf("arm64-v8a", "x86_64")
+    val abis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
     val cmakeVersion = "4.1.2"
     ndkVersion = "30.0.16248370"
 
@@ -26,17 +26,16 @@ android {
 
         versionCode = System.getenv("ANDROID_VERSION_CODE")?.toIntOrNull() ?: 27
         versionName = System.getenv("ANDROID_VERSION_NAME") ?: project.version.toString()
-
-        ndk {
-            //noinspection ChromeOsAbiSupport
-            abiFilters += abis
-        }
     }
 
+    // One APK per ABI plus a universal APK. ndk.abiFilters must not be set together with ABI splits
+    // (AGP rejects the combination), so the ABI list lives here, and 32-bit x86 / riscv64 libraries
+    // are kept out of the universal APK via packaging.jniLibs.excludes below.
     splits {
         abi {
             isEnable = true
             reset()
+            include(*abis.toTypedArray())
             isUniversalApk = true
         }
     }
@@ -118,7 +117,10 @@ android {
             pickFirsts.add("META-INF/**")
             merges.add("META-INF/services/**")
         }
-        jniLibs.useLegacyPackaging = true
+        jniLibs {
+            useLegacyPackaging = true
+            excludes += setOf("lib/x86/**", "lib/riscv64/**", "lib/mips/**", "lib/mips64/**")
+        }
     }
 
     androidResources {
