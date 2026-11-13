@@ -96,7 +96,8 @@ fun KaraokeLyricsView(
     topFade: LyricsFade = LyricsFade.ToAnchor(16.dp),
     bottomFade: LyricsFade = LyricsFade.Fraction(0.5f),
     keepAliveZone: Dp = 100.dp,
-    blurDelta: Float = 3f,
+    /** Blur added per line of distance from the focus, in dp (density-scaled when applied). */
+    blurDelta: Float = 2f,
     showDebugRectangles: Boolean = false,
     renderProfiles: List<LyricsProfile> = DefaultLyricsProfiles,
     itemSpacing: Dp = 16.dp,

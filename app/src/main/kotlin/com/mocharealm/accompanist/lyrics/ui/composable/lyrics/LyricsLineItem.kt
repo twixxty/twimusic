@@ -1,6 +1,7 @@
 package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.lyricsVisualLayer
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.rememberLegacyLyricsBlur
 
 import android.os.Build
 import androidx.compose.animation.core.EaseInOut
@@ -13,6 +14,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
@@ -25,6 +29,10 @@ import androidx.compose.ui.unit.dp
 import app.vitune.android.preferences.PlayerPreferences
 import kotlin.math.roundToInt
 
+/** Upper bound of the blur radius in dp, so far-away lines stay a soft shape instead of vanishing. */
+private const val MAX_BLUR_DP = 8f
+
+/** One cached effect per whole pixel; selecting one while animating allocates nothing. */
 private val FocusBlurEffects =
     Array<RenderEffect?>(65) { index ->
         if (index == 0) null else BlurEffect(index.toFloat(), index.toFloat(), TileMode.Clamp)
@@ -62,6 +70,23 @@ fun LyricsLineItem(
             label = "alpha",
         )
 
+    // blurRadius() is expressed in dp. It used to be applied as raw pixels, which on a 3x phone is
+    // a third of the intended strength - the blur was technically on but practically invisible.
+    val density = LocalDensity.current.density
+    val currentBlurRadius by rememberUpdatedState(blurRadius)
+    val blurPx: () -> Float =
+        remember(density) {
+            {
+                if (!PlayerPreferences.lyricsLineBlur) 0f
+                else (currentBlurRadius().takeIf { it.isFinite() } ?: 0f)
+                    .coerceIn(0f, MAX_BLUR_DP) * density
+            }
+        }
+    // Android 11 and below have no RenderEffect, so they get a one-off CPU-blurred snapshot instead.
+    val legacyBlur =
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) rememberLegacyLyricsBlur(blurPx)
+        else Modifier
+
     Box(
         modifier =
             modifier.fillMaxWidth().lyricsVisualLayer(observePaint = {}) {
@@ -72,14 +97,12 @@ fun LyricsLineItem(
                 this.blendMode = blendMode
                 compositingStrategy = CompositingStrategy.Auto
 
-                val radius = if (PlayerPreferences.lyricsLineBlur) {
-                    blurRadius().takeIf { it.isFinite() } ?: 0f
-                } else 0f
-
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val radius = blurPx()
                     renderEffect = if (PlayerPreferences.lyricsOptimizedAndroid12) {
-                        val clamped = radius.coerceIn(0f, 16f)
-                        FocusBlurEffects[clamped.roundToInt().coerceIn(0, 64)]
+                        // Whole-pixel steps of a cached effect: no per-frame allocation, and the
+                        // step size is far below what the eye can tell apart.
+                        FocusBlurEffects[radius.roundToInt().coerceIn(0, 64)]
                     } else {
                         if (radius <= 0.5f) null else BlurEffect(radius, radius, TileMode.Clamp)
                     }
@@ -93,6 +116,7 @@ fun LyricsLineItem(
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(onClick = onLineClicked, onLongClick = onLinePressed)
             )
-        content()
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) Box(legacyBlur) { content() }
+        else content()
     }
 }

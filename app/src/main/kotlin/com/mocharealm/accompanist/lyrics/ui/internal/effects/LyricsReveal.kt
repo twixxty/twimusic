@@ -12,6 +12,22 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.constrainHeight
 import kotlin.math.roundToInt
 
+private val revealBlurCache = HashMap<Float, Array<RenderEffect?>>()
+
+/**
+ * Reveal blur only depends on screen density, so all lines share one set of 64 effects. Previously
+ * every line (and every translation / phonetic caption) built its own on first composition.
+ */
+private fun revealBlurEffects(density: Float): Array<RenderEffect?> =
+    synchronized(revealBlurCache) {
+        revealBlurCache.getOrPut(density) {
+            Array<RenderEffect?>(65) {
+                if (it == 0) null
+                else BlurEffect(8f * density * it / 64f, 8f * density * it / 64f, TileMode.Decal)
+            }
+        }
+    }
+
 /** Captions own their transition lifetime independently of playback follow requests. */
 internal class LyricsCaptionTransitions {
     val states = mutableStateMapOf<Any, MutableTransitionState<Boolean>>()
@@ -30,18 +46,7 @@ internal fun LyricsReveal(
     content: @Composable () -> Unit,
 ) {
     val density = LocalDensity.current
-    val blur =
-        remember(density) {
-            Array<RenderEffect?>(65) {
-                if (it == 0) null
-                else
-                    BlurEffect(
-                        8f * density.density * it / 64f,
-                        8f * density.density * it / 64f,
-                        TileMode.Decal,
-                    )
-            }
-        }
+    val blur = remember(density) { revealBlurEffects(density.density) }
     val visibility = remember { MutableTransitionState(if (animateInitial) false else visible) }
     visibility.targetState = visible
     val captionTransitions = LocalLyricsCaptionTransitions.current
