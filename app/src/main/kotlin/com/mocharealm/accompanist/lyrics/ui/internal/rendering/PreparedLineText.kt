@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.constrainHeight
 import androidx.compose.ui.unit.dp
 import com.mocharealm.accompanist.lyrics.core.model.karaoke.KaraokeLine
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.LocalLyricsLineBlur
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.LyricsReveal
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.LyricsRevealProgress
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.LyricsRevealSpring
@@ -41,6 +42,7 @@ private class BandRenderEnv(
     val binding: LineVariantBinding?,
     /** 1 exposes the aligned geometry, 0 the compact one. */
     val alignedness: () -> Float,
+    val lineBlur: () -> Float,
 )
 
 @Composable
@@ -94,6 +96,7 @@ internal fun PreparedLineText(
             lineWidth = prepared.width,
             binding = prepared.binding,
             alignedness = alignedness,
+            lineBlur = LocalLyricsLineBlur.current,
         )
     val accompanimentAlpha =
         if (prepared.source is KaraokeLine.AccompanimentKaraokeLine) 0.6f else 1f
@@ -327,6 +330,7 @@ private fun BandText(
                     }
                 onDrawBehind {
                     val reveal = env.alignedness()
+                    val blurPx = env.lineBlur()
                     if (showAligned && alignedRow != null && alignedLayers != null) {
                         translate(top = -alignedRow.top) {
                             drawPreparedRow(
@@ -340,6 +344,7 @@ private fun BandText(
                                 alignedGlows,
                                 drawPhonetics = false,
                                 blend = env.blend(blending, reveal, aligned = true),
+                                blurPx = blurPx,
                             )
                         }
                     }
@@ -356,6 +361,7 @@ private fun BandText(
                                 compactGlows,
                                 drawPhonetics = false,
                                 blend = env.blend(blending, reveal, aligned = false),
+                                blurPx = blurPx,
                             )
                         }
                     }
@@ -401,6 +407,7 @@ private fun BandCaption(
                                 layers,
                                 null,
                                 drawOriginal = false,
+                                blurPx = env.lineBlur(),
                             )
                         }
                     }

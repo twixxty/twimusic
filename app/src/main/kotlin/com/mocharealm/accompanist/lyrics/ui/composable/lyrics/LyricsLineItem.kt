@@ -1,7 +1,7 @@
 package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.lyricsVisualLayer
-import com.mocharealm.accompanist.lyrics.ui.internal.effects.rememberLegacyLyricsBlur
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.LocalLyricsLineBlur
 
 import android.os.Build
 import androidx.compose.animation.core.EaseInOut
@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -82,11 +83,6 @@ fun LyricsLineItem(
                     .coerceIn(0f, MAX_BLUR_DP) * density
             }
         }
-    // Android 11 and below have no RenderEffect, so they get a one-off CPU-blurred snapshot instead.
-    val legacyBlur =
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) rememberLegacyLyricsBlur(blurPx)
-        else Modifier
-
     Box(
         modifier =
             modifier.fillMaxWidth().lyricsVisualLayer(observePaint = {}) {
@@ -116,7 +112,10 @@ fun LyricsLineItem(
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(onClick = onLineClicked, onLongClick = onLinePressed)
             )
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) Box(legacyBlur) { content() }
+        // Android 11 and below have no RenderEffect: the line's text tiles are blurred on the CPU
+        // instead (see LegacyLyricsBlur.kt), driven by this radius.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S)
+            CompositionLocalProvider(LocalLyricsLineBlur provides blurPx) { content() }
         else content()
     }
 }

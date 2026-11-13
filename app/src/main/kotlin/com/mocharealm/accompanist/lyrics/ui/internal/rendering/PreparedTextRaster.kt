@@ -1,5 +1,6 @@
 package com.mocharealm.accompanist.lyrics.ui.internal.rendering
 
+import android.os.Build
 import androidx.compose.ui.draw.CacheDrawScope
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -21,7 +22,10 @@ import com.mocharealm.accompanist.lyrics.ui.preparation.PreparedRow
 import com.mocharealm.accompanist.lyrics.ui.profile.DefaultLyricsProfiles
 import com.mocharealm.accompanist.lyrics.ui.profile.LyricsProfile
 import com.mocharealm.accompanist.lyrics.ui.profile.ProfileTextUnit
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.LEGACY_BLUR_STEP_PX
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.blurAtlasRegion
 import kotlin.math.ceil
+import kotlin.math.roundToInt
 
 /** Fixed-origin raster tiles are prepared off the UI thread as lines enter the working set. */
 internal class PreparedRowLayers(
@@ -145,8 +149,44 @@ internal class TextLayer(val source: IntOffset, val dimensions: IntSize, val pad
     private val destination = IntOffset(-padding, -padding)
     private val paint = Paint().apply { filterQuality = FilterQuality.Low }
 
-    fun DrawScope.draw(alpha: Float = 1f) {
+    /** Blurred copies by blur bucket, built on first use. Only used before Android 12. */
+    private var blurredCopies: HashMap<Int, ImageBitmap>? = null
+
+    private fun blurredCopy(blurPx: Float): ImageBitmap? {
+        // Tiles only reserve [padding] pixels for the blur to spill into, so cap the radius.
+        val sigma = minOf(blurPx, maxOf(2f, padding * 0.6f))
+        val bucket = (sigma / LEGACY_BLUR_STEP_PX).roundToInt().coerceAtLeast(1)
+        val copies = blurredCopies ?: HashMap<Int, ImageBitmap>().also { blurredCopies = it }
+        copies[bucket]?.let { return it }
+        val bitmap =
+            blurAtlasRegion(
+                image.asAndroidBitmap(),
+                source.x,
+                source.y,
+                dimensions.width,
+                dimensions.height,
+                bucket * LEGACY_BLUR_STEP_PX,
+            ) ?: return null
+        if (copies.size >= 4) copies.clear()
+        return bitmap.asImageBitmap().also { copies[bucket] = it }
+    }
+
+    fun DrawScope.draw(alpha: Float = 1f, blurPx: Float = 0f) {
         paint.alpha = alpha
+        if (blurPx >= LEGACY_BLUR_STEP_PX / 2f && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            val blurred = blurredCopy(blurPx)
+            if (blurred != null) {
+                drawContext.canvas.drawImageRect(
+                    blurred,
+                    IntOffset.Zero,
+                    IntSize(blurred.width, blurred.height),
+                    destination,
+                    dimensions,
+                    paint,
+                )
+                return
+            }
+        }
         drawContext.canvas.drawImageRect(image, source, dimensions, destination, dimensions, paint)
     }
 }

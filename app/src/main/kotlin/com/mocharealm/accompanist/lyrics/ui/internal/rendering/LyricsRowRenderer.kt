@@ -50,6 +50,8 @@ internal fun DrawScope.drawPreparedRow(
     drawOriginal: Boolean = true,
     drawPhonetics: Boolean = true,
     blend: UnitBlend? = null,
+    /** Line blur in pixels for Android 11 and below; blurred tiles replace the sharp ones. */
+    blurPx: Float = 0f,
 ) {
     traceLyrics(if (drawOriginal) "Lyrics.drawRow" else "Lyrics.drawPhonetics") {
         val canvas = drawContext.canvas
@@ -100,7 +102,7 @@ internal fun DrawScope.drawPreparedRow(
                             else 0f
                         translate(group.staticPosition.x, group.staticPosition.y + lift) {
                             if (cachedGroup?.combined != null)
-                                with(cachedGroup.combined) { draw(alpha) }
+                                with(cachedGroup.combined) { draw(alpha, blurPx) }
                             else with(run.profile) { draw(staticText, drawColor, Shadow.None) }
                         }
                         continue
@@ -207,7 +209,7 @@ internal fun DrawScope.drawPreparedRow(
                             unit.position.y + unit.phoneticPosition.y,
                         ) {
                             val cached = cachedGroup?.units?.get(unitIndex)?.phonetic
-                            if (cached != null) with(cached) { draw(alpha) }
+                            if (cached != null) with(cached) { draw(alpha, blurPx) }
                             else drawText(layout, phoneticColor)
                         }
                     }
