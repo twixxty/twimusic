@@ -102,6 +102,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
@@ -211,6 +213,10 @@ fun Lyrics(
     val view = LocalView.current
 
     val pip = isInPip()
+
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val shouldAutoHideFullscreen = PlayerPreferences.hideLyricsFullscreenButton &&
+        (!isLandscape || PlayerPreferences.hideLyricsFullscreenButtonInLandscape)
 
     var lyrics by remember { mutableStateOf<Lyrics?>(null) }
 
@@ -606,10 +612,10 @@ fun Lyrics(
                     isFullscreen,
                     isDesynced,
                     isPlayerPlaying,
-                    PlayerPreferences.hideLyricsFullscreenButton,
+                    shouldAutoHideFullscreen,
                     onSetFullscreen
                 ) {
-                    if (!PlayerPreferences.hideLyricsFullscreenButton || onSetFullscreen == null) return@LaunchedEffect
+                    if (!shouldAutoHideFullscreen || onSetFullscreen == null) return@LaunchedEffect
 
                     if (isFullscreen && (!isPlayerPlaying || isDesynced)) {
                         onSetFullscreen(false)
@@ -860,7 +866,7 @@ fun Lyrics(
         ) {
             Box(modifier = Modifier.fillMaxSize()) {
                 val expandAction = onToggleFullscreen ?: onOpenDialog
-                if (!PlayerPreferences.hideLyricsFullscreenButton && expandAction != null) {
+                if (!shouldAutoHideFullscreen && expandAction != null) {
                     AnimatedContent(
                         targetState = isFullscreen,
                         transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(200)) },

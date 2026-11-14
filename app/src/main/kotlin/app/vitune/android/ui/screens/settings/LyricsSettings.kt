@@ -1,6 +1,7 @@
 package app.vitune.android.ui.screens.settings
 
 import android.os.Build
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -231,6 +232,16 @@ fun LyricsSettings() = with(PlayerPreferences) {
                 isChecked = hideLyricsFullscreenButton,
                 onCheckedChange = { hideLyricsFullscreenButton = it }
             )
+
+            AnimatedVisibility(visible = hideLyricsFullscreenButton) {
+                SwitchSettingsEntry(
+                    title = stringResource(R.string.hide_lyrics_fullscreen_button_in_landscape),
+                    text = stringResource(R.string.hide_lyrics_fullscreen_button_in_landscape_description),
+                    isChecked = hideLyricsFullscreenButtonInLandscape,
+                    onCheckedChange = { hideLyricsFullscreenButtonInLandscape = it },
+                    modifier = Modifier.padding(start = 16.dp)
+                )
+            }
         }
     }
 }

@@ -62,6 +62,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsBouncyScroll by boolean(true)
     var lyricsShowTranslation by boolean(true)
     var hideLyricsFullscreenButton by boolean(true)
+    var hideLyricsFullscreenButtonInLandscape by boolean(false)
     var showLyricsFullscreenButton: Boolean
         get() = !hideLyricsFullscreenButton
         set(value) { hideLyricsFullscreenButton = !value }

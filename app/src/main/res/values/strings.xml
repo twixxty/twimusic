@@ -437,6 +437,8 @@
     <string name="lyrics_translation_description">Display translation subtitle text when provided by the lyrics provider</string>
     <string name="hide_lyrics_fullscreen_button">Hide fullscreen button</string>
     <string name="hide_lyrics_fullscreen_button_description">Hide fullscreen button and automatically enter fullscreen after 5 seconds of inactivity</string>
+    <string name="hide_lyrics_fullscreen_button_in_landscape">Auto fullscreen in landscape</string>
+    <string name="hide_lyrics_fullscreen_button_in_landscape_description">Also automatically enter fullscreen and hide the button when in landscape orientation</string>
     <string name="lyrics">Lyrics</string>
     <string name="lyrics_priority_mode">Provider priority mode</string>
     <string name="lyrics_priority_quality">Quality (Default)</string>
