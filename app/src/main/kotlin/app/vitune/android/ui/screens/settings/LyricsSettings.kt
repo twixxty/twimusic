@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
@@ -119,12 +120,14 @@ fun LyricsSettings() = with(PlayerPreferences) {
                                 icon = R.drawable.chevron_up,
                                 color = if (index > 0) colorPalette.text else colorPalette.textDisabled,
                                 onClick = { moveItem(index, index - 1) },
+                                enabled = index > 0,
                                 modifier = Modifier.size(24.dp)
                             )
                             IconButton(
                                 icon = R.drawable.chevron_down,
                                 color = if (index < currentOrder.size - 1) colorPalette.text else colorPalette.textDisabled,
                                 onClick = { moveItem(index, index + 1) },
+                                enabled = index < currentOrder.size - 1,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
