@@ -9,9 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
@@ -30,16 +28,13 @@ import app.vitune.android.preferences.LyricsPreferences
 import app.vitune.android.preferences.LyricsPriorityMode
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.ui.components.themed.Header
-import app.vitune.android.ui.components.themed.ReorderHandle
+import app.vitune.android.ui.components.themed.IconButton
 import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.Switch
 import app.vitune.android.ui.screens.Route
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
-import app.vitune.compose.reordering.animateItemPlacement
-import app.vitune.compose.reordering.draggedItem
-import app.vitune.compose.reordering.rememberReorderingState
 import app.vitune.core.ui.LocalAppearance
 
 @Route
@@ -83,18 +78,14 @@ fun LyricsSettings() = with(PlayerPreferences) {
 
             var enabledVersion by remember { mutableStateOf(0) }
 
-            val lazyListState = rememberLazyListState()
-            val reorderingState = rememberReorderingState(
-                lazyListState = lazyListState,
-                key = currentOrder,
-                onDragEnd = { from, to ->
-                    val mutable = currentOrder.toMutableList()
-                    val moved = mutable.removeAt(from)
-                    mutable.add(to, moved)
-                    currentOrder = mutable
-                    LyricsPreferences.lyricsProviderOrder = LyricsProviderRegistry.serializeProviderOrder(mutable)
-                }
-            )
+            fun moveItem(from: Int, to: Int) {
+                if (from !in currentOrder.indices || to !in currentOrder.indices || from == to) return
+                val mutable = currentOrder.toMutableList()
+                val moved = mutable.removeAt(from)
+                mutable.add(to, moved)
+                currentOrder = mutable
+                LyricsPreferences.lyricsProviderOrder = LyricsProviderRegistry.serializeProviderOrder(mutable)
+            }
 
             Column(
                 modifier = Modifier
@@ -112,16 +103,31 @@ fun LyricsSettings() = with(PlayerPreferences) {
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .background(colorPalette.background1)
-                            .animateItemPlacement(reorderingState)
-                            .draggedItem(reorderingState, index)
+                            .clickable {
+                                LyricsPreferences.setProviderEnabled(providerName, !isEnabled)
+                                enabledVersion++
+                            }
                             .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ReorderHandle(
-                            reorderingState = reorderingState,
-                            index = index
-                        )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                icon = R.drawable.chevron_up,
+                                color = if (index > 0) colorPalette.text else colorPalette.textDisabled,
+                                onClick = { moveItem(index, index - 1) },
+                                modifier = Modifier.size(24.dp)
+                            )
+                            IconButton(
+                                icon = R.drawable.chevron_down,
+                                color = if (index < currentOrder.size - 1) colorPalette.text else colorPalette.textDisabled,
+                                onClick = { moveItem(index, index + 1) },
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
 
                         Column(modifier = Modifier.weight(1f)) {
                             BasicText(
@@ -135,11 +141,7 @@ fun LyricsSettings() = with(PlayerPreferences) {
                         }
 
                         Switch(
-                            isChecked = isEnabled,
-                            onCheckedChange = { checked ->
-                                LyricsPreferences.setProviderEnabled(providerName, checked)
-                                enabledVersion++
-                            }
+                            isChecked = isEnabled
                         )
                     }
                 }

@@ -3,6 +3,7 @@ package app.vitune.android.lyrics
 import android.content.Context
 import android.util.LruCache
 import app.vitune.android.preferences.LyricsPreferences
+import app.vitune.android.preferences.LyricsPriorityMode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred

@@ -499,6 +499,7 @@ fun Player(
 
         val canvasContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             val videoUrl = canvasVideoUrl
+            val landscape = isLandscape
             if (!videoUrl.isNullOrBlank()) {
                 Box(
                     modifier = innerModifier
@@ -519,7 +520,7 @@ fun Player(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    brush = if (isLandscape) {
+                                    brush = if (landscape) {
                                         Brush.horizontalGradient(
                                             0.0f to androidx.compose.ui.graphics.Color.White,
                                             0.50f to androidx.compose.ui.graphics.Color.White,
