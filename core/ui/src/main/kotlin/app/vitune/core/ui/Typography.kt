@@ -117,6 +117,8 @@ enum class BuiltInFontFamily(internal val googleFont: GoogleFont?) : Parcelable 
     Montserrat(GoogleFont("Montserrat")),
     Nunito(GoogleFont("Nunito")),
     Rubik(GoogleFont("Rubik")),
+    // Open-sourced by Google in Nov 2025; falls back to Poppins until the font provider has it.
+    GoogleSansFlex(GoogleFont("Google Sans Flex")),
     System(null);
 
     companion object : Parceler<BuiltInFontFamily> {

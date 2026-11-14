@@ -111,7 +111,11 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 selectedValue = fontFamily,
                 onValueSelect = { fontFamily = it },
                 valueText = {
-                    if (it == BuiltInFontFamily.System) stringResource(R.string.use_system_font) else it.name
+                    when (it) {
+                        BuiltInFontFamily.System -> stringResource(R.string.use_system_font)
+                        BuiltInFontFamily.GoogleSansFlex -> "Google Sans Flex"
+                        else -> it.name
+                    }
                 }
             ) else SwitchSettingsEntry(
                 title = stringResource(R.string.use_system_font),
@@ -267,6 +271,13 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 text = stringResource(R.string.lyrics_fade_description),
                 isChecked = PlayerPreferences.lyricsFade,
                 onCheckedChange = { PlayerPreferences.lyricsFade = it }
+            )
+
+            SwitchSettingsEntry(
+                title = stringResource(R.string.lyrics_use_app_font),
+                text = stringResource(R.string.lyrics_use_app_font_description),
+                isChecked = PlayerPreferences.lyricsUseAppFont,
+                onCheckedChange = { PlayerPreferences.lyricsUseAppFont = it }
             )
 
             SwitchSettingsEntry(

@@ -2,6 +2,7 @@ package com.mocharealm.accompanist.lyrics.ui.composable.lyrics
 
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.lyricsVisualLayer
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.LocalLyricsLineBlur
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.tileBlurActive
 
 import android.os.Build
 import androidx.compose.animation.core.EaseInOut
@@ -23,21 +24,14 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.BlurEffect
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.RenderEffect
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.unit.dp
 import app.vitune.android.preferences.PlayerPreferences
-import kotlin.math.roundToInt
 
 /** Upper bound of the blur radius in dp, so far-away lines stay a soft shape instead of vanishing. */
 private const val MAX_BLUR_DP = 8f
 
-/** One cached effect per whole pixel; selecting one while animating allocates nothing. */
-private val FocusBlurEffects =
-    Array<RenderEffect?>(65) { index ->
-        if (index == 0) null else BlurEffect(index.toFloat(), index.toFloat(), TileMode.Clamp)
-    }
 
 @Composable
 fun LyricsLineItem(
@@ -93,16 +87,16 @@ fun LyricsLineItem(
                 this.blendMode = blendMode
                 compositingStrategy = CompositingStrategy.Auto
 
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                    val radius = blurPx()
-                    renderEffect = if (PlayerPreferences.lyricsOptimizedAndroid12) {
-                        // Whole-pixel steps of a cached effect: no per-frame allocation, and the
-                        // step size is far below what the eye can tell apart.
-                        FocusBlurEffects[radius.roundToInt().coerceIn(0, 64)]
-                    } else {
+                // Android 12+ with "Optimize lyrics blur" off uses the live GPU blur. Otherwise (and
+                // always before Android 12, which has no RenderEffect) the text tiles are drawn
+                // pre-blurred, see LegacyLyricsBlur.kt, so no effect is set on the layer.
+                renderEffect =
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                        !PlayerPreferences.lyricsOptimizedAndroid12
+                    ) {
+                        val radius = blurPx()
                         if (radius <= 0.5f) null else BlurEffect(radius, radius, TileMode.Clamp)
-                    }
-                }
+                    } else null
             }
     ) {
         // Clip the ripple, never the lyrics that can draw beyond their animated layout height.
@@ -112,9 +106,8 @@ fun LyricsLineItem(
                     .clip(RoundedCornerShape(8.dp))
                     .combinedClickable(onClick = onLineClicked, onLongClick = onLinePressed)
             )
-        // Android 11 and below have no RenderEffect: the line's text tiles are blurred on the CPU
-        // instead (see LegacyLyricsBlur.kt), driven by this radius.
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S)
+        // Pre-blurred text tiles (see LegacyLyricsBlur.kt) are driven by this radius.
+        if (tileBlurActive())
             CompositionLocalProvider(LocalLyricsLineBlur provides blurPx) { content() }
         else content()
     }

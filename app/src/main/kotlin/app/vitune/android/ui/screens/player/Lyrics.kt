@@ -83,6 +83,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.material3.LocalTextStyle
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -743,26 +745,35 @@ fun Lyrics(
                             parsedEntries.toSyncedLyrics()
                         }
 
-                        KaraokeLyricsView(
-                            listState = accompanistListState,
-                            lyrics = syncedLyrics,
-                            currentPosition = {
-                                currentPositionMs.toInt().coerceAtLeast(0)
-                            },
-                            onLineClicked = { line ->
-                                binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
-                            },
-                            onLinePressed = { line ->
-                                binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                            textColor = colorPalette.text,
-                            useBlurEffect = PlayerPreferences.lyricsLineBlur,
-                            showTranslation = PlayerPreferences.lyricsShowTranslation,
-                            scrollChain = remember(PlayerPreferences.lyricsBouncyScroll) {
-                                if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null
-                            },
-                        )
+                        // The lyric text styles derive from LocalTextStyle, i.e. the system font, unless
+                        // the user asked them to follow the app font.
+                        CompositionLocalProvider(
+                            LocalTextStyle provides
+                                if (PlayerPreferences.lyricsUseAppFont)
+                                    LocalTextStyle.current.copy(fontFamily = typography.m.fontFamily)
+                                else LocalTextStyle.current
+                        ) {
+                            KaraokeLyricsView(
+                                listState = accompanistListState,
+                                lyrics = syncedLyrics,
+                                currentPosition = {
+                                    currentPositionMs.toInt().coerceAtLeast(0)
+                                },
+                                onLineClicked = { line ->
+                                    binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
+                                },
+                                onLinePressed = { line ->
+                                    binder?.player?.seekTo(line.start.toLong() + (lyrics?.startTime ?: 0L))
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                                textColor = colorPalette.text,
+                                useBlurEffect = PlayerPreferences.lyricsLineBlur,
+                                showTranslation = PlayerPreferences.lyricsShowTranslation,
+                                scrollChain = remember(PlayerPreferences.lyricsBouncyScroll) {
+                                    if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null
+                                },
+                            )
+                        }
                     }
 
                     androidx.compose.animation.AnimatedVisibility(

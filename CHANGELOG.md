@@ -5,13 +5,16 @@ All notable changes to TwiMusic since the branding update.
 ## [Unreleased]
 
 ### Added
-- **armeabi-v7a build**: release builds now ship per-ABI APKs for `arm64-v8a`, `armeabi-v7a` and `x86_64`, plus a universal APK (previously only a universal APK with arm64-v8a/x86_64 was produced). The release workflow uploads all four.
+- **Google Sans Flex font option** (Settings → Appearance → Font), loaded from Google Fonts like Roboto/Montserrat; falls back to Poppins if the font isn't available on the device.
+- **Lyrics use the app font** toggle: lyrics normally use the system font; this makes them follow the font chosen above.
+- **armeabi-v7a build**: release builds now ship per-ABI APKs for `arm64-v8a`, `armeabi-v7a` and `x86_64`, plus a universal APK (previously only a universal APK with arm64-v8a/x86_64 was produced). The release workflow (manual run asking for version name and changelog) uploads all four, and the in-app updater now downloads the APK matching the phone's ABI, falling back to the universal APK.
 
 ### Fixed
 - **Blur & Lava Lamp backgrounds on Android 11 and below**: `Modifier.blur` is a silent no-op before Android 12, so both backgrounds rendered as a plain un-blurred (or empty) image on older devices. They no longer use a live blur at all (see below), so they now look identical on every Android version.
 - **Blurred inactive lyric lines on Android 11 and below**: line blur relied on `RenderEffect` (Android 12+ only). On older versions each blurred line is now rendered once into a tiny bitmap, blurred on the CPU and drawn from there, with its fade/scale animations intact. Android 12+ keeps the GPU blur path unchanged.
 
 ### Changed
+- **Optimize lyrics blur now uses pre-blurred text on every Android version**: the same cached CPU blur that Android 11 and below use is applied on Android 12+ when "Optimize lyrics blur" is on, replacing the live GPU blur for smoother scrolling. Turn the option off to get the live GPU blur back.
 - **Pre-rendered blurred backgrounds**: the artwork is blurred once per track, off the main thread, on a ≤128px copy, then cached and simply drawn. The Lava Lamp bakes its wash and rotating quarters the same way, so per frame the GPU only rotates textures - no full-screen live blur. New artwork now fades in over the old one instead of popping.
 - The background blur strength no longer changes when lyrics are toggled (the darkening overlay still does), so toggling lyrics never triggers a re-blur.
 

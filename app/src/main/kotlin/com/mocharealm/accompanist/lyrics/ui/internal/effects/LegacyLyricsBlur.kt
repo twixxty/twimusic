@@ -4,7 +4,9 @@ import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.graphics.Rect
+import android.os.Build
 import androidx.compose.runtime.staticCompositionLocalOf
+import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.utils.BitmapBlur
 import kotlin.math.ceil
 
@@ -18,6 +20,14 @@ import kotlin.math.ceil
  * Drawing it afterwards is one textured quad, and the line's own scale/alpha animation keeps running
  * on the GPU. No GPU snapshot is involved, which is what made an earlier attempt come back blank.
  */
+
+/**
+ * True when lyric lines are blurred by pre-blurred text tiles instead of a live GPU RenderEffect:
+ * always before Android 12 (no RenderEffect), and on Android 12+ when "Optimize lyrics blur" is on,
+ * because drawing a cached bitmap is much smoother than re-running a GPU blur on every line.
+ */
+internal fun tileBlurActive(): Boolean =
+    Build.VERSION.SDK_INT < Build.VERSION_CODES.S || PlayerPreferences.lyricsOptimizedAndroid12
 
 /** Blur radius of the line being drawn, in pixels (Gaussian sigma). 0 means sharp. */
 internal val LocalLyricsLineBlur = staticCompositionLocalOf<() -> Float> { { 0f } }

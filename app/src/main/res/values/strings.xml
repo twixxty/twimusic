@@ -422,11 +422,13 @@
     <string name="lyrics_line_blur">Blur inactive lyric lines</string>
     <string name="lyrics_line_blur_description">Apply distance depth blur on inactive lyric lines (disable for best performance)</string>
     <string name="lyrics_optimized_android_12">Optimize lyrics blur (Android 12+)</string>
-    <string name="lyrics_optimized_android_12_description">Use pre-cached GPU blur effect arrays on Android 12+ for 60/120fps fluid playback</string>
+    <string name="lyrics_optimized_android_12_description">Pre-blur the lyric text once and reuse it instead of a live GPU blur, for smoother 60/120fps scrolling</string>
     <string name="lyrics_shine">Lyrics text shine</string>
     <string name="lyrics_shine_description">Apply vibrant blend-mode lighting highlight on active singing lyrics</string>
     <string name="lyrics_fade">Lyrics word lift &amp; fade</string>
     <string name="lyrics_fade_description">Animate upward syllable lift and fade transitions while singing</string>
+    <string name="lyrics_use_app_font">Lyrics use the app font</string>
+    <string name="lyrics_use_app_font_description">Show lyrics in the font chosen above instead of the system font</string>
     <string name="lyrics_glow">Lyrics text glow</string>
     <string name="lyrics_glow_description">Add bouncing glowing shadows behind syllables during vocal playback</string>
     <string name="lyrics_bouncy_scroll">Bouncy lyrics scroll</string>

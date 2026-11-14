@@ -24,6 +24,7 @@ import com.mocharealm.accompanist.lyrics.ui.profile.LyricsProfile
 import com.mocharealm.accompanist.lyrics.ui.profile.ProfileTextUnit
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.LEGACY_BLUR_STEP_PX
 import com.mocharealm.accompanist.lyrics.ui.internal.effects.blurAtlasRegion
+import com.mocharealm.accompanist.lyrics.ui.internal.effects.tileBlurActive
 import kotlin.math.ceil
 import kotlin.math.roundToInt
 
@@ -173,7 +174,7 @@ internal class TextLayer(val source: IntOffset, val dimensions: IntSize, val pad
 
     fun DrawScope.draw(alpha: Float = 1f, blurPx: Float = 0f) {
         paint.alpha = alpha
-        if (blurPx >= LEGACY_BLUR_STEP_PX / 2f && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+        if (blurPx >= LEGACY_BLUR_STEP_PX / 2f && tileBlurActive()) {
             val blurred = blurredCopy(blurPx)
             if (blurred != null) {
                 drawContext.canvas.drawImageRect(
