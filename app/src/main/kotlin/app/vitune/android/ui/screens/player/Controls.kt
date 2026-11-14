@@ -1,5 +1,6 @@
 package app.vitune.android.ui.screens.player
 
+import android.content.res.Configuration
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -52,6 +53,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -161,8 +163,9 @@ private fun ClassicControls(
         Spacer(modifier = Modifier.weight(1f))
         MediaInfo(media)
         Spacer(modifier = Modifier.weight(1f))
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         AnimatedVisibility(
-            visible = !isShowingLyrics,
+            visible = isLandscape || !isShowingLyrics,
             enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
             exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
         ) {
@@ -311,8 +314,8 @@ private fun ModernControls(
         val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
 
         val expressiveSpring = spring<Float>(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
+            dampingRatio = 0.72f,
+            stiffness = Spring.StiffnessMediumLow
         )
 
         val hasTopPrev = PlayerPreferences.showLike
@@ -321,20 +324,20 @@ private fun ModernControls(
         val basePrevWeight = 1f
 
         val targetPlayWeight = when {
-            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.35f else 0.3f)
-            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.25f).coerceAtLeast(1.5f)
+            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.5f else 0.45f)
+            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.35f).coerceAtLeast(1.5f)
             else -> basePlayWeight
         }
 
         val targetNextWeight = when {
-            isNextPressed -> baseNextWeight + 0.25f
-            isPlayPressed -> (baseNextWeight - 0.15f).coerceAtLeast(0.6f)
+            isNextPressed -> baseNextWeight + 0.35f
+            isPlayPressed -> (baseNextWeight - 0.2f).coerceAtLeast(0.6f)
             else -> baseNextWeight
         }
 
         val targetPrevWeight = when {
-            isTopPrevPressed -> basePrevWeight + 0.25f
-            isPlayPressed -> (basePrevWeight - 0.15f).coerceAtLeast(0.6f)
+            isTopPrevPressed -> basePrevWeight + 0.35f
+            isPlayPressed -> (basePrevWeight - 0.2f).coerceAtLeast(0.6f)
             else -> basePrevWeight
         }
 
@@ -344,8 +347,8 @@ private fun ModernControls(
 
         val playScale by animateFloatAsState(
             targetValue = when {
-                isPlayPressed -> 0.98f
-                isNextPressed || isTopPrevPressed -> 0.96f
+                isPlayPressed -> 1.03f
+                isNextPressed || isTopPrevPressed -> 0.95f
                 else -> 1f
             },
             animationSpec = expressiveSpring,
@@ -354,7 +357,7 @@ private fun ModernControls(
 
         val nextScale by animateFloatAsState(
             targetValue = when {
-                isNextPressed -> 0.98f
+                isNextPressed -> 1.03f
                 isPlayPressed -> 0.95f
                 else -> 1f
             },
@@ -364,7 +367,7 @@ private fun ModernControls(
 
         val prevScale by animateFloatAsState(
             targetValue = when {
-                isTopPrevPressed -> 0.98f
+                isTopPrevPressed -> 1.03f
                 isPlayPressed -> 0.95f
                 else -> 1f
             },
@@ -373,8 +376,8 @@ private fun ModernControls(
         )
 
         val expressiveSpringDp = spring<Dp>(
-            dampingRatio = Spring.DampingRatioNoBouncy,
-            stiffness = Spring.StiffnessMedium
+            dampingRatio = 0.72f,
+            stiffness = Spring.StiffnessMediumLow
         )
 
         val currentPlayRadius by animateDpAsState(
@@ -431,8 +434,9 @@ private fun ModernControls(
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         AnimatedVisibility(
-            visible = !isShowingLyrics,
+            visible = isLandscape || !isShowingLyrics,
             enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
             exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
         ) {

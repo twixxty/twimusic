@@ -447,8 +447,12 @@ fun Player(
         var isShowingLyricsDialog by rememberSaveable { mutableStateOf(false) }
         var isLyricsFullscreen by rememberSaveable { mutableStateOf(false) }
 
-        BackHandler(enabled = isShowingLyrics && isLyricsFullscreen) {
-            isLyricsFullscreen = false
+        BackHandler(enabled = isShowingLyrics) {
+            if (isLyricsFullscreen) {
+                isLyricsFullscreen = false
+            } else {
+                isShowingLyrics = false
+            }
         }
 
         LaunchedEffect(isShowingLyrics) {
@@ -515,13 +519,23 @@ fun Player(
                             .drawWithContent {
                                 drawContent()
                                 drawRect(
-                                    brush = Brush.verticalGradient(
-                                        0.0f to androidx.compose.ui.graphics.Color.White,
-                                        0.40f to androidx.compose.ui.graphics.Color.White,
-                                        0.75f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
-                                        0.90f to androidx.compose.ui.graphics.Color.Transparent,
-                                        1.0f to androidx.compose.ui.graphics.Color.Transparent
-                                    ),
+                                    brush = if (isLandscape) {
+                                        Brush.horizontalGradient(
+                                            0.0f to androidx.compose.ui.graphics.Color.White,
+                                            0.50f to androidx.compose.ui.graphics.Color.White,
+                                            0.80f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
+                                            0.95f to androidx.compose.ui.graphics.Color.Transparent,
+                                            1.0f to androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                    } else {
+                                        Brush.verticalGradient(
+                                            0.0f to androidx.compose.ui.graphics.Color.White,
+                                            0.40f to androidx.compose.ui.graphics.Color.White,
+                                            0.75f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
+                                            0.90f to androidx.compose.ui.graphics.Color.Transparent,
+                                            1.0f to androidx.compose.ui.graphics.Color.Transparent
+                                        )
+                                    },
                                     blendMode = BlendMode.DstIn
                                 )
                             }
@@ -667,12 +681,13 @@ fun Player(
                 ) {
                     canvasContent(
                         Modifier
-                            .fillMaxSize()
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.82f)
                             .align(Alignment.TopCenter)
                     )
                 }
 
-                // Fading gradient background behind controls to protect contrast when canvas is full screen
+                // Fading gradient background behind controls to protect contrast when canvas is active
                 AnimatedVisibility(
                     visible = !isShowingLyrics && !isLyricsFullscreen,
                     enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
@@ -682,14 +697,14 @@ fun Player(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .fillMaxHeight(0.60f)
+                            .fillMaxHeight(0.50f)
                             .align(Alignment.BottomCenter)
                             .background(
                                 Brush.verticalGradient(
                                     0.0f to Color.Transparent,
-                                    0.25f to colorPalette.background0.copy(alpha = 0.55f),
-                                    0.65f to colorPalette.background0.copy(alpha = 0.90f),
-                                    1.0f to colorPalette.background0
+                                    0.30f to colorPalette.background0.copy(alpha = 0.35f),
+                                    0.70f to colorPalette.background0.copy(alpha = 0.70f),
+                                    1.0f to colorPalette.background0.copy(alpha = 0.85f)
                                 )
                             )
                     )
@@ -699,15 +714,11 @@ fun Player(
             if (isLandscape) BoxWithConstraints(
                 modifier = containerModifier.fillMaxSize()
             ) {
-                val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
                     targetValue = if (isShowingLyrics && isLyricsFullscreen) 12.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeTopPadding"
                 )
-                val controlsTargetWidth = remember(totalWidth) {
-                    totalWidth * (1f / (0.66f + 1f))
-                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -718,7 +729,7 @@ fun Player(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(2f)
                             .fillMaxHeight()
                             .padding(bottom = if (isShowingLyrics && isLyricsFullscreen) 0.dp else 16.dp)
                     ) {
@@ -738,17 +749,19 @@ fun Player(
                     }
 
                     AnimatedVisibility(
-                        visible = !isShowingLyrics || !isLyricsFullscreen,
+                        visible = !isLyricsFullscreen,
                         enter = expandHorizontally(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
                         exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                                fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                                fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     ) {
                         controlsContent(
                             Modifier
                                 .padding(vertical = 8.dp)
-                                .fillMaxHeight()
-                                .width(controlsTargetWidth)
+                                .fillMaxSize()
                         )
                     }
                 }
@@ -935,7 +948,6 @@ fun Player(
                         .size(20.dp)
                 )
                 if (playerLayout == PlayerPreferences.PlayerLayout.New) {
-                    Spacer(modifier = Modifier.width(6.dp))
                     IconButton(
                         onClick = { trackLoopEnabled = !trackLoopEnabled },
                         icon = R.drawable.infinite,

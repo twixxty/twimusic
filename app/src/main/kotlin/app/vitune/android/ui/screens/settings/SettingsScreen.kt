@@ -77,22 +77,24 @@ fun SettingsScreen() {
                 tabColumnContent = {
                     tab(0, R.string.appearance, R.drawable.color_palette, canHide = false)
                     tab(1, R.string.player, R.drawable.play, canHide = false)
-                    tab(2, R.string.cache, R.drawable.server, canHide = false)
-                    tab(3, R.string.database, R.drawable.server, canHide = false)
-                    tab(4, R.string.sync, R.drawable.sync, canHide = false)
-                    tab(5, R.string.other, R.drawable.shapes, canHide = false)
-                    tab(6, R.string.about, R.drawable.information, canHide = false)
+                    tab(2, R.string.lyrics, R.drawable.lyrics, canHide = false)
+                    tab(3, R.string.cache, R.drawable.server, canHide = false)
+                    tab(4, R.string.database, R.drawable.server, canHide = false)
+                    tab(5, R.string.sync, R.drawable.sync, canHide = false)
+                    tab(6, R.string.other, R.drawable.shapes, canHide = false)
+                    tab(7, R.string.about, R.drawable.information, canHide = false)
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(currentTabIndex) {
                     when (currentTabIndex) {
                         0 -> AppearanceSettings()
                         1 -> PlayerSettings()
-                        2 -> CacheSettings()
-                        3 -> DatabaseSettings()
-                        4 -> SyncSettings()
-                        5 -> OtherSettings()
-                        6 -> About()
+                        2 -> LyricsSettings()
+                        3 -> CacheSettings()
+                        4 -> DatabaseSettings()
+                        5 -> SyncSettings()
+                        6 -> OtherSettings()
+                        7 -> About()
                     }
                 }
             }

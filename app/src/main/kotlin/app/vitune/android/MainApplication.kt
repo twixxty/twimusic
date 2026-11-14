@@ -271,6 +271,13 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                 expandedBound = maxHeight
             )
 
+            val currentMediaItem = vm.binder?.player?.currentMediaItem
+            LaunchedEffect(vm.binder, currentMediaItem) {
+                if (currentMediaItem != null && playerBottomSheetState.dismissed) {
+                    playerBottomSheetState.collapseSoft()
+                }
+            }
+
             val playerAwareWindowInsets = remember(
                 bottomDp,
                 animatedBottomDp,
