@@ -45,17 +45,18 @@ android {
             val keystoreFile = rootProject.file("signing/release.keystore")
             if (keystoreFile.exists()) {
                 storeFile = keystoreFile
-                storePassword = System.getenv("KEYSTORE_PASSWORD") ?: "twimusic"
-                keyAlias = System.getenv("KEY_ALIAS") ?: "twimusic"
-                keyPassword = System.getenv("KEY_PASSWORD") ?: "twimusic"
+                // CI passes undefined secrets as empty strings, which must not beat the defaults.
+                storePassword = System.getenv("KEYSTORE_PASSWORD").orEmpty().ifBlank { "twimusic" }
+                keyAlias = System.getenv("KEY_ALIAS").orEmpty().ifBlank { "twimusic" }
+                keyPassword = System.getenv("KEY_PASSWORD").orEmpty().ifBlank { "twimusic" }
             }
         }
         create("ci") {
             storeFile = System.getenv("ANDROID_NIGHTLY_KEYSTORE")?.let { file(it) }
                 ?: rootProject.file("signing/release.keystore").takeIf { it.exists() }
-            storePassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD") ?: "twimusic"
-            keyAlias = System.getenv("ANDROID_NIGHTLY_KEYSTORE_ALIAS") ?: "twimusic"
-            keyPassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD") ?: "twimusic"
+            storePassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD").orEmpty().ifBlank { "twimusic" }
+            keyAlias = System.getenv("ANDROID_NIGHTLY_KEYSTORE_ALIAS").orEmpty().ifBlank { "twimusic" }
+            keyPassword = System.getenv("ANDROID_NIGHTLY_KEYSTORE_PASSWORD").orEmpty().ifBlank { "twimusic" }
         }
     }
 
