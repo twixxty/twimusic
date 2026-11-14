@@ -110,6 +110,31 @@ private val poppinsFonts = listOf(
 
 private val poppinsFontFamily = FontFamily(poppinsFonts)
 
+private val googleSansFlexFonts = listOf(
+    Font(
+        resId = R.font.googlesansflex_w300,
+        weight = FontWeight.Light
+    ),
+    Font(
+        resId = R.font.googlesansflex_w400,
+        weight = FontWeight.Normal
+    ),
+    Font(
+        resId = R.font.googlesansflex_w500,
+        weight = FontWeight.Medium
+    ),
+    Font(
+        resId = R.font.googlesansflex_w600,
+        weight = FontWeight.SemiBold
+    ),
+    Font(
+        resId = R.font.googlesansflex_w700,
+        weight = FontWeight.Bold
+    )
+)
+
+private val googleSansFlexFontFamily = FontFamily(googleSansFlexFonts)
+
 @Parcelize
 enum class BuiltInFontFamily(internal val googleFont: GoogleFont?) : Parcelable {
     Poppins(null),
@@ -117,8 +142,7 @@ enum class BuiltInFontFamily(internal val googleFont: GoogleFont?) : Parcelable 
     Montserrat(GoogleFont("Montserrat")),
     Nunito(GoogleFont("Nunito")),
     Rubik(GoogleFont("Rubik")),
-    // Open-sourced by Google in Nov 2025; falls back to Poppins until the font provider has it.
-    GoogleSansFlex(GoogleFont("Google Sans Flex")),
+    GoogleSansFlex(null),
     System(null);
 
     companion object : Parceler<BuiltInFontFamily> {
@@ -167,6 +191,7 @@ fun typographyOf(
     val textStyle = TextStyle(
         fontFamily = when {
             fontFamily == BuiltInFontFamily.System -> FontFamily.Default
+            fontFamily == BuiltInFontFamily.GoogleSansFlex -> googleSansFlexFontFamily
             fontFamily.googleFont != null -> googleFontsFamilyFrom(fontFamily)
             else -> poppinsFontFamily
         },

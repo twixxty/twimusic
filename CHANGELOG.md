@@ -5,7 +5,7 @@ All notable changes to TwiMusic since the branding update.
 ## [Unreleased]
 
 ### Added
-- **Google Sans Flex font option** (Settings → Appearance → Font), loaded from Google Fonts like Roboto/Montserrat; falls back to Poppins if the font isn't available on the device.
+- **Google Sans Flex font option** (Settings → Appearance → Font), bundled with full Light (300), Regular (400), Medium (500), SemiBold (600) and Bold (700) weights matching Poppins across the entire UI.
 - **Lyrics use the app font** toggle: lyrics normally use the system font; this makes them follow the font chosen above.
 - **armeabi-v7a build**: release builds now ship per-ABI APKs for `arm64-v8a`, `armeabi-v7a` and `x86_64`, plus a universal APK (previously only a universal APK with arm64-v8a/x86_64 was produced). The release workflow (manual run asking for version name and changelog) uploads all four, and the in-app updater now downloads the APK matching the phone's ABI, falling back to the universal APK.
 
@@ -14,6 +14,7 @@ All notable changes to TwiMusic since the branding update.
 - **Blurred inactive lyric lines on Android 11 and below**: line blur relied on `RenderEffect` (Android 12+ only). On older versions each blurred line is now rendered once into a tiny bitmap, blurred on the CPU and drawn from there, with its fade/scale animations intact. Android 12+ keeps the GPU blur path unchanged.
 
 ### Changed
+- **Debug build artifact optimization**: the debug build workflow now packages only the universal APK, reducing artifact size from ~160MB to ~40MB per build.
 - **Optimize lyrics blur now uses pre-blurred text on every Android version**: the same cached CPU blur that Android 11 and below use is applied on Android 12+ when "Optimize lyrics blur" is on, replacing the live GPU blur for smoother scrolling. Turn the option off to get the live GPU blur back.
 - **Pre-rendered blurred backgrounds**: the artwork is blurred once per track, off the main thread, on a ≤128px copy, then cached and simply drawn. The Lava Lamp bakes its wash and rotating quarters the same way, so per frame the GPU only rotates textures - no full-screen live blur. New artwork now fades in over the old one instead of popping.
 - The background blur strength no longer changes when lyrics are toggled (the darkening overlay still does), so toggling lyrics never triggers a re-blur.
