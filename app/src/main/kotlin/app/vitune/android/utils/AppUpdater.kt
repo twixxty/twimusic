@@ -53,9 +53,20 @@ object AppUpdater {
             .build()
     }
 
+    /** True if the asset's file name ends in "-<abi>" (before ".apk"), so "x86" never matches "x86_64". */
+    private fun Release.Asset.isForAbi(abi: String): Boolean {
+        val base = name.lowercase().removeSuffix(".apk")
+        val target = abi.lowercase()
+        return base == target || base.endsWith("-$target") || base.endsWith("_$target")
+    }
+
     /**
-     * Finds the best matching APK asset for the current device architecture.
-     * Prioritizes arm64-v8a for 64-bit ARM devices, then universal, then any .apk.
+     * Finds the best matching APK asset for the current device.
+     *
+     * Walks the device's ABIs in the order Android prefers them (Build.SUPPORTED_ABIS) and takes the
+     * first matching per-ABI APK (arm64-v8a, armeabi-v7a, x86_64), so a 32-bit-only phone gets the
+     * armeabi-v7a build. If the release has none for this device, the universal APK is used, then
+     * any other .apk.
      */
     fun findBestAsset(release: Release): Release.Asset? {
         val apkAssets = release.assets.filter { asset ->
@@ -64,14 +75,12 @@ object AppUpdater {
         }
         if (apkAssets.isEmpty()) return null
 
-        val supportedAbis = Build.SUPPORTED_ABIS.toList()
-
-        // 1. Try matching the device's primary ABI (e.g. arm64-v8a)
-        if (supportedAbis.any { it.contains("arm64", ignoreCase = true) }) {
-            apkAssets.find { it.name.contains("arm64", ignoreCase = true) }?.let { return it }
+        // 1. The device's own ABIs, best first.
+        for (abi in Build.SUPPORTED_ABIS) {
+            apkAssets.find { it.isForAbi(abi) }?.let { return it }
         }
 
-        // 2. Try universal APK
+        // 2. Universal APK
         apkAssets.find { it.name.contains("universal", ignoreCase = true) }?.let { return it }
 
         // 3. Fallback to any APK asset
