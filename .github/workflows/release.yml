@@ -24,13 +24,21 @@ jobs:
     env:
       ANDROID_VERSION_NAME: ${{ inputs.version_name }}
       ANDROID_VERSION_CODE: ${{ github.run_number }}
-      # Signing falls back to signing/release.keystore with the defaults in app/build.gradle.kts
-      # when these secrets are not set.
-      KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-      KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v5
+
+      # Undefined secrets arrive as empty strings, and an empty KEYSTORE_PASSWORD overrides the
+      # Gradle default and breaks signing. Only export the ones that are actually set; otherwise
+      # signing uses signing/release.keystore with the defaults in app/build.gradle.kts.
+      - name: Signing secrets
+        env:
+          S_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          S_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          S_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$S_KEYSTORE_PASSWORD" ]; then echo "KEYSTORE_PASSWORD=$S_KEYSTORE_PASSWORD" >> "$GITHUB_ENV"; fi
+          if [ -n "$S_KEY_ALIAS" ]; then echo "KEY_ALIAS=$S_KEY_ALIAS" >> "$GITHUB_ENV"; fi
+          if [ -n "$S_KEY_PASSWORD" ]; then echo "KEY_PASSWORD=$S_KEY_PASSWORD" >> "$GITHUB_ENV"; fi
 
       - uses: actions/setup-java@v5
         with:
