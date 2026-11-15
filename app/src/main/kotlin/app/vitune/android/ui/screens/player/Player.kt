@@ -718,11 +718,17 @@ fun Player(
             if (isLandscape) BoxWithConstraints(
                 modifier = containerModifier.fillMaxSize()
             ) {
+                val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
                     targetValue = if (isShowingLyrics && isLyricsFullscreen) 12.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeTopPadding"
                 )
+                val maxCoverArtHeight = (maxHeight - landscapeTopPadding - 16.dp).coerceAtLeast(0.dp)
+                val coverArtTargetSize = remember(totalWidth, maxCoverArtHeight) {
+                    val sizeFromWidth = (totalWidth * (0.66f / 1.66f)) - 32.dp
+                    if (maxCoverArtHeight > 0.dp && sizeFromWidth > maxCoverArtHeight) maxCoverArtHeight else sizeFromWidth
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -733,7 +739,7 @@ fun Player(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(0.66f)
+                            .weight(1.35f)
                             .fillMaxHeight()
                             .padding(bottom = if (isShowingLyrics && isLyricsFullscreen) 0.dp else 16.dp)
                     ) {
@@ -747,7 +753,7 @@ fun Player(
                             } else if (isCanvasActive) {
                                 canvasContent(Modifier.fillMaxSize())
                             } else {
-                                thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                                thumbnailContent(Modifier.size(coverArtTargetSize))
                             }
                         }
                     }
@@ -946,7 +952,7 @@ fun Player(
                             .asPaddingValues()
                     )
                     .fillMaxHeight()
-                    .fillMaxWidth(1f / 1.66f)
+                    .fillMaxWidth(1f / 2.35f)
                     .align(Alignment.BottomEnd)
             } else {
                 Modifier
