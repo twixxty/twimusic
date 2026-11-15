@@ -8,6 +8,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
 import io.ktor.serialization.kotlinx.json.json
@@ -18,7 +19,7 @@ import java.util.Locale
 import kotlin.math.abs
 
 object LrcRedLyricsProvider : LyricsProvider {
-    override val name = "LrcRed"
+    override val name = "lrc.red"
 
     private val client by lazy {
         HttpClient(OkHttp) {
@@ -32,8 +33,9 @@ object LrcRedLyricsProvider : LyricsProvider {
             }
             defaultRequest {
                 url("https://lrc.red/")
+                header("User-Agent", "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36")
             }
-            expectSuccess = true
+            expectSuccess = false
         }
     }
 
@@ -68,31 +70,17 @@ object LrcRedLyricsProvider : LyricsProvider {
         val hits = response.hits ?: throw IllegalStateException("No results from lrc.red")
         
         val hit = bestHit(hits, title, artist, duration)
+            ?: hits.firstOrNull { h ->
+                val hTitle = h.title
+                hTitle != null && hTitle.contains(title, ignoreCase = true)
+            }
+            ?: hits.firstOrNull()
             ?: throw IllegalStateException("No matching track found")
 
-        val rawLyrics = if (!hit.isrc.isNullOrBlank()) {
-            val isrcRes = client.get("get/${hit.isrc}.lrc")
-            isrcRes.bodyAsText()
-        } else {
-            val titleParam = hit.title ?: title
-            val artistParam = hit.artist ?: artist
-            val durationParam = hit.duration?.toInt() ?: duration
-            client.get("get.lrc") {
-                parameter("title", titleParam)
-                parameter("artist", artistParam)
-                parameter("duration", durationParam)
-            }.bodyAsText()
-        }
+        val lyrics = fetchLyricsForHit(hit)
+            ?: throw IllegalStateException("Empty lyrics response from lrc.red")
 
-        if (rawLyrics.isBlank()) {
-            throw IllegalStateException("Empty lyrics response")
-        }
-
-        if (rawLyrics.trimStart().startsWith("<")) {
-            parseTtmlToLrc(rawLyrics)
-        } else {
-            rawLyrics
-        }
+        lyrics
     }
 
     override suspend fun getAllLyrics(
@@ -111,27 +99,44 @@ object LrcRedLyricsProvider : LyricsProvider {
             }.body<Response>().hits
         }.getOrNull() ?: return
 
-        for (hit in hits) {
-            val lyrics = runCatching {
-                val raw = if (!hit.isrc.isNullOrBlank()) {
-                    client.get("get/${hit.isrc}.lrc").bodyAsText()
-                } else {
-                    client.get("get.lrc") {
-                        parameter("title", hit.title ?: title)
-                        parameter("artist", hit.artist ?: artist)
-                        parameter("duration", hit.duration?.toInt() ?: duration)
-                    }.bodyAsText()
-                }
-                if (raw.isNotBlank()) {
-                    if (raw.trimStart().startsWith("<")) parseTtmlToLrc(raw) else raw
-                } else null
-            }.getOrNull()
-
+        for (hit in hits.take(8)) {
+            val lyrics = fetchLyricsForHit(hit)
             if (!lyrics.isNullOrBlank()) {
                 callback(lyrics)
             }
         }
     }
+
+    private suspend fun fetchLyricsForHit(hit: Hit): String? = runCatching {
+        val isrc = hit.isrc?.trim().takeIf { !it.isNullOrBlank() } ?: return@runCatching null
+
+        // 1. Try fetching direct .lrc from /s/{isrc}.lrc
+        val lrcText = runCatching {
+            val response = client.get("s/$isrc.lrc")
+            if (response.status.value == 200) response.bodyAsText() else null
+        }.getOrNull()
+
+        if (!lrcText.isNullOrBlank() && !lrcText.trimStart().startsWith("<!doctype", ignoreCase = true) && !lrcText.trimStart().startsWith("<html", ignoreCase = true)) {
+            if (!lrcText.trimStart().startsWith("<")) {
+                return@runCatching lrcText
+            }
+        }
+
+        // 2. Try fetching TTML from /s/{isrc}.ttml
+        val ttmlText = runCatching {
+            val response = client.get("s/$isrc.ttml")
+            if (response.status.value == 200) response.bodyAsText() else null
+        }.getOrNull()
+
+        if (!ttmlText.isNullOrBlank() && !ttmlText.trimStart().startsWith("<!doctype", ignoreCase = true) && !ttmlText.trimStart().startsWith("<html", ignoreCase = true)) {
+            val parsed = if (ttmlText.trimStart().startsWith("<")) parseTtmlToLrc(ttmlText) else ttmlText
+            if (parsed.isNotBlank()) {
+                return@runCatching parsed
+            }
+        }
+
+        null
+    }.getOrNull()
 
     private fun bestHit(
         hits: List<Hit>,

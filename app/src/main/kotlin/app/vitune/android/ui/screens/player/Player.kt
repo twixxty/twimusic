@@ -733,7 +733,7 @@ fun Player(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(2f)
+                            .weight(1.35f)
                             .fillMaxHeight()
                             .padding(bottom = if (isShowingLyrics && isLyricsFullscreen) 0.dp else 16.dp)
                     ) {
@@ -747,7 +747,11 @@ fun Player(
                             } else if (isCanvasActive) {
                                 canvasContent(Modifier.fillMaxSize())
                             } else {
-                                thumbnailContent(Modifier.padding(horizontal = 16.dp))
+                                thumbnailContent(
+                                    Modifier
+                                        .fillMaxHeight(0.70f)
+                                        .padding(horizontal = 16.dp)
+                                )
                             }
                         }
                     }
@@ -946,7 +950,7 @@ fun Player(
                             .asPaddingValues()
                     )
                     .fillMaxHeight()
-                    .fillMaxWidth(1f / 3f)
+                    .fillMaxWidth(1f / 2.35f)
                     .align(Alignment.BottomEnd)
             } else {
                 Modifier

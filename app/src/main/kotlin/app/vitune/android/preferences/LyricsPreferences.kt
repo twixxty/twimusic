@@ -41,7 +41,7 @@ object LyricsPreferences : GlobalPreferencesHolder() {
         "Unison" -> enableUnison
         "BiniLyrics" -> enableBiniLyrics
         "Spotify" -> enableSpotify
-        "LrcRed" -> enableLrcRed
+        "LrcRed", "lrc.red" -> enableLrcRed
         "YouTubeSubtitle" -> enableYouTubeSubtitle
         "YouTube", "YouTubeMusic" -> enableYouTube
         "LyricsPlus" -> enableLyricsPlus
@@ -60,7 +60,7 @@ object LyricsPreferences : GlobalPreferencesHolder() {
             "Unison" -> enableUnison = enabled
             "BiniLyrics" -> enableBiniLyrics = enabled
             "Spotify" -> enableSpotify = enabled
-            "LrcRed" -> enableLrcRed = enabled
+            "LrcRed", "lrc.red" -> enableLrcRed = enabled
             "YouTubeSubtitle" -> enableYouTubeSubtitle = enabled
             "YouTube", "YouTubeMusic" -> enableYouTube = enabled
             "LyricsPlus" -> enableLyricsPlus = enabled

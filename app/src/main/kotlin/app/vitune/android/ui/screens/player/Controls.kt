@@ -153,17 +153,17 @@ private fun ClassicControls(
     onToggleLyrics: (() -> Unit)? = null
 ) = with(PlayerPreferences) {
     val (colorPalette) = LocalAppearance.current
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
 
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp)
+            .padding(horizontal = if (isLandscape) 16.dp else 32.dp)
     ) {
         Spacer(modifier = Modifier.weight(1f))
         MediaInfo(media)
         Spacer(modifier = Modifier.weight(1f))
-        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
         AnimatedVisibility(
             visible = isLandscape || !isShowingLyrics,
             enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
@@ -294,11 +294,13 @@ private fun ModernControls(
         )
     }
 
+    val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 32.dp)
+            .padding(horizontal = if (isLandscape) 16.dp else 32.dp)
     ) {
         Spacer(modifier = Modifier.weight(1f))
         MediaInfo(media)

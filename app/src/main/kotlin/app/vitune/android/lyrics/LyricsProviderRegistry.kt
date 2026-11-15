@@ -17,6 +17,7 @@ object LyricsProviderRegistry {
         "BiniLyrics" to BiniLyricsProvider,
         "Spotify" to SpotifyLyricsProvider,
         "LrcRed" to LrcRedLyricsProvider,
+        "lrc.red" to LrcRedLyricsProvider,
         "YouTubeSubtitle" to YouTubeSubtitleLyricsProvider,
         "YouTube" to YouTubeLyricsProvider,
         "YouTubeMusic" to YouTubeLyricsProvider,
