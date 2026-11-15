@@ -556,9 +556,18 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     override fun onPlayerError(error: PlaybackException) {
         super.onPlayerError(error)
 
-        if (
-            error.findCause<InvalidResponseCodeException>()?.responseCode == 416
-        ) {
+        val responseCode = error.findCause<InvalidResponseCodeException>()?.responseCode
+        if (responseCode == 416) {
+            player.pause()
+            player.prepare()
+            player.play()
+            return
+        }
+
+        if (responseCode == 403) {
+            CoroutineScope(Dispatchers.IO).launch {
+                runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
+            }
             player.pause()
             player.prepare()
             player.play()
@@ -1441,9 +1450,17 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                             audioQuality = PlayerPreferences.audioQuality,
                             connectivityManager = connectivityManager
                         )
+                    }.recoverCatching { throwable ->
+                        Timber.w(throwable, "Initial stream resolution failed for $mediaId, attempting refresh and fallback")
+                        runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
+                        InnerTubeXPlayer.playerResponseForPlayback(
+                            videoId = mediaId,
+                            audioQuality = app.vitune.core.data.enums.AudioQuality.LOW,
+                            connectivityManager = connectivityManager
+                        ).getOrThrow()
                     }.getOrElse { throwable ->
                         Timber.e(throwable, "Failed to resolve stream for $mediaId")
-                        throw UnplayableException()
+                        throw PlayableFormatNotFoundException(throwable)
                     }
 
                     val format = playbackData.format
@@ -1499,6 +1516,9 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
             }
         }.handleUnknownErrors {
             uriCache.clear()
+            runBlocking(Dispatchers.IO) {
+                runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
+            }
         }.retryIf<Throwable>(maxRetries = 2)
     }
 }

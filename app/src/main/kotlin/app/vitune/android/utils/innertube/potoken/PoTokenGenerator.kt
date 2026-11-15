@@ -49,8 +49,9 @@ class PoTokenGenerator(context: Context) {
             webViewBadImpl = true
             null
         } catch (e: Exception) {
-            Timber.tag(TAG).e("PO token generation failed type=${e::class.simpleName ?: "unknown"}")
-            throw e
+            Timber.tag(TAG).w(e, "PO token generation failed type=${e::class.simpleName ?: "unknown"}; proceeding without PoToken")
+            clearGenerator()
+            null
         }
     }
 

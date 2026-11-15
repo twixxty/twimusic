@@ -122,19 +122,24 @@ object InnerTubeXPlayer {
         excludedClients: Set<String>,
         extract: suspend (Set<String>, Boolean) -> T?,
     ): T? {
-        if (excludedClients.isEmpty()) return extract(emptySet(), false)
+        val initial = try {
+            extract(excludedClients, false)
+        } catch (error: StreamResolveException) {
+            if (error.reason != StreamResolveException.Reason.NO_PLAYABLE_STREAM) throw error
+            null
+        } catch (error: Exception) {
+            Timber.tag(TAG).w(error, "Primary stream extraction failed; attempting fallback")
+            null
+        }
+        if (initial != null) return initial
 
-        val alternative =
-            try {
-                extract(excludedClients, false)
-            } catch (error: StreamResolveException) {
-                if (error.reason != StreamResolveException.Reason.NO_PLAYABLE_STREAM) throw error
-                null
-            }
-        if (alternative != null) return alternative
-
-        Timber.tag(TAG).w("Alternate stream clients exhausted; retrying all clients at low quality")
-        return extract(emptySet(), true)
+        Timber.tag(TAG).w("Alternate stream clients exhausted or failed; retrying all clients at low quality")
+        return try {
+            extract(emptySet(), true)
+        } catch (error: Exception) {
+            Timber.tag(TAG).w(error, "Fallback stream extraction failed")
+            null
+        }
     }
 
     suspend fun refreshAfterStreamRejection(): Boolean = bundle().cipherService.refreshAfterStreamRejection()
@@ -213,13 +218,17 @@ object InnerTubeXPlayer {
                 visitorData: String,
                 cookie: String?,
             ): PoTokenResult? =
-                poTokenGenerator.getWebClientPoToken(videoId, visitorData)?.let { token ->
-                    PoTokenResult(
-                        playerRequestToken = token.playerRequestPoToken,
-                        streamingDataToken = token.streamingDataPoToken,
-                        visitorData = visitorData,
-                    )
-                }
+                runCatching {
+                    poTokenGenerator.getWebClientPoToken(videoId, visitorData)?.let { token ->
+                        PoTokenResult(
+                            playerRequestToken = token.playerRequestPoToken,
+                            streamingDataToken = token.streamingDataPoToken,
+                            visitorData = visitorData,
+                        )
+                    }
+                }.onFailure {
+                    Timber.tag(TAG).w(it, "Failed to obtain poToken; continuing without it")
+                }.getOrNull()
 
             override suspend fun close() {
                 poTokenGenerator.close()
