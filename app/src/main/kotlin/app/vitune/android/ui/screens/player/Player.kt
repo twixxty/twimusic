@@ -495,7 +495,10 @@ fun Player(
                     .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     .asPaddingValues()
             )
-            .padding(bottom = playerBottomSheetState.collapsedBound)
+            .let {
+                if (isLandscape) it
+                else it.padding(bottom = playerBottomSheetState.collapsedBound)
+            }
 
         val canvasContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
             val videoUrl = canvasVideoUrl
@@ -758,6 +761,7 @@ fun Player(
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
+                            .padding(bottom = playerBottomSheetState.collapsedBound)
                     ) {
                         controlsContent(
                             Modifier
@@ -933,59 +937,86 @@ fun Player(
             }
         }
 
-        if (binder != null) Queue(
-            layoutState = playerBottomSheetState,
-            binder = binder,
-            beforeContent = {
-                IconButton(
-                    icon = R.drawable.lyrics,
-                    color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
-                    onClick = {
-                        if (isShowingLyrics) isLyricsFullscreen = false
-                        isShowingLyrics = !isShowingLyrics
-                    },
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .size(20.dp)
-                )
-                if (playerLayout == PlayerPreferences.PlayerLayout.New) {
-                    IconButton(
-                        onClick = { trackLoopEnabled = !trackLoopEnabled },
-                        icon = R.drawable.infinite,
-                        enabled = trackLoopEnabled,
-                        modifier = Modifier
-                            .padding(vertical = 8.dp)
-                            .size(20.dp)
+        if (binder != null) {
+            val queueModifier = if (isLandscape) {
+                Modifier
+                    .padding(
+                        windowInsets
+                            .only(WindowInsetsSides.Horizontal)
+                            .asPaddingValues()
                     )
-                }
-            },
-            afterContent = {
-                IconButton(
-                    icon = R.drawable.ellipsis_horizontal,
-                    color = colorPalette.text,
-                    onClick = {
-                        mediaItem?.let {
-                            menuState.display {
-                                PlayerMenu(
-                                    onDismiss = menuState::hide,
-                                    mediaItem = it,
-                                    binder = binder,
-                                    onShowSpeedDialog = { audioDialogOpen = true },
-                                    onShowNormalizationDialog = {
-                                        boostDialogOpen = true
-                                    }.takeIf { volumeNormalization }
-                                )
-                            }
+                    .fillMaxHeight()
+                    .fillMaxWidth(1f / 3f)
+                    .align(Alignment.BottomEnd)
+            } else {
+                Modifier
+                    .fillMaxSize()
+                    .align(Alignment.BottomCenter)
+            }
+
+            AnimatedVisibility(
+                visible = !isLandscape || !isLyricsFullscreen,
+                enter = expandHorizontally(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
+                        fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
+                exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                        fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
+                modifier = queueModifier
+            ) {
+                Queue(
+                    layoutState = playerBottomSheetState,
+                    binder = binder,
+                    beforeContent = {
+                        IconButton(
+                            icon = R.drawable.lyrics,
+                            color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
+                            onClick = {
+                                if (isShowingLyrics) isLyricsFullscreen = false
+                                isShowingLyrics = !isShowingLyrics
+                            },
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .size(20.dp)
+                        )
+                        if (playerLayout == PlayerPreferences.PlayerLayout.New) {
+                            IconButton(
+                                onClick = { trackLoopEnabled = !trackLoopEnabled },
+                                icon = R.drawable.infinite,
+                                enabled = trackLoopEnabled,
+                                modifier = Modifier
+                                    .padding(vertical = 8.dp)
+                                    .size(20.dp)
+                            )
                         }
                     },
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .size(20.dp)
+                    afterContent = {
+                        IconButton(
+                            icon = R.drawable.ellipsis_horizontal,
+                            color = colorPalette.text,
+                            onClick = {
+                                mediaItem?.let {
+                                    menuState.display {
+                                        PlayerMenu(
+                                            onDismiss = menuState::hide,
+                                            mediaItem = it,
+                                            binder = binder,
+                                            onShowSpeedDialog = { audioDialogOpen = true },
+                                            onShowNormalizationDialog = {
+                                                boostDialogOpen = true
+                                            }.takeIf { volumeNormalization }
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier
+                                .padding(vertical = 8.dp)
+                                .size(20.dp)
+                        )
+                    },
+                    shape = shape,
+                    windowInsets = if (isLandscape) windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom) else windowInsets
                 )
-            },
-            modifier = Modifier.align(Alignment.BottomCenter),
-            shape = shape
-        )
+            }
+        }
     }
 }
 
