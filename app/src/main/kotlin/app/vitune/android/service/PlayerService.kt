@@ -566,7 +566,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
         if (responseCode == 403) {
             CoroutineScope(Dispatchers.IO).launch {
-                runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
+                try {
+                    InnerTubeXPlayer.refreshAfterStreamRejection()
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to refresh cipher after 403")
+                }
             }
             player.pause()
             player.prepare()
@@ -1445,22 +1449,35 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
                 } ?: run {
                     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
                     val playbackData = runBlocking(Dispatchers.IO) {
-                        InnerTubeXPlayer.playerResponseForPlayback(
-                            videoId = mediaId,
-                            audioQuality = PlayerPreferences.audioQuality,
-                            connectivityManager = connectivityManager
-                        )
-                    }.recoverCatching { throwable ->
-                        Timber.w(throwable, "Initial stream resolution failed for $mediaId, attempting refresh and fallback")
-                        runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
-                        InnerTubeXPlayer.playerResponseForPlayback(
-                            videoId = mediaId,
-                            audioQuality = app.vitune.core.data.enums.AudioQuality.LOW,
-                            connectivityManager = connectivityManager
-                        ).getOrThrow()
-                    }.getOrElse { throwable ->
-                        Timber.e(throwable, "Failed to resolve stream for $mediaId")
-                        throw PlayableFormatNotFoundException(throwable)
+                        val initialResult = try {
+                            InnerTubeXPlayer.playerResponseForPlayback(
+                                videoId = mediaId,
+                                audioQuality = PlayerPreferences.audioQuality,
+                                connectivityManager = connectivityManager
+                            )
+                        } catch (e: Exception) {
+                            Result.failure(e)
+                        }
+
+                        if (initialResult.isSuccess) {
+                            initialResult.getOrThrow()
+                        } else {
+                            val initialThrowable = initialResult.exceptionOrNull()
+                            Timber.w(initialThrowable, "Initial stream resolution failed for $mediaId, attempting refresh and fallback")
+                            try {
+                                InnerTubeXPlayer.refreshAfterStreamRejection()
+                            } catch (e: Exception) {
+                                Timber.w(e, "Error refreshing extractor after stream rejection")
+                            }
+                            InnerTubeXPlayer.playerResponseForPlayback(
+                                videoId = mediaId,
+                                audioQuality = app.vitune.core.data.enums.AudioQuality.LOW,
+                                connectivityManager = connectivityManager
+                            ).getOrElse { fallbackThrowable ->
+                                Timber.e(fallbackThrowable, "Failed to resolve stream for $mediaId after fallback")
+                                throw PlayableFormatNotFoundException(fallbackThrowable)
+                            }
+                        }
                     }
 
                     val format = playbackData.format
@@ -1517,7 +1534,11 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         }.handleUnknownErrors {
             uriCache.clear()
             runBlocking(Dispatchers.IO) {
-                runCatching { InnerTubeXPlayer.refreshAfterStreamRejection() }
+                try {
+                    InnerTubeXPlayer.refreshAfterStreamRejection()
+                } catch (e: Exception) {
+                    Timber.w(e, "Failed to refresh cipher after unknown error")
+                }
             }
         }.retryIf<Throwable>(maxRetries = 2)
     }
