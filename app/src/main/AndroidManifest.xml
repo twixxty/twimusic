@@ -11,6 +11,7 @@
         android:required="false" />
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
@@ -162,6 +163,22 @@
                     android:pathPrefix="/c"
                     android:scheme="https"
                     tools:ignore="IntentFilterUniqueDataAttributes" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="metrolist-auth" android:host="discord" android:path="/callback" />
+                <data android:scheme="twimusic-auth" android:host="discord" android:path="/callback" />
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="metrolist.cc" android:pathPrefix="/listen" />
+                <data android:scheme="https" android:host="twimusic.app" android:pathPrefix="/listen" />
             </intent-filter>
 
             <intent-filter>

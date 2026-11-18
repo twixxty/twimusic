@@ -71,6 +71,8 @@ import app.vitune.android.models.Format
 import app.vitune.android.models.QueuedMediaItem
 import app.vitune.android.models.Song
 import app.vitune.android.models.SongWithContentLength
+import app.vitune.android.BuildConfig
+import app.vitune.android.listentogether.ListenTogetherManager
 import app.vitune.android.preferences.AccountPreferences
 import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.DataPreferences
@@ -237,6 +239,9 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     private lateinit var bitmapProvider: BitmapProvider
 
     private val coroutineScope = CoroutineScope(Dispatchers.IO + Job())
+    private val mainScope = CoroutineScope(Dispatchers.Main.immediate + SupervisorJob())
+    private lateinit var listenTogetherManager: ListenTogetherManager
+    private lateinit var discordPresence: DiscordPresenceController
     private var preferenceUpdaterJob: Job? = null
     private var volumeNormalizationJob: Job? = null
     private var sponsorBlockJob: Job? = null
@@ -350,6 +355,13 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         updateRepeatMode()
         maybeRestorePlayerQueue()
 
+        listenTogetherManager = ListenTogetherManager(
+            playback = ListenTogetherPlaybackAdapter(player),
+            scope = mainScope,
+            appVersion = BuildConfig.VERSION_NAME
+        )
+        discordPresence = DiscordPresenceController(this, player, mainScope).also { it.start() }
+
         mediaSession = MediaSession(baseContext, TAG).apply {
             setCallback(SessionCallback())
             setPlaybackState(stateBuilder.build())
@@ -449,6 +461,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     override fun onDestroy() {
         runCatching {
             maybeSavePlayerQueue()
+
+            discordPresence.release()
+            listenTogetherManager.close()
+            mainScope.cancel()
 
             player.removeListener(this)
             player.stop()
@@ -955,6 +971,7 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     // legacy behavior may cause inconsistencies, but not available on sdk 24 or lower
     @Suppress("DEPRECATION")
     override fun onEvents(player: Player, events: Player.Events) {
+        listenTogetherManager.onLocalPlaybackChanged()
         if (player.duration != C.TIME_UNSET) {
             mediaSession.setMetadata(
                 metadataBuilder
@@ -1166,6 +1183,9 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     @Stable
     inner class Binder : AndroidBinder() {
+        val listenTogether: ListenTogetherManager
+            get() = listenTogetherManager
+
         val player: ExoPlayer
             get() = this@PlayerService.player
 
@@ -1321,12 +1341,18 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     }
 
     private inner class SessionCallback : MediaSession.Callback() {
-        override fun onPlay() = player.play()
-        override fun onPause() = player.pause()
-        override fun onSkipToPrevious() = runCatching(player::forceSeekToPrevious).let { }
-        override fun onSkipToNext() = runCatching(player::forceSeekToNext).let { }
-        override fun onSeekTo(pos: Long) = player.seekTo(pos)
-        override fun onStop() = player.pause()
+        private val locked get() = listenTogetherManager.isGuestPlaybackLocked
+
+        override fun onPlay() = if (locked) Unit else player.play()
+        override fun onPause() = if (locked) Unit else player.pause()
+        override fun onSkipToPrevious() =
+            if (locked) Unit else runCatching(player::forceSeekToPrevious).let { }
+
+        override fun onSkipToNext() =
+            if (locked) Unit else runCatching(player::forceSeekToNext).let { }
+
+        override fun onSeekTo(pos: Long) = if (locked) Unit else player.seekTo(pos)
+        override fun onStop() = if (locked) Unit else player.pause()
         override fun onRewind() = player.seekToDefaultPosition()
         override fun onSkipToQueueItem(id: Long) =
             runCatching { player.seekToDefaultPosition(id.toInt()) }.let { }

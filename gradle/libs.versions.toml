@@ -74,6 +74,7 @@ ktor_http = { module = "io.ktor:ktor-http", version.ref = "ktor" }
 ktor_client_core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor_client_cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 ktor_client_okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor_client_websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 ktor_client_content_negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor_client_logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor_client_encoding = { module = "io.ktor:ktor-client-encoding", version.ref = "ktor" }

@@ -5,6 +5,9 @@ All notable changes to TwiMusic since the branding update.
 ## [Unreleased]
 
 ### Added
+- **Rich presence settings section** (Settings → Rich presence) with two ports from [Metrolist](https://github.com/metrolistgroup/metrolist) (GPL-3.0):
+  - **Discord Rich Presence**: browser-based Discord login (OAuth PKCE), listening/playing/watching/competing activity type, custom activity name, artist icon badge, advanced mode with `{song.name}`/`{artist.name}`/`{album.name}`/URL placeholders, two customisable buttons, and an optional custom Discord application ID.
+  - **Listen Together**: wire-compatible with Metrolist rooms (same protocol, capability negotiation, buffering barrier, reconnect/session resume, default server) so TwiMusic and Metrolist users can share a room. Create/join/leave rooms, invite link & code, host approvals for join requests and song suggestions, kick/transfer host/block users, custom servers, optional host-volume sync.
 - **Google Sans Flex font option** (Settings → Appearance → Font), bundled with full Light (300), Regular (400), Medium (500), SemiBold (600) and Bold (700) weights matching Poppins across the entire UI.
 - **Lyrics use the app font** toggle: lyrics normally use the system font; this makes them follow the font chosen above.
 - **armeabi-v7a build**: release builds now ship per-ABI APKs for `arm64-v8a`, `armeabi-v7a` and `x86_64`, plus a universal APK (previously only a universal APK with arm64-v8a/x86_64 was produced). The release workflow (manual run asking for version name and changelog) uploads all four, and the in-app updater now downloads the APK matching the phone's ABI, falling back to the universal APK.

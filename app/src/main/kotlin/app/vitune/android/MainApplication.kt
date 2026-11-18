@@ -91,6 +91,7 @@ import app.vitune.android.utils.LocalMonetCompat
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.utils.forcePlay
+import app.vitune.android.ui.screens.settings.DiscordLoginFlow
 import app.vitune.android.utils.intent
 import app.vitune.android.utils.invokeOnReady
 import app.vitune.android.utils.isInPip
@@ -412,6 +413,11 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
 
     @Suppress("CyclomaticComplexMethod")
     private fun handleIntent(intent: Intent) = lifecycleScope.launch(Dispatchers.IO) {
+        if (DiscordLoginFlow.handleCallback(intent)) {
+            intent.data = null
+            return@launch
+        }
+
         val extras = intent.extras?.activityIntentBundle
 
         when (intent.action) {
