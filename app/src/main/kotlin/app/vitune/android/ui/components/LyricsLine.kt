@@ -151,19 +151,19 @@ fun MetrolistLyricsLine(
         else -> defaultTextAlign
     }
 
-    val inactiveAlpha = if (item.isBackground) 0.08f else 0.22f
+    val inactiveAlpha = if (item.isBackground) 0.15f else 0.38f
     val activeAlpha = 1.0f
-    val focusedAlpha = if (item.isBackground) 0.45f else 0.35f
+    val focusedAlpha = if (item.isBackground) 0.45f else 0.38f
     val distance = abs(index - displayedCurrentLineIndex)
     val targetAlpha = if (!isSynced || item.isBackground || isActiveLine) {
         activeAlpha
     } else if (isAutoScrollEnabled && displayedCurrentLineIndex >= 0) {
         when (distance) {
-            0 -> focusedAlpha
-            1 -> 0.35f
-            2 -> 0.22f
-            3 -> 0.15f
-            else -> 0.08f
+            0 -> 1.0f
+            1 -> 0.45f
+            2 -> 0.32f
+            3 -> 0.22f
+            else -> 0.14f
         }
     } else inactiveAlpha
 
@@ -171,16 +171,16 @@ fun MetrolistLyricsLine(
     val blurRadiusPx = if (enableBlur && !isActiveLine && isSynced && isAutoScrollEnabled) {
         when (distance) {
             0 -> 0f
-            1 -> 6f
-            2 -> 12f
-            else -> 18f
+            1 -> 5f
+            2 -> 10f
+            else -> 15f
         }
     } else 0f
 
     val animatedAlpha by animateFloatAsState(targetAlpha, tween(250), label = "lyricsLineAlpha")
-    val animatedScale by animateFloatAsState(if (isActiveLine) 1.04f else 1.0f, tween(300), label = "lyricsLineScale")
+    val animatedScale by animateFloatAsState(if (isActiveLine) 1.03f else 1.0f, tween(300), label = "lyricsLineScale")
 
-    val activeTextColor = lerp(Color.White, expressiveAccent, 0.15f)
+    val activeTextColor = Color.White
     val lineColor = Color.White.copy(alpha = if (item.isBackground) focusedAlpha else animatedAlpha)
 
     val mainTextRaw = item.text
@@ -188,7 +188,7 @@ fun MetrolistLyricsLine(
 
     val lyricStyle = TextStyle(
         fontSize = lyricsTextSize.sp,
-        fontWeight = FontWeight.Bold,
+        fontWeight = if (isActiveLine) FontWeight.Bold else FontWeight.SemiBold,
         fontStyle = if (item.isBackground) FontStyle.Italic else FontStyle.Normal,
         lineHeight = (lyricsTextSize * lyricsLineSpacing).sp,
         letterSpacing = (-0.5).sp,
@@ -224,13 +224,17 @@ fun MetrolistLyricsLine(
                 }
             }
             .padding(
-                horizontal = 24.dp,
-                vertical = if (item.isBackground) 4.dp else 10.dp
+                horizontal = 16.dp,
+                vertical = if (item.isBackground) 4.dp else 8.dp
             ),
         contentAlignment = when {
             item.agent == "v1" -> Alignment.CenterStart
             item.agent == "v2" -> Alignment.CenterEnd
-            else -> Alignment.Center
+            else -> when (PlayerPreferences.lyricsTextPosition) {
+                PlayerPreferences.LyricsTextPosition.Left -> Alignment.CenterStart
+                PlayerPreferences.LyricsTextPosition.Center -> Alignment.Center
+                PlayerPreferences.LyricsTextPosition.Right -> Alignment.CenterEnd
+            }
         }
     ) {
         Column(

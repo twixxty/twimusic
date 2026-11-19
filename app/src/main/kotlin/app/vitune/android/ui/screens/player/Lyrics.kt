@@ -63,6 +63,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.derivedStateOf
 import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.KaraokeLyricsView
+import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.LyricsAnchor
+import com.mocharealm.accompanist.lyrics.ui.composable.lyrics.LyricsFade
 import com.mocharealm.accompanist.lyrics.ui.composable.list.rememberLyricsLazyListState
 import com.mocharealm.accompanist.lyrics.ui.composable.list.LyricsScrollChain
 import app.vitune.android.lyrics.toSyncedLyrics
@@ -601,10 +603,10 @@ fun Lyrics(
                     }
                 }
 
-                val isDesynced = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
-                    !isAutoScrollEnabled
-                } else {
+                val isDesynced = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Accompanist) {
                     accompanistListState.isManualScrolling
+                } else {
+                    !isAutoScrollEnabled
                 }
 
                 LaunchedEffect(
@@ -640,7 +642,8 @@ fun Lyrics(
                     val viewportHeight = lazyListState.layoutInfo.viewportEndOffset - lazyListState.layoutInfo.viewportStartOffset
                     val itemInfo = lazyListState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == listTargetIndex }
                     val itemHeight = itemInfo?.size ?: (density.density * 50).toInt()
-                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight / 2)
+                    val centerFraction = if (PlayerPreferences.lyricsLocation == PlayerPreferences.LyricsLocation.Center) 0.5f else 0.28f
+                    val center = lazyListState.layoutInfo.viewportStartOffset + (viewportHeight * centerFraction).toInt()
 
                     if (itemInfo != null) {
                         val itemCenter = itemInfo.offset + itemInfo.size / 2
@@ -657,14 +660,14 @@ fun Lyrics(
                         try {
                             lazyListState.animateScrollToItem(
                                 index = listTargetIndex,
-                                scrollOffset = -((viewportHeight / 2) - (itemHeight / 2))
+                                scrollOffset = -((viewportHeight * centerFraction).toInt() - (itemHeight / 2))
                             )
                         } catch (_: Throwable) {}
                     }
                 }
 
                 LaunchedEffect(activeIndex, isAutoScrollEnabled, PlayerPreferences.lyricsAnimationStyle) {
-                    if (PlayerPreferences.lyricsAnimationStyle != PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
+                    if (PlayerPreferences.lyricsAnimationStyle != PlayerPreferences.LyricsAnimationStyle.Accompanist) {
                         if (isAutoScrollEnabled && activeIndex >= 0 && activeIndex < parsedEntries.size) {
                             performSmoothPageScroll(activeIndex, duration = 800)
                         }
@@ -746,7 +749,7 @@ fun Lyrics(
                                 Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
                             }
                         }
-                    } else if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
+                    } else if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Accompanist) {
                         val syncedLyrics = remember(parsedEntries) {
                             parsedEntries.toSyncedLyrics()
                         }
@@ -775,24 +778,39 @@ fun Lyrics(
                                 textColor = colorPalette.text,
                                 useBlurEffect = PlayerPreferences.lyricsLineBlur,
                                 showTranslation = PlayerPreferences.lyricsShowTranslation,
+                                anchor = if (PlayerPreferences.lyricsLocation == PlayerPreferences.LyricsLocation.Center) {
+                                    LyricsAnchor.Fraction(0.46f)
+                                } else {
+                                    LyricsAnchor.Fixed(64.dp)
+                                },
+                                topFade = if (PlayerPreferences.lyricsLocation == PlayerPreferences.LyricsLocation.Center) {
+                                    LyricsFade.Fraction(0.40f)
+                                } else {
+                                    LyricsFade.ToAnchor(16.dp)
+                                },
                                 scrollChain = remember(PlayerPreferences.lyricsBouncyScroll) {
                                     if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null
                                 },
                             )
                         }
                     } else {
+                        val headerFraction = if (PlayerPreferences.lyricsLocation == PlayerPreferences.LyricsLocation.Center) 0.45f else 0.16f
                         LazyColumn(
                             state = lazyListState,
                             userScrollEnabled = true,
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center,
+                            horizontalAlignment = when (PlayerPreferences.lyricsTextPosition) {
+                                PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start
+                                PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally
+                                PlayerPreferences.LyricsTextPosition.Right -> Alignment.End
+                            },
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier = Modifier
                                 .verticalFadingEdge()
                                 .nestedScroll(nestedScrollConnection)
                                 .fillMaxSize()
                         ) {
                             item(key = "header") {
-                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.35f))
+                                Spacer(modifier = Modifier.height(containerMaxHeight * headerFraction))
                             }
                             itemsIndexed(
                                 items = parsedEntries,
@@ -827,7 +845,7 @@ fun Lyrics(
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) accompanistListState.isManualScrolling else !isAutoScrollEnabled,
+                        visible = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Accompanist) accompanistListState.isManualScrolling else !isAutoScrollEnabled,
                         enter = fadeIn() + slideInVertically { it },
                         exit = fadeOut() + slideOutVertically { it },
                         modifier = Modifier
@@ -841,7 +859,7 @@ fun Lyrics(
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(colorPalette.accent)
                                 .clickable {
-                                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
+                                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Accompanist) {
                                         accompanistListState.resumeAutoScroll(currentPositionMs.toInt())
                                     } else {
                                         isAutoScrollEnabled = true

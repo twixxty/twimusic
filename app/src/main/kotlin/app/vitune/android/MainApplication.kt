@@ -216,11 +216,7 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
             mode = colorMode,
             darkness = darkness,
             fontFamily = fontFamily,
-            materialAccentColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                Color(getColor(android.R.color.system_accent1_500))
-            } else {
-                Color(monet.getAccentColor(this@MainActivity))
-            },
+            materialAccentColor = Color(monet.getAccentColor(this@MainActivity)),
             sampleBitmap = sampleBitmap,
             applyFontPadding = applyFontPadding,
             thumbnailRoundness = thumbnailRoundness.dp

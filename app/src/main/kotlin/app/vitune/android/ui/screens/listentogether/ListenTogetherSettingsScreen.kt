@@ -128,12 +128,10 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
             .background(colorPalette.background0)
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(
-                windowInsets
-                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    .asPaddingValues()
-            )
+            .padding(windowInsets.asPaddingValues())
     ) {
+        Spacer(Modifier.height(8.dp))
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier

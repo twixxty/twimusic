@@ -445,6 +445,7 @@ fun Player(
                     ) {
                         AnimatedPlayPauseButton(
                             playing = shouldBePlaying,
+                            color = colorPalette.text,
                             modifier = Modifier
                                 .align(Alignment.Center)
                                 .padding(horizontal = 4.dp, vertical = 8.dp)
@@ -842,18 +843,6 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                            } else if (isCanvasActive) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clickable(
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) {
-                                            if (isShowingLyrics) isLyricsFullscreen = false
-                                            isShowingLyrics = !isShowingLyrics
-                                        }
-                                )
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }

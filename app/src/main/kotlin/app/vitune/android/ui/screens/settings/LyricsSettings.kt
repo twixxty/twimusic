@@ -173,6 +173,13 @@ fun LyricsSettings() = with(PlayerPreferences) {
                 valueText = { it.displayName() }
             )
 
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.lyrics_location),
+                selectedValue = lyricsLocation,
+                onValueSelect = { lyricsLocation = it },
+                valueText = { it.displayName() }
+            )
+
             SwitchSettingsEntry(
                 title = stringResource(R.string.lyrics_line_blur),
                 text = stringResource(R.string.lyrics_line_blur_description),

@@ -242,64 +242,60 @@ inline fun NavigationRail(
             .verticalScroll(rememberScrollState())
             .padding(paddingValues)
     ) {
-        Box(
-            contentAlignment = Alignment.TopCenter,
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .width(
                     if (isLandscape) Dimensions.navigationRail.widthLandscape
                     else Dimensions.navigationRail.width
                 )
-                .heightIn(min = Dimensions.items.headerHeight)
+                .padding(
+                    top = 48.dp,
+                    bottom = 16.dp,
+                    start = if (isLandscape) 0.dp else Dimensions.navigationRail.iconOffset
+                )
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.offset(
-                    x = if (isLandscape) 0.dp else Dimensions.navigationRail.iconOffset,
-                    y = 48.dp
-                )
-            ) {
-                Image(
-                    painter = painterResource(topIconButtonId),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                    modifier = Modifier
-                        .clip(CircleShape)
-                        .clickable(onClick = onTopIconButtonClick)
-                        .padding(all = 12.dp)
-                        .size(22.dp)
-                )
+            Image(
+                painter = painterResource(topIconButtonId),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                modifier = Modifier
+                    .clip(CircleShape)
+                    .clickable(onClick = onTopIconButtonClick)
+                    .padding(all = 12.dp)
+                    .size(22.dp)
+            )
 
-                if (topIconButtonId == R.drawable.settings) {
-                    if (ListenTogetherPreferences.showQuickAccess) {
-                        Image(
-                            painter = painterResource(R.drawable.group),
-                            contentDescription = stringResource(R.string.listen_together),
-                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable { listenTogetherRoute.global() }
-                                .padding(all = 12.dp)
-                                .size(22.dp)
-                        )
-                    }
+            if (topIconButtonId == R.drawable.settings) {
+                if (ListenTogetherPreferences.showQuickAccess) {
+                    Image(
+                        painter = painterResource(R.drawable.group),
+                        contentDescription = stringResource(R.string.listen_together),
+                        colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable { listenTogetherRoute.global() }
+                            .padding(all = 12.dp)
+                            .size(22.dp)
+                    )
+                }
 
-                    if (DiscordPreferences.showQuickToggle) {
-                        Image(
-                            painter = painterResource(R.drawable.discord),
-                            contentDescription = stringResource(R.string.discord_rich_presence),
-                            colorFilter = ColorFilter.tint(
-                                if (DiscordPreferences.enabled) colorPalette.accent
-                                else colorPalette.textDisabled
-                            ),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .clickable {
-                                    DiscordPreferences.enabled = !DiscordPreferences.enabled
-                                }
-                                .padding(all = 12.dp)
-                                .size(22.dp)
-                        )
-                    }
+                if (DiscordPreferences.showQuickToggle) {
+                    Image(
+                        painter = painterResource(R.drawable.discord),
+                        contentDescription = stringResource(R.string.discord_rich_presence),
+                        colorFilter = ColorFilter.tint(
+                            if (DiscordPreferences.enabled) colorPalette.accent
+                            else colorPalette.textDisabled
+                        ),
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .clickable {
+                                DiscordPreferences.enabled = !DiscordPreferences.enabled
+                            }
+                            .padding(all = 12.dp)
+                            .size(22.dp)
+                    )
                 }
             }
         }

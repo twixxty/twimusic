@@ -52,7 +52,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsShowSystemBars by boolean(true)
     var lyricsTextPosition by enum(LyricsTextPosition.Left)
     var playerBackgroundStyle by enum(PlayerBackgroundStyle.LavaLamp)
-    var lyricsAnimationStyle by enum(LyricsAnimationStyle.AppleMusic)
+    var lyricsAnimationStyle by enum(LyricsAnimationStyle.Accompanist)
+    var lyricsLocation by enum(LyricsLocation.Top)
     var lyricsLineBlur by boolean(true)
     var lyricsOptimizedAndroid12 by boolean(true)
     var lyricsShine by boolean(true)
@@ -66,9 +67,9 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var showLyricsFullscreenButton: Boolean
         get() = !hideLyricsFullscreenButton
         set(value) { hideLyricsFullscreenButton = !value }
-    var enableCanvas by boolean(true)
+    var enableCanvas by boolean(false)
     var canvasLoadOnlyWifi by boolean(false)
-    var enableAnimatedCovers by boolean(true)
+    var enableAnimatedCovers by boolean(false)
     var animatedCoverResolution by enum(AnimatedCoverResolution.MEDIUM_720)
     var disableAnimatedArtworkOnMobileData by boolean(false)
 
@@ -164,8 +165,13 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         ORIGINAL(displayName = { "Original" })
     }
 
+    enum class LyricsLocation(val displayName: @Composable () -> String) {
+        Top(displayName = { stringResource(R.string.lyrics_location_top) }),
+        Center(displayName = { stringResource(R.string.lyrics_location_center) })
+    }
+
     enum class LyricsAnimationStyle(val displayName: @Composable () -> String) {
-        AppleMusic(displayName = { stringResource(R.string.lyrics_style_apple_music) }),
+        Accompanist(displayName = { stringResource(R.string.lyrics_style_accompanist) }),
         Metrolist(displayName = { stringResource(R.string.lyrics_style_metrolist) }),
         Braccato(displayName = { stringResource(R.string.lyrics_style_braccato) }),
         Expressive(displayName = { stringResource(R.string.lyrics_style_expressive) }),

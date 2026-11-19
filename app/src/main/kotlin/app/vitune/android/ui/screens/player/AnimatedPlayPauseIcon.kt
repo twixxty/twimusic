@@ -32,7 +32,8 @@ import com.airbnb.lottie.compose.rememberLottieDynamicProperty
 @Composable
 fun AnimatedPlayPauseButton(
     playing: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    color: Color = Color(0xff16171d)
 ) {
     val (colorPalette) = LocalAppearance.current
 
@@ -48,7 +49,7 @@ fun AnimatedPlayPauseButton(
     LottieAnimationWithPlaceholder(
         lottieCompositionResult = result,
         progress = progress,
-        tint = colorPalette.text,
+        tint = color,
         placeholder = if (playing) R.drawable.play else R.drawable.pause,
         modifier = modifier
     )

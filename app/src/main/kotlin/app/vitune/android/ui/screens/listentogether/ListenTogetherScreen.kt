@@ -123,7 +123,7 @@ fun ListenTogetherScreen(
             modifier = Modifier
                 .background(colorPalette.background0)
                 .fillMaxSize()
-                .padding(windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal).asPaddingValues())
+                .padding(windowInsets.asPaddingValues())
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -213,18 +213,16 @@ fun ListenTogetherScreen(
             .background(colorPalette.background0)
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(
-                windowInsets
-                    .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
-                    .asPaddingValues()
-            )
+            .padding(windowInsets.asPaddingValues())
             .padding(horizontal = 16.dp)
     ) {
+        Spacer(Modifier.height(8.dp))
+
         // Top app bar back button
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 4.dp),
+                .padding(top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(
