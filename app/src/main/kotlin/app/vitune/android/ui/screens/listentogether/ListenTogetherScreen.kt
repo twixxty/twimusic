@@ -846,7 +846,7 @@ private fun RoomActiveContent(
                         }
 
                         Button(
-                            onClick = { searchRoute("") },
+                            onClick = { searchRoute.global("") },
                             modifier = Modifier.weight(1f),
                             shape = RoundedCornerShape(16.dp),
                             colors = ButtonDefaults.buttonColors(

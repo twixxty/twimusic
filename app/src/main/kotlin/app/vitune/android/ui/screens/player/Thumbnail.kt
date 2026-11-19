@@ -153,22 +153,24 @@ fun Thumbnail(
             ),
             label = ""
         )
-        if (currentWindow != null) Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(1f)
-                .clip(if (isInPip) RectangleShape else thumbnailShape)
-                .background(colorPalette.background0)
-                .shadow(
-                    elevation = shadowElevation,
-                    shape = thumbnailShape,
-                    clip = false
-                )
+        if (currentWindow != null) {
             val artworkUri = currentWindow.mediaItem.mediaMetadata.artworkUri
                 ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
                 ?: binder?.player?.mediaMetadata?.artworkUri
 
-            androidx.compose.animation.AnimatedVisibility(
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(if (isInPip) RectangleShape else thumbnailShape)
+                    .background(colorPalette.background0)
+                    .shadow(
+                        elevation = shadowElevation,
+                        shape = thumbnailShape,
+                        clip = false
+                    )
+            ) {
+                androidx.compose.animation.AnimatedVisibility(
                 visible = !isShowingStatsForNerds && error == null,
                 enter = fadeIn(tween(300)),
                 exit = fadeOut(tween(300))
@@ -246,6 +248,7 @@ fun Thumbnail(
                 onDismiss = { binder?.player?.prepare() },
                 modifier = Modifier.fillMaxSize()
             )
+        }
         }
     }
 }
