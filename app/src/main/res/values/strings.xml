@@ -578,4 +578,14 @@
     <string name="animated_cover_resolution_description">Video resolution quality for animated album artwork</string>
     <string name="disable_animated_artwork_on_mobile_data">Disable on mobile data</string>
     <string name="disable_animated_artwork_on_mobile_data_desc">Only load animated covers and canvas on Wi-Fi</string>
+
+    <string name="settings">Settings</string>
+    <string name="account">Account</string>
+    <string name="advanced">Advanced</string>
+    <string name="servers">Servers</string>
+    <string name="blocked_users">Blocked users</string>
+    <string name="copy">Copy</string>
+    <string name="lt_track_load_failed">Failed to load track</string>
+    <string name="lt_auto_approve_suggestions_desc">Automatically add song suggestions from participants to the queue</string>
+    <string name="discord_presence_status_warning">Rich Presence requires an active Discord connection.</string>
 </resources>

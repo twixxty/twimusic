@@ -6,13 +6,6 @@ import android.net.NetworkCapabilities
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.ui.platform.LocalContext
-
-private fun Context.isMobileData(): Boolean {
-    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
-    val net = cm.activeNetwork ?: return false
-    val caps = cm.getNetworkCapabilities(net) ?: return false
-    return caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
-}
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -147,6 +140,13 @@ import app.vitune.providers.innertube.models.NavigationEndpoint
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.absoluteValue
+
+private fun Context.isMobileData(): Boolean {
+    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val net = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(net) ?: return false
+    return caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+}
 
 @Composable
 fun Player(

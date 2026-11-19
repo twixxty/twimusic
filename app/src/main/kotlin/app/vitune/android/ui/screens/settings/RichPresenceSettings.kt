@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -57,7 +58,7 @@ import app.vitune.android.preferences.DiscordPreferences
 import app.vitune.android.ui.components.themed.TextFieldDialog
 import app.vitune.android.ui.screens.Route
 import app.vitune.android.utils.bold
-import app.vitune.android.utils.formatDuration
+import app.vitune.android.utils.formatAsDuration
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
 import app.vitune.core.ui.LocalAppearance
@@ -216,7 +217,7 @@ fun RichPresenceSettings() {
                                 maxLines = 1
                             )
                             BasicText(
-                                text = "${formatDuration(positionMs)} / ${formatDuration(durationMs)}",
+                                text = "${formatAsDuration(positionMs)} / ${formatAsDuration(durationMs)}",
                                 style = typography.xs.secondary
                             )
                         }
@@ -269,7 +270,7 @@ fun RichPresenceSettings() {
                 title = stringResource(R.string.discord_refresh_rpc),
                 text = stringResource(R.string.discord_refresh_rpc_description),
                 onClick = {
-                    DiscordRpcManager.refreshPresence(binder?.player?.currentMediaItem)
+                    DiscordRpcManager.notifySettingsChanged()
                     Toast.makeText(context, R.string.discord_refresh_rpc_description, Toast.LENGTH_SHORT).show()
                 },
                 isEnabled = enabled

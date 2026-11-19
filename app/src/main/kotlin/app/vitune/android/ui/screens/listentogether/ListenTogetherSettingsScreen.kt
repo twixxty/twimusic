@@ -133,11 +133,23 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
                     .asPaddingValues()
             )
     ) {
-        Header(
-            title = stringResource(R.string.listen_together),
-            icon = R.drawable.chevron_back,
-            onIconClick = onBack
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+                .fillMaxWidth()
+        ) {
+            IconButton(
+                onClick = onBack,
+                icon = R.drawable.chevron_back,
+                color = colorPalette.text
+            )
+            Spacer(Modifier.width(8.dp))
+            BasicText(
+                text = stringResource(R.string.listen_together),
+                style = typography.xxl.bold.copy(color = colorPalette.text)
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 
@@ -166,11 +178,7 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
                 )
 
                 Switch(
-                    isChecked = ListenTogetherPreferences.enabled,
-                    onCheckedChange = {
-                        ListenTogetherPreferences.enabled = it
-                        manager?.setEnabled(it)
-                    }
+                    isChecked = ListenTogetherPreferences.enabled
                 )
             }
         }

@@ -125,11 +125,23 @@ fun ListenTogetherScreen(
                 .fillMaxSize()
                 .padding(windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal).asPaddingValues())
         ) {
-            Header(
-                title = stringResource(R.string.listen_together),
-                icon = R.drawable.chevron_back,
-                onIconClick = onBack
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth()
+            ) {
+                IconButton(
+                    onClick = onBack,
+                    icon = R.drawable.chevron_back,
+                    color = colorPalette.text
+                )
+                Spacer(Modifier.width(8.dp))
+                BasicText(
+                    text = stringResource(R.string.listen_together),
+                    style = typography.xxl.bold.copy(color = colorPalette.text)
+                )
+            }
             Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 BasicText(
                     text = stringResource(R.string.listen_together_service_unavailable),
@@ -517,7 +529,7 @@ private fun HostTabContent(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BasicText(
                 text = stringResource(R.string.lt_host_room),
-                style = typography.xl.bold.copy(color = colorPalette.text)
+                style = typography.l.bold.copy(color = colorPalette.text)
             )
             BasicText(
                 text = stringResource(R.string.lt_host_room_desc),
@@ -579,7 +591,7 @@ private fun JoinTabContent(
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             BasicText(
                 text = stringResource(R.string.lt_join_room_title),
-                style = typography.xl.bold.copy(color = colorPalette.text)
+                style = typography.l.bold.copy(color = colorPalette.text)
             )
             BasicText(
                 text = stringResource(R.string.lt_join_room_desc),
@@ -727,10 +739,10 @@ private fun RoomCodePinBoxes(
 private fun RoomActiveContent(
     room: app.vitune.android.listentogether.network.RoomState,
     role: ListenTogetherRoomRole,
-    myId: String,
+    myId: String?,
     connectionState: ListenTogetherConnectionState,
-    joinRequests: List<app.vitune.android.listentogether.network.UserInfo>,
-    suggestions: List<app.vitune.android.listentogether.ListenTogetherManager.SongSuggestion>,
+    joinRequests: List<app.vitune.android.listentogether.ListenTogetherJoinRequest>,
+    suggestions: List<app.vitune.android.listentogether.ListenTogetherSuggestion>,
     manager: app.vitune.android.listentogether.ListenTogetherManager,
     onNavigateToSettings: () -> Unit,
     colorPalette: app.vitune.core.ui.ColorPalette,
@@ -816,7 +828,7 @@ private fun RoomActiveContent(
 
                 if (role == ListenTogetherRoomRole.GUEST) {
                     Button(
-                        onClick = { manager.resyncWithHost() },
+                        onClick = { manager.requestSync() },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(16.dp),
                         colors = ButtonDefaults.buttonColors(
@@ -927,7 +939,7 @@ private fun RoomActiveContent(
                             Box {
                                 IconButton(
                                     onClick = { userMenuOpen = true },
-                                    icon = R.drawable.ellipsis_vertical,
+                                    icon = R.drawable.ellipsis_horizontal,
                                     color = colorPalette.textSecondary
                                 )
                                 DropdownMenu(
@@ -951,7 +963,7 @@ private fun RoomActiveContent(
                                     DropdownMenuItem(
                                         text = { Text(stringResource(R.string.lt_block)) },
                                         onClick = {
-                                            manager.blockUser(u.username, u.userId)
+                                            manager.blockUser(u.username)
                                             userMenuOpen = false
                                         }
                                     )
