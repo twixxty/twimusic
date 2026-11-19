@@ -21,9 +21,11 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -36,7 +38,8 @@ fun BackgroundVideoView(
     videoUrl: String,
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
-    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+    resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+    onVideoReady: (Boolean) -> Unit = {}
 ) {
     if (videoUrl.isBlank()) return
 
@@ -52,7 +55,15 @@ fun BackgroundVideoView(
     }
 
     val exoPlayer = remember {
-        val defaultDataSourceFactory = DefaultDataSource.Factory(context)
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .setDefaultRequestProperties(
+                mapOf(
+                    "Origin" to "https://music.apple.com",
+                    "Referer" to "https://music.apple.com/"
+                )
+            )
+        val defaultDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(defaultDataSourceFactory)
 
@@ -88,14 +99,23 @@ fun BackgroundVideoView(
             }
             override fun onRenderedFirstFrame() {
                 isVideoReady = true
+                onVideoReady(true)
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                isVideoReady = false
+                onVideoReady(false)
             }
         }
         exoPlayer.addListener(listener)
-        onDispose { exoPlayer.removeListener(listener) }
+        onDispose {
+            exoPlayer.removeListener(listener)
+            onVideoReady(false)
+        }
     }
 
     LaunchedEffect(videoUrl) {
         isVideoReady = false
+        onVideoReady(false)
         val mediaItem = MediaItem.Builder()
             .setUri(videoUrl)
             .setMimeType(if (videoUrl.contains("m3u8")) MimeTypes.APPLICATION_M3U8 else MimeTypes.VIDEO_MP4)

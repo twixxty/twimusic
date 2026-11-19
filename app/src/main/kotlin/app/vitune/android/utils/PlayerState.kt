@@ -119,6 +119,14 @@ fun windowState(
                 window = player.currentWindow
             }
 
+            override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
+                window = player.currentWindow
+            }
+
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                window = player.currentWindow
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 error = player.playerError
             }

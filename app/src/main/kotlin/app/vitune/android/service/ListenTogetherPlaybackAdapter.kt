@@ -21,7 +21,7 @@ internal fun String?.durationTextToMillis(): Long {
 }
 
 /** Local files cannot be played by other users, so they are never shared. */
-internal fun MediaItem.toTrackInfo(durationMs: Long? = null): TrackInfo? {
+fun MediaItem.toTrackInfo(durationMs: Long? = null): TrackInfo? {
     if (isLocal || mediaId.isBlank()) return null
     val metadata = mediaMetadata
     return TrackInfo(

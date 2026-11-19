@@ -92,7 +92,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
+import androidx.media3.common.Timeline
 import androidx.media3.common.util.UnstableApi
 import app.vitune.android.Database
 import app.vitune.android.LocalPlayerServiceBinder
@@ -183,15 +185,16 @@ fun Player(
         PlayerPreferences.enableCanvas,
         PlayerPreferences.enableAnimatedCovers,
         PlayerPreferences.animatedCoverResolution,
-        PlayerPreferences.disableAnimatedArtworkOnMobileData
+        PlayerPreferences.disableAnimatedArtworkOnMobileData,
+        PlayerPreferences.canvasLoadOnlyWifi
     ) {
         val item = mediaItem ?: return@LaunchedEffect
-        if (!PlayerPreferences.enableCanvas || !PlayerPreferences.enableAnimatedCovers) {
+        if (!PlayerPreferences.enableCanvas && !PlayerPreferences.enableAnimatedCovers) {
             canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
         }
-        if (PlayerPreferences.disableAnimatedArtworkOnMobileData && context.isMobileData()) {
+        if ((PlayerPreferences.disableAnimatedArtworkOnMobileData || PlayerPreferences.canvasLoadOnlyWifi) && context.isMobileData()) {
             canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
@@ -202,40 +205,45 @@ fun Player(
         val artist = item.mediaMetadata.artist?.toString() ?: ""
         val album = item.mediaMetadata.albumTitle?.toString() ?: ""
 
-        MotionartworkPlaybackCache.get(currentId)?.let { cached ->
-            canvasArtwork = cached
-            return@LaunchedEffect
+        if (PlayerPreferences.enableAnimatedCovers) {
+            MotionartworkPlaybackCache.get(currentId)?.let { cached ->
+                canvasArtwork = cached
+            }
         }
 
         withContext(Dispatchers.IO) {
             val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
 
-            val appleArtwork = runCatching {
-                AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
-                    ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
-            }.getOrNull()
-
-            val tidalArtwork = if (appleArtwork == null) {
-                runCatching {
-                    TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+            if (PlayerPreferences.enableAnimatedCovers && canvasArtwork == null) {
+                val appleArtwork = runCatching {
+                    AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
                         ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
                 }.getOrNull()
-            } else null
 
-            val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
-                runCatching {
-                    ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
-                        ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
-                }.getOrNull()
-            } else null
+                val tidalArtwork = if (appleArtwork == null) {
+                    runCatching {
+                        TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+                            ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                    }.getOrNull()
+                } else null
 
-            val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
-            if (resolvedArtwork != null) {
-                MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
-                withContext(Dispatchers.Main) {
-                    canvasArtwork = resolvedArtwork
+                val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
+                    runCatching {
+                        ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
+                            ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                    }.getOrNull()
+                } else null
+
+                val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
+                if (resolvedArtwork != null) {
+                    MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
+                    withContext(Dispatchers.Main) {
+                        canvasArtwork = resolvedArtwork
+                    }
                 }
-            } else {
+            }
+
+            if (PlayerPreferences.enableCanvas && spotifyCanvasUrl == null) {
                 val token = Spotify.getValidToken()
                 if (token != null) {
                     val spTrackId = Spotify.searchTrackRest("$title $artist")
@@ -282,6 +290,14 @@ fun Player(
         object : Player.Listener {
             override fun onMediaItemTransition(newMediaItem: MediaItem?, reason: Int) {
                 mediaItem = newMediaItem
+            }
+
+            override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
+                mediaItem = player.currentMediaItem
+            }
+
+            override fun onTimelineChanged(timeline: Timeline, reason: Int) {
+                mediaItem = player.currentMediaItem
             }
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
@@ -417,6 +433,26 @@ fun Player(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.height(Dimensions.items.collapsedPlayerHeight)
                 ) {
+                val isGuest = binder?.listenTogether?.isGuestPlaybackLocked == true
+                if (isGuest) {
+                    var isMuted by remember { mutableStateOf(binder?.player?.volume == 0f) }
+                    IconButton(
+                        icon = if (isMuted) R.drawable.volume_mute else R.drawable.volume_up,
+                        color = colorPalette.text,
+                        onClick = {
+                            if (binder?.player?.volume == 0f) {
+                                binder?.player?.volume = 1f
+                                isMuted = false
+                            } else {
+                                binder?.player?.volume = 0f
+                                isMuted = true
+                            }
+                        },
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp, vertical = 8.dp)
+                            .size(23.dp)
+                    )
+                } else {
                     AnimatedVisibility(visible = isShowingPrevButtonCollapsed) {
                         IconButton(
                             icon = R.drawable.play_skip_back,
@@ -461,6 +497,7 @@ fun Player(
                             .padding(horizontal = 4.dp, vertical = 8.dp)
                             .size(20.dp)
                     )
+                }
                 }
 
                 Spacer(modifier = Modifier.width(2.dp))
@@ -508,14 +545,19 @@ fun Player(
             expandedBound = layoutState.expandedBound
         )
 
-        val canvasVideoUrl = (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
-            ?.takeIf {
-                PlayerPreferences.enableCanvas &&
-                PlayerPreferences.enableAnimatedCovers &&
-                (!PlayerPreferences.disableAnimatedArtworkOnMobileData || !context.isMobileData())
-            }
+        val allowMotion = PlayerPreferences.enableAnimatedCovers
+        val allowCanvas = PlayerPreferences.enableCanvas
+        val isMobileBlocked = (PlayerPreferences.disableAnimatedArtworkOnMobileData || PlayerPreferences.canvasLoadOnlyWifi) && context.isMobileData()
+
+        val canvasVideoUrl = (
+            if (allowMotion) canvasArtwork?.preferredAnimationUrl else null
+        ) ?: (
+            if (allowCanvas) spotifyCanvasUrl else null
+        )?.takeIf { !isMobileBlocked }
+
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
+        var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
         val containerModifier = Modifier
             .padding(
@@ -545,6 +587,7 @@ fun Player(
                     BackgroundVideoView(
                         videoUrl = videoUrl,
                         isPlaying = isPlayingState && !isShowingLyrics,
+                        onVideoReady = { isVideoReady = it },
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
@@ -721,7 +764,7 @@ fun Player(
 
                 // Fading gradient background behind controls to protect contrast when canvas is active
                 AnimatedVisibility(
-                    visible = !isShowingLyrics && !isLyricsFullscreen,
+                    visible = !isShowingLyrics && !isLyricsFullscreen && isVideoReady,
                     enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
                     exit = fadeOut(tween(350, easing = FastOutSlowInEasing)),
                     modifier = Modifier.fillMaxSize()
@@ -778,7 +821,7 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                            } else if (isCanvasActive) {
+                            } else if (isCanvasActive && isVideoReady) {
                                 canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.size(coverArtTargetSize))
@@ -843,6 +886,18 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            } else if (isCanvasActive && isVideoReady) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clickable(
+                                            indication = null,
+                                            interactionSource = remember { MutableInteractionSource() }
+                                        ) {
+                                            if (isShowingLyrics) isLyricsFullscreen = false
+                                            isShowingLyrics = !isShowingLyrics
+                                        }
+                                )
                             } else {
                                 thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }

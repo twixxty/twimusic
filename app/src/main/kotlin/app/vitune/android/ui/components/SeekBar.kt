@@ -93,7 +93,9 @@ fun SeekBar(
         scrubbingPosition = null
     }
 
-    val innerModifier = modifier
+    val isGuestLocked = binder.listenTogether.isGuestPlaybackLocked
+
+    val innerModifier = if (isGuestLocked) modifier else modifier
         .pointerInput(range) {
             if (range.endInclusive < range.start) return@pointerInput
 

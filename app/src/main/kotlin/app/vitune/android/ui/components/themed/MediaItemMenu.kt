@@ -61,8 +61,10 @@ import app.vitune.android.models.Song
 import app.vitune.android.models.SongPlaylistMap
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.query
+import android.widget.Toast
 import app.vitune.android.service.PrecacheService
 import app.vitune.android.service.isLocal
+import app.vitune.android.service.toTrackInfo
 import app.vitune.android.transaction
 import app.vitune.android.ui.items.SongItem
 import app.vitune.android.ui.screens.albumRoute
@@ -464,6 +466,22 @@ fun MediaItemMenu(
                     .alpha(0.5f)
                     .padding(vertical = 8.dp)
             )
+
+            val isGuest = binder?.listenTogether?.isGuestPlaybackLocked == true
+
+            if (isGuest && !isLocal) {
+                MenuEntry(
+                    icon = R.drawable.enqueue,
+                    text = stringResource(R.string.lt_suggest_to_host),
+                    onClick = {
+                        onDismiss()
+                        mediaItem.toTrackInfo()?.let { track ->
+                            binder.listenTogether.suggestTrack(track)
+                            Toast.makeText(context, R.string.lt_suggestion_submitted, Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            }
 
             onPlayNext?.let {
                 MenuEntry(

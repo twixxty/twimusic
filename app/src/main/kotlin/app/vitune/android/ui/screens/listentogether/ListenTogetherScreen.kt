@@ -83,6 +83,7 @@ import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
 import app.vitune.android.listentogether.ListenTogetherConnectionState
+import app.vitune.android.ui.screens.searchRoute
 import app.vitune.android.listentogether.ListenTogetherEvent
 import app.vitune.android.listentogether.ListenTogetherRoomRole
 import app.vitune.android.preferences.ListenTogetherPreferences
@@ -159,6 +160,7 @@ fun ListenTogetherScreen(
     val myId by manager.userId.collectAsState()
     val joinRequests by manager.pendingJoinRequests.collectAsState()
     val suggestions by manager.pendingSuggestions.collectAsState()
+    val submittedSuggestions by manager.submittedSuggestions.collectAsState()
     val pendingRequest by manager.roomRequestPending.collectAsState()
 
     var isJoinTab by remember { mutableStateOf(!initialRoomCode.isNullOrBlank()) }
@@ -285,6 +287,7 @@ fun ListenTogetherScreen(
                 connectionState = connection,
                 joinRequests = joinRequests,
                 suggestions = suggestions,
+                submittedSuggestions = submittedSuggestions,
                 manager = manager,
                 onNavigateToSettings = { showingSettings = true },
                 colorPalette = colorPalette,
@@ -741,6 +744,7 @@ private fun RoomActiveContent(
     connectionState: ListenTogetherConnectionState,
     joinRequests: List<app.vitune.android.listentogether.ListenTogetherJoinRequest>,
     suggestions: List<app.vitune.android.listentogether.ListenTogetherSuggestion>,
+    submittedSuggestions: Map<String, app.vitune.android.listentogether.network.TrackInfo>,
     manager: app.vitune.android.listentogether.ListenTogetherManager,
     onNavigateToSettings: () -> Unit,
     colorPalette: app.vitune.core.ui.ColorPalette,
@@ -825,19 +829,36 @@ private fun RoomActiveContent(
                 }
 
                 if (role == ListenTogetherRoomRole.GUEST) {
-                    Button(
-                        onClick = { manager.requestSync() },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorPalette.accent.copy(alpha = 0.3f),
-                            contentColor = colorPalette.text
-                        )
-                    ) {
-                        BasicText(
-                            text = stringResource(R.string.lt_resync),
-                            style = typography.xs.semiBold.copy(color = colorPalette.text)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Button(
+                            onClick = { manager.requestSync() },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorPalette.accent.copy(alpha = 0.3f),
+                                contentColor = colorPalette.text
+                            )
+                        ) {
+                            BasicText(
+                                text = stringResource(R.string.lt_resync),
+                                style = typography.xs.semiBold.copy(color = colorPalette.text)
+                            )
+                        }
+
+                        Button(
+                            onClick = { searchRoute("") },
+                            modifier = Modifier.weight(1f),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = colorPalette.accent,
+                                contentColor = colorPalette.onAccent
+                            )
+                        ) {
+                            BasicText(
+                                text = stringResource(R.string.lt_request_song),
+                                style = typography.xs.semiBold.copy(color = colorPalette.onAccent)
+                            )
+                        }
                     }
                 }
             }
@@ -878,6 +899,96 @@ private fun RoomActiveContent(
                                 ) {
                                     BasicText(stringResource(R.string.lt_reject), style = typography.xxs.semiBold)
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Pending Track Requests (Host)
+        if (role == ListenTogetherRoomRole.HOST && suggestions.isNotEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = colorPalette.background1
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BasicText(
+                        text = stringResource(R.string.lt_pending_suggestions) + " (${suggestions.size})",
+                        style = typography.m.semiBold.copy(color = colorPalette.text)
+                    )
+                    suggestions.forEach { sug ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                                BasicText(
+                                    text = sug.trackInfo.title,
+                                    style = typography.s.semiBold.copy(color = colorPalette.text),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                BasicText(
+                                    text = "${sug.trackInfo.artist} · from ${sug.fromUsername}",
+                                    style = typography.xxs.secondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Button(
+                                    onClick = { manager.approveSuggestion(sug.id) },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    BasicText("Approve", style = typography.xxs.semiBold)
+                                }
+                                OutlinedButton(
+                                    onClick = { manager.rejectSuggestion(sug.id) },
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    BasicText(stringResource(R.string.lt_reject), style = typography.xxs.semiBold)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Submitted Suggestions / Requested Songs (Guest)
+        if (role == ListenTogetherRoomRole.GUEST && submittedSuggestions.isNotEmpty()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(20.dp),
+                color = colorPalette.background1
+            ) {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    BasicText(
+                        text = stringResource(R.string.lt_requested_songs) + " (${submittedSuggestions.size})",
+                        style = typography.m.semiBold.copy(color = colorPalette.text)
+                    )
+                    submittedSuggestions.forEach { (_, track) ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                BasicText(
+                                    text = track.title,
+                                    style = typography.s.semiBold.copy(color = colorPalette.text),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                BasicText(
+                                    text = "${track.artist} · ${stringResource(R.string.lt_waiting_approval)}",
+                                    style = typography.xxs.secondary,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
                             }
                         }
                     }

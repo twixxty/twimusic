@@ -592,4 +592,10 @@
     <string name="lt_track_load_failed">Failed to load track</string>
     <string name="lt_auto_approve_suggestions_desc">Automatically add song suggestions from participants to the queue</string>
     <string name="discord_presence_status_warning">Rich Presence requires an active Discord connection.</string>
+    <string name="lt_suggest_to_host">Suggest to host</string>
+    <string name="lt_pending_suggestions">Track Requests</string>
+    <string name="lt_waiting_approval">Waiting for host approval…</string>
+    <string name="lt_request_song">Request a Song</string>
+    <string name="lt_requested_songs">Requested Songs</string>
+    <string name="lt_no_requests">No pending requests</string>
 </resources>

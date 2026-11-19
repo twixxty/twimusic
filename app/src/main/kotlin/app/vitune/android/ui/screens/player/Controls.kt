@@ -164,96 +164,153 @@ private fun ClassicControls(
         Spacer(modifier = Modifier.weight(1f))
         MediaInfo(media)
         Spacer(modifier = Modifier.weight(1f))
-        AnimatedVisibility(
-            visible = isLandscape || !isShowingLyrics,
-            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
-            exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
-        ) {
-            SeekBar(
-                binder = binder,
-                position = position,
-                media = media,
-                alwaysShowDuration = true
-            )
-        }
-        Spacer(modifier = Modifier.weight(1f))
+        val isGuest = binder.listenTogether.isGuestPlaybackLocked
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            IconButton(
-                icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
-                color = colorPalette.favoritesIcon,
-                onClick = {
-                    setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
-                },
-                modifier = Modifier
-                    .weight(1f)
-                    .size(24.dp)
-            )
-
-            IconButton(
-                icon = R.drawable.play_skip_back,
-                color = colorPalette.text,
-                onClick = binder.player::forceSeekToPrevious,
-                modifier = Modifier
-                    .weight(1f)
-                    .size(24.dp)
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Box(
-                modifier = Modifier
-                    .clip(playButtonRadius.roundedShape)
-                    .clickable {
-                        if (shouldBePlaying) binder.player.pause()
-                        else {
-                            if (binder.player.playbackState == Player.STATE_IDLE) binder.player.prepare()
-                            binder.player.play()
+        if (isGuest) {
+            var isMuted by remember { mutableStateOf(binder.player.volume == 0f) }
+            val muteButton: @Composable () -> Unit = {
+                IconButton(
+                    icon = if (isMuted) R.drawable.volume_mute else R.drawable.volume_up,
+                    color = colorPalette.text,
+                    onClick = {
+                        if (binder.player.volume == 0f) {
+                            binder.player.volume = 1f
+                            isMuted = false
+                        } else {
+                            binder.player.volume = 0f
+                            isMuted = true
                         }
-                    }
-                    .background(colorPalette.background2)
-                    .size(64.dp)
-            ) {
-                AnimatedPlayPauseButton(
-                    playing = shouldBePlaying,
-                    modifier = Modifier
-                        .align(Alignment.Center)
-                        .size(32.dp)
+                    },
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            val likeButton: @Composable () -> Unit = {
+                IconButton(
+                    icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                    color = colorPalette.favoritesIcon,
+                    onClick = {
+                        setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
+                    },
+                    modifier = Modifier.size(24.dp)
                 )
             }
 
-            Spacer(modifier = Modifier.width(8.dp))
+            AnimatedVisibility(
+                visible = isLandscape || !isShowingLyrics,
+                enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    if (PlayerPreferences.showLike) {
+                        likeButton()
+                    }
+                    Box(modifier = Modifier.weight(1f)) {
+                        SeekBar(
+                            binder = binder,
+                            position = position,
+                            media = media,
+                            alwaysShowDuration = true
+                        )
+                    }
+                    muteButton()
+                }
+            }
+        } else {
+            AnimatedVisibility(
+                visible = isLandscape || !isShowingLyrics,
+                enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
+            ) {
+                SeekBar(
+                    binder = binder,
+                    position = position,
+                    media = media,
+                    alwaysShowDuration = true
+                )
+            }
+            Spacer(modifier = Modifier.weight(1f))
 
-            IconButton(
-                icon = R.drawable.play_skip_forward,
-                color = colorPalette.text,
-                onClick = binder.player::forceSeekToNext,
-                modifier = Modifier
-                    .weight(1f)
-                    .size(24.dp)
-            )
-
-            IconButton(
-                icon = R.drawable.infinite,
-                enabled = trackLoopEnabled,
-                onClick = { trackLoopEnabled = !trackLoopEnabled },
-                modifier = Modifier
-                    .weight(1f)
-                    .size(24.dp)
-            )
-
-            if (onToggleLyrics != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
                 IconButton(
-                    icon = R.drawable.musical_notes,
-                    color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
-                    onClick = onToggleLyrics,
+                    icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                    color = colorPalette.favoritesIcon,
+                    onClick = {
+                        setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
+                    },
                     modifier = Modifier
                         .weight(1f)
                         .size(24.dp)
                 )
+
+                IconButton(
+                    icon = R.drawable.play_skip_back,
+                    color = colorPalette.text,
+                    onClick = binder.player::forceSeekToPrevious,
+                    modifier = Modifier
+                        .weight(1f)
+                        .size(24.dp)
+                )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .clip(playButtonRadius.roundedShape)
+                        .clickable {
+                            if (shouldBePlaying) binder.player.pause()
+                            else {
+                                if (binder.player.playbackState == Player.STATE_IDLE) binder.player.prepare()
+                                binder.player.play()
+                            }
+                        }
+                        .background(colorPalette.background2)
+                        .size(64.dp)
+                ) {
+                    AnimatedPlayPauseButton(
+                        playing = shouldBePlaying,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .size(32.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                IconButton(
+                    icon = R.drawable.play_skip_forward,
+                    color = colorPalette.text,
+                    onClick = binder.player::forceSeekToNext,
+                    modifier = Modifier
+                        .weight(1f)
+                        .size(24.dp)
+                )
+
+                IconButton(
+                    icon = R.drawable.infinite,
+                    enabled = trackLoopEnabled,
+                    onClick = { trackLoopEnabled = !trackLoopEnabled },
+                    modifier = Modifier
+                        .weight(1f)
+                        .size(24.dp)
+                )
+
+                if (onToggleLyrics != null) {
+                    IconButton(
+                        icon = R.drawable.musical_notes,
+                        color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
+                        onClick = onToggleLyrics,
+                        modifier = Modifier
+                            .weight(1f)
+                            .size(24.dp)
+                    )
+                }
             }
         }
 
@@ -398,63 +455,120 @@ private fun ModernControls(
             label = "prevRadius"
         )
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(if (hasTopPrev) 4.dp else 8.dp)
-        ) {
-            if (hasTopPrev) {
-                SkipButton(
-                    iconId = R.drawable.play_skip_back,
-                    onClick = binder.player::forceSeekToPrevious,
-                    modifier = Modifier
-                        .height(controlHeight)
-                        .weight(prevWeight),
-                    interactionSource = topPrevInteractionSource,
-                    scale = prevScale,
-                    shape = currentPrevRadius.roundedShape
+        val isGuest = binder.listenTogether.isGuestPlaybackLocked
+
+        if (isGuest) {
+            var isMuted by remember { mutableStateOf(binder.player.volume == 0f) }
+            val muteButtonContent: @Composable RowScope.() -> Unit = {
+                BigIconButton(
+                    iconId = if (isMuted) R.drawable.volume_mute else R.drawable.volume_up,
+                    onClick = {
+                        if (binder.player.volume == 0f) {
+                            binder.player.volume = 1f
+                            isMuted = false
+                        } else {
+                            binder.player.volume = 0f
+                            isMuted = true
+                        }
+                    },
+                    modifier = Modifier.weight(1f)
                 )
             }
-            PlayButton(
-                radius = currentPlayRadius,
-                shouldBePlaying = shouldBePlaying,
-                modifier = Modifier
-                    .height(controlHeight)
-                    .weight(playWeight),
-                interactionSource = playInteractionSource,
-                scale = playScale
-            )
-            SkipButton(
-                iconId = R.drawable.play_skip_forward,
-                onClick = binder.player::forceSeekToNext,
-                modifier = Modifier
-                    .height(controlHeight)
-                    .weight(nextWeight),
-                interactionSource = nextInteractionSource,
-                scale = nextScale,
-                shape = currentNextRadius.roundedShape
-            )
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-        AnimatedVisibility(
-            visible = isLandscape || !isShowingLyrics,
-            enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
-            exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
-        ) {
+
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            AnimatedVisibility(
+                visible = isLandscape || !isShowingLyrics,
+                enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (PlayerPreferences.showLike) {
+                        likeButtonContent()
+                        Column(modifier = Modifier.weight(4f)) {
+                            SeekBar(
+                                binder = binder,
+                                position = position,
+                                media = media,
+                                alwaysShowDuration = true
+                            )
+                        }
+                        muteButtonContent()
+                    } else {
+                        Column(modifier = Modifier.weight(4f)) {
+                            SeekBar(
+                                binder = binder,
+                                position = position,
+                                media = media,
+                                alwaysShowDuration = true
+                            )
+                        }
+                        muteButtonContent()
+                    }
+                }
+            }
+        } else {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(if (hasTopPrev) 4.dp else 8.dp)
             ) {
-                if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
-
-                Column(modifier = Modifier.weight(4f)) {
-                    SeekBar(
-                        binder = binder,
-                        position = position,
-                        media = media
+                if (hasTopPrev) {
+                    SkipButton(
+                        iconId = R.drawable.play_skip_back,
+                        onClick = binder.player::forceSeekToPrevious,
+                        modifier = Modifier
+                            .height(controlHeight)
+                            .weight(prevWeight),
+                        interactionSource = topPrevInteractionSource,
+                        scale = prevScale,
+                        shape = currentPrevRadius.roundedShape
                     )
+                }
+                PlayButton(
+                    radius = currentPlayRadius,
+                    shouldBePlaying = shouldBePlaying,
+                    modifier = Modifier
+                        .height(controlHeight)
+                        .weight(playWeight),
+                    interactionSource = playInteractionSource,
+                    scale = playScale
+                )
+                SkipButton(
+                    iconId = R.drawable.play_skip_forward,
+                    onClick = binder.player::forceSeekToNext,
+                    modifier = Modifier
+                        .height(controlHeight)
+                        .weight(nextWeight),
+                    interactionSource = nextInteractionSource,
+                    scale = nextScale,
+                    shape = currentNextRadius.roundedShape
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+            AnimatedVisibility(
+                visible = isLandscape || !isShowingLyrics,
+                enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
+                exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+
+                    Column(modifier = Modifier.weight(4f)) {
+                        SeekBar(
+                            binder = binder,
+                            position = position,
+                            media = media
+                        )
+                    }
                 }
             }
         }
