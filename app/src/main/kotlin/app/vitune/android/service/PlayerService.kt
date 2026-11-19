@@ -545,13 +545,14 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         maybeNormalizeVolume()
         maybeProcessRadio()
 
-        with(bitmapProvider) {
-            when {
-                mediaItem == null -> load(null) {
-                    maybeShowSongCoverInLockScreen()
-                    updateNotification()
-                }
-                else -> load(mediaItem.mediaMetadata.artworkUri) {
+        if (mediaItem == null) {
+            bitmapProvider.clear()
+            maybeShowSongCoverInLockScreen()
+            updateNotification()
+        } else {
+            val artworkUri = mediaItem.mediaMetadata.artworkUri ?: player.mediaMetadata.artworkUri
+            if (artworkUri != null) {
+                bitmapProvider.load(artworkUri) {
                     maybeShowSongCoverInLockScreen()
                     updateNotification()
                 }
@@ -565,18 +566,24 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
         mediaItemState.update { player.currentMediaItem }
-        bitmapProvider.load(mediaMetadata.artworkUri) {
-            maybeShowSongCoverInLockScreen()
-            updateNotification()
+        val artworkUri = player.currentMediaItem?.mediaMetadata?.artworkUri ?: mediaMetadata.artworkUri
+        if (artworkUri != null && artworkUri != bitmapProvider.lastUri) {
+            bitmapProvider.load(artworkUri) {
+                maybeShowSongCoverInLockScreen()
+                updateNotification()
+            }
         }
     }
 
     override fun onTimelineChanged(timeline: Timeline, reason: Int) {
         if (reason == Player.TIMELINE_CHANGE_REASON_SOURCE_UPDATE) {
             mediaItemState.update { player.currentMediaItem }
-            bitmapProvider.load(player.mediaMetadata.artworkUri) {
-                maybeShowSongCoverInLockScreen()
-                updateNotification()
+            val artworkUri = player.currentMediaItem?.mediaMetadata?.artworkUri ?: player.mediaMetadata.artworkUri
+            if (artworkUri != null && artworkUri != bitmapProvider.lastUri) {
+                bitmapProvider.load(artworkUri) {
+                    maybeShowSongCoverInLockScreen()
+                    updateNotification()
+                }
             }
         }
         if (reason != Player.TIMELINE_CHANGE_REASON_PLAYLIST_CHANGED) return

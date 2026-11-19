@@ -549,11 +549,10 @@ fun Player(
         val allowCanvas = PlayerPreferences.enableCanvas
         val isMobileBlocked = (PlayerPreferences.disableAnimatedArtworkOnMobileData || PlayerPreferences.canvasLoadOnlyWifi) && context.isMobileData()
 
-        val canvasVideoUrl = (
-            if (allowMotion) canvasArtwork?.preferredAnimationUrl else null
-        ) ?: (
-            if (allowCanvas) spotifyCanvasUrl else null
-        )?.takeIf { !isMobileBlocked }
+        val canvasVideoUrl = if (isMobileBlocked) null else {
+            (if (allowMotion) canvasArtwork?.preferredAnimationUrl else null)
+                ?: (if (allowCanvas) spotifyCanvasUrl else null)
+        }
 
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()

@@ -13,6 +13,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -100,13 +101,16 @@ typealias WindowState = Pair<Timeline.Window?, PlaybackException?>
 fun windowState(
     binder: PlayerService.Binder? = LocalPlayerServiceBinder.current
 ): WindowState {
-    var window by remember { mutableStateOf(binder?.player?.currentWindow) }
+    var window by remember { mutableStateOf(binder?.player?.currentWindow, neverEqualPolicy()) }
     var error by remember { mutableStateOf<PlaybackException?>(binder?.player?.playerError) }
     val state by remember {
         derivedStateOf(
             policy = object : SnapshotMutationPolicy<WindowState> {
                 override fun equivalent(a: WindowState, b: WindowState) =
-                    a.first === b.first && a.second == b.second
+                    a.first?.mediaItem?.mediaId == b.first?.mediaItem?.mediaId &&
+                    a.first?.mediaItem?.mediaMetadata?.artworkUri == b.first?.mediaItem?.mediaMetadata?.artworkUri &&
+                    a.first?.firstPeriodIndex == b.first?.firstPeriodIndex &&
+                    a.second == b.second
             }
         ) {
             window to error

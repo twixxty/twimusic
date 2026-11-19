@@ -77,8 +77,10 @@ class BitmapProvider(
         lastUri = uri
 
         if (uri == null) {
-            lastBitmap = null
-            onDone(bitmap)
+            if (lastBitmap == null) {
+                lastUri = null
+                onDone(bitmap)
+            }
             return
         }
 
@@ -100,6 +102,13 @@ class BitmapProvider(
                 .build()
         )
         oldTask?.dispose()
+    }
+
+    fun clear() {
+        currentTask?.dispose()
+        currentTask = null
+        lastUri = null
+        lastBitmap = null
     }
 
     fun setListener(callback: ((Bitmap?) -> Unit)?) {

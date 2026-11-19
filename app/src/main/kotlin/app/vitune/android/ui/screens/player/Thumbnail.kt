@@ -164,15 +164,17 @@ fun Thumbnail(
                     shape = thumbnailShape,
                     clip = false
                 )
-        ) {
+            val artworkUri = currentWindow.mediaItem.mediaMetadata.artworkUri
+                ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
+                ?: binder?.player?.mediaMetadata?.artworkUri
+
             androidx.compose.animation.AnimatedVisibility(
                 visible = !isShowingStatsForNerds && error == null,
                 enter = fadeIn(tween(300)),
                 exit = fadeOut(tween(300))
             ) {
                 AsyncImage(
-                    model = currentWindow.mediaItem.mediaMetadata.artworkUri
-                        ?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
+                    model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
                     placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                     error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                     contentDescription = null,
