@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.os.IBinder
 import android.os.StrictMode
@@ -215,7 +216,11 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
             mode = colorMode,
             darkness = darkness,
             fontFamily = fontFamily,
-            materialAccentColor = Color(monet.getAccentColor(this@MainActivity)),
+            materialAccentColor = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                Color(getColor(android.R.color.system_accent1_500))
+            } else {
+                Color(monet.getAccentColor(this@MainActivity))
+            },
             sampleBitmap = sampleBitmap,
             applyFontPadding = applyFontPadding,
             thumbnailRoundness = thumbnailRoundness.dp

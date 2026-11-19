@@ -133,6 +133,13 @@ fun OtherSettings() {
                 onCheckedChange = { DataPreferences.pauseSearchHistory = it }
             )
 
+            SwitchSettingsEntry(
+                title = stringResource(R.string.search_back_to_home),
+                text = stringResource(R.string.search_back_to_home_description),
+                isChecked = DataPreferences.searchBackToHome,
+                onCheckedChange = { DataPreferences.searchBackToHome = it }
+            )
+
             AnimatedVisibility(visible = !(DataPreferences.pauseSearchHistory && queriesCount == 0)) {
                 SettingsEntry(
                     title = stringResource(R.string.clear_search_history),

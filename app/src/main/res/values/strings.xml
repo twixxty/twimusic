@@ -417,8 +417,12 @@
     <string name="background_gradient">Gradient</string>
     <string name="background_solid">Solid</string>
     <string name="lyrics_animation_style">Lyrics animation style</string>
-    <string name="lyrics_style_metrolist">Apple Music / Metrolist</string>
-    <string name="lyrics_style_classic">ViTune Classic</string>
+    <string name="lyrics_style_apple_music">Apple Music</string>
+    <string name="lyrics_style_metrolist">Metrolist</string>
+    <string name="lyrics_style_braccato">Braccato</string>
+    <string name="lyrics_style_expressive">Expressive</string>
+    <string name="lyrics_style_simple">Simple</string>
+    <string name="lyrics_style_classic">Classic</string>
     <string name="lyrics_line_blur">Blur inactive lyric lines</string>
     <string name="lyrics_line_blur_description">Apply distance depth blur on inactive lyric lines (disable for best performance)</string>
     <string name="lyrics_optimized_android_12">Optimize lyrics blur (Android 12+)</string>
@@ -547,5 +551,31 @@
     <string name="lt_kicked">You were removed from the room</string>
     <string name="lt_server_error">Server error</string>
     <string name="lt_queue_too_large">Queue too large to share</string>
-    <string name="lt_track_load_failed">A track failed to load</string>
+    <string name="lt_header_subtitle">Listen to music with friends in real time.</string>
+    <string name="lt_host_tab">Host</string>
+    <string name="lt_join_tab">Join</string>
+    <string name="lt_host_room">Host a room</string>
+    <string name="lt_host_room_desc">Start a session and share the code. Friends hear what you play, live.</string>
+    <string name="lt_join_room_title">Enter the room code</string>
+    <string name="lt_join_room_desc">Ask your friend for the 8-character code.</string>
+    <string name="lt_setup_settings">Set up your server and username</string>
+    <string name="lt_edit">Edit</string>
+    <string name="lt_quick_access">Quick access button</string>
+    <string name="lt_quick_access_description">Show a button below the settings button in the navigation rail</string>
+
+    <string name="discord_quick_toggle">Quick toggle button</string>
+    <string name="discord_quick_toggle_description">Show a button below the settings button in the navigation rail to toggle Rich Presence</string>
+    <string name="discord_refresh_rpc">Refresh RPC</string>
+    <string name="discord_refresh_rpc_description">Send your current presence to Discord again</string>
+    <string name="discord_presence_preview">Rich Presence preview</string>
+
+    <string name="search_back_to_home">Back to Home from search results</string>
+    <string name="search_back_to_home_description">Return directly to Home when pressing back on the search results page</string>
+
+    <string name="enable_animated_covers">Enable animated covers</string>
+    <string name="enable_animated_covers_description">Show animated album artwork from Apple Music when available</string>
+    <string name="animated_cover_resolution">Animated cover resolution</string>
+    <string name="animated_cover_resolution_description">Video resolution quality for animated album artwork</string>
+    <string name="disable_animated_artwork_on_mobile_data">Disable on mobile data</string>
+    <string name="disable_animated_artwork_on_mobile_data_desc">Only load animated covers and canvas on Wi-Fi</string>
 </resources>

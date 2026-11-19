@@ -70,38 +70,38 @@ private fun lightColorPalette(accent: Hsl) = lightColorPalette(
 private fun lightColorPalette(hue: Float, saturation: Float) = ColorPalette(
     background0 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.925f
+        saturation = saturation.coerceAtMost(0.12f),
+        lightness = 0.96f
     ),
     background1 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.3f),
-        lightness = 0.90f
+        saturation = saturation.coerceAtMost(0.24f),
+        lightness = 0.92f
     ),
     background2 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.4f),
-        lightness = 0.85f
+        saturation = saturation.coerceAtMost(0.32f),
+        lightness = 0.88f
     ),
     text = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.02f),
-        lightness = 0.12f
+        saturation = saturation.coerceAtMost(0.04f),
+        lightness = 0.10f
     ),
     textSecondary = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.40f
+        saturation = saturation.coerceAtMost(0.14f),
+        lightness = 0.38f
     ),
     textDisabled = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.2f),
-        lightness = 0.65f
+        saturation = saturation.coerceAtMost(0.20f),
+        lightness = 0.60f
     ),
     accent = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.5f),
-        lightness = 0.5f
+        saturation = (saturation * 1.25f).coerceIn(0.55f, 0.95f),
+        lightness = 0.44f
     ),
     onAccent = Color.White,
     isDefault = false,
@@ -121,40 +121,44 @@ private fun darkColorPalette(
 ) = ColorPalette(
     background0 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.10f
+        saturation = saturation.coerceAtMost(0.12f),
+        lightness = 0.08f
     ) else Color.Black,
     background1 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.3f),
-        lightness = 0.15f
+        saturation = saturation.coerceAtMost(0.24f),
+        lightness = 0.13f
     ) else Color.Black,
     background2 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.4f),
-        lightness = 0.2f
+        saturation = saturation.coerceAtMost(0.32f),
+        lightness = 0.18f
     ) else Color.Black,
     text = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.02f),
-        lightness = 0.88f
+        saturation = saturation.coerceAtMost(0.04f),
+        lightness = 0.92f
     ),
     textSecondary = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.65f
+        saturation = saturation.coerceAtMost(0.14f),
+        lightness = 0.72f
     ),
     textDisabled = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.2f),
-        lightness = 0.40f
+        saturation = saturation.coerceAtMost(0.20f),
+        lightness = 0.45f
     ),
     accent = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(if (darkness == Darkness.AMOLED) 0.4f else 0.5f),
-        lightness = 0.5f
+        saturation = (saturation * 1.30f).coerceIn(0.65f, 0.98f),
+        lightness = 0.72f
     ),
-    onAccent = Color.White,
+    onAccent = Color.hsl(
+        hue = hue,
+        saturation = 0.35f,
+        lightness = 0.15f
+    ),
     isDefault = false,
     isDark = true
 )
@@ -212,18 +216,18 @@ fun ColorPalette.amoled() = if (isDark) {
     copy(
         background0 = Color.hsl(
             hue = hue,
-            saturation = saturation.coerceAtMost(0.1f),
-            lightness = 0.10f
+            saturation = saturation.coerceAtMost(0.12f),
+            lightness = 0.08f
         ),
         background1 = Color.hsl(
             hue = hue,
-            saturation = saturation.coerceAtMost(0.3f),
-            lightness = 0.15f
+            saturation = saturation.coerceAtMost(0.24f),
+            lightness = 0.13f
         ),
         background2 = Color.hsl(
             hue = hue,
-            saturation = saturation.coerceAtMost(0.4f),
-            lightness = 0.2f
+            saturation = saturation.coerceAtMost(0.32f),
+            lightness = 0.18f
         )
     )
 } else this

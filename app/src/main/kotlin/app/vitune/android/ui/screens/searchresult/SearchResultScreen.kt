@@ -1,5 +1,6 @@
 package app.vitune.android.ui.screens.searchresult
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -11,11 +12,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.preferences.DataPreferences
 import app.vitune.android.preferences.UIStatePreferences
 import app.vitune.android.ui.components.LocalMenuState
 import app.vitune.android.ui.components.themed.Header
 import app.vitune.android.ui.components.themed.NonQueuedMediaItemMenu
 import app.vitune.android.ui.components.themed.Scaffold
+import app.vitune.android.ui.screens.LocalDismissToHome
 import app.vitune.android.ui.items.AlbumItem
 import app.vitune.android.ui.items.AlbumItemPlaceholder
 import app.vitune.android.ui.items.ArtistItem
@@ -57,8 +60,15 @@ fun SearchResultScreen(query: String, onSearchAgain: () -> Unit) {
 
     val [currentMediaId, playing] = playingSong(binder)
 
+    val dismissToHome = LocalDismissToHome.current
+    val backToHome = DataPreferences.searchBackToHome
+
     RouteHandler {
         GlobalRoutes()
+
+        BackHandler(enabled = backToHome && child == null && dismissToHome != null) {
+            dismissToHome?.invoke()
+        }
 
         Content {
             val headerContent: @Composable (textButton: (@Composable () -> Unit)?) -> Unit = {
@@ -76,7 +86,13 @@ fun SearchResultScreen(query: String, onSearchAgain: () -> Unit) {
             Scaffold(
                 key = "searchresult",
                 topIconButtonId = R.drawable.chevron_back,
-                onTopIconButtonClick = pop,
+                onTopIconButtonClick = {
+                    if (backToHome && dismissToHome != null) {
+                        dismissToHome()
+                    } else {
+                        pop()
+                    }
+                },
                 tabIndex = UIStatePreferences.searchResultScreenTabIndex,
                 onTabChange = { UIStatePreferences.searchResultScreenTabIndex = it },
                 tabColumnContent = {

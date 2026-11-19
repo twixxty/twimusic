@@ -33,6 +33,7 @@ object DiscordPreferences : GlobalPreferencesHolder() {
     var deviceVendorId by string("")
     var clientUuid by string("")
     var pendingAuthSession by string("")
+    var showQuickToggle by boolean(false)
 }
 
 /** Listen Together (Play Together) settings, compatible with Metrolist rooms. */
@@ -45,6 +46,7 @@ object ListenTogetherPreferences : GlobalPreferencesHolder() {
     var autoApproveSongSuggestions by boolean(false)
     var syncHostVolume by boolean(true)
     var blockedUsers by string("")
+    var showQuickAccess by boolean(false)
 
     var sessionToken by string("")
     var sessionRoomCode by string("")

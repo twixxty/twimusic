@@ -1,6 +1,7 @@
 package app.vitune.android.ui.screens
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.net.toUri
 import app.vitune.android.Database
@@ -38,6 +39,8 @@ import java.util.UUID
 @Target(AnnotationTarget.FUNCTION)
 annotation class Route
 
+val LocalDismissToHome = compositionLocalOf<(() -> Unit)?> { null }
+
 val albumRoute = Route1<String>("albumRoute")
 val artistRoute = Route1<String>("artistRoute")
 val builtInPlaylistRoute = Route1<BuiltInPlaylist>("builtInPlaylistRoute")
@@ -50,6 +53,7 @@ val moodRoute = Route1<Mood>("moodRoute")
 val searchResultRoute = Route1<String>("searchResultRoute")
 val searchRoute = Route1<String>("searchRoute")
 val settingsRoute = Route0("settingsRoute")
+val listenTogetherRoute = Route0("listenTogetherRoute")
 
 @Composable
 fun RouteHandlerScope.GlobalRoutes() {
@@ -97,6 +101,10 @@ fun RouteHandlerScope.GlobalRoutes() {
 
     settingsRoute {
         SettingsScreen()
+    }
+
+    listenTogetherRoute {
+        app.vitune.android.ui.screens.listentogether.ListenTogetherScreen(onBack = pop)
     }
 
     searchRoute { initialTextInput ->

@@ -41,12 +41,18 @@ everything vitune does:
 
 and what i added:
 
-- **spotify canvas** looping video behind the player (there's a toggle if you hate fun)
-- **word-by-word lyrics** on by default, inactive lines blurred
-- **lyrics fallback** through lrclib, musixmatch and kugou
-- **tapered wave visualizer** under the controls
-- **auto playlist sync** so your playlists aren't empty until you poke them
-- **in-app updater** that pulls from github releases, no browser needed
+- **listen together**: synchronized real-time multi-user playback room (host/join with 8-digit PINs, volume sync, participant controls)
+- **discord rich presence**: real-time presence with live card preview, custom templates, and quick toggle
+- **apple music canvas & animated covers**: high-resolution motion artwork looping video behind the player with resolution picker (360p, 720p, 1080p)
+- **spotify canvas**: looping video behind the player (there's a toggle if you hate fun)
+- **multiple lyrics animation styles**: apple music, metrolist, braccato, expressive, simple, and classic with smooth bouncy scrolling and manual sync recovery
+- **material you color spec 2025**: expressive vibrant colors and 2025 tonal luminance mapping
+- **search back to home**: quick back-to-home from search results instead of stepping back through every previous query
+- **word-by-word lyrics**: on by default, inactive lines blurred
+- **lyrics fallback**: through lrclib, musixmatch and kugou
+- **tapered wave visualizer**: under the controls
+- **auto playlist sync**: so your playlists aren't empty until you poke them
+- **in-app updater**: that pulls from github releases, no browser needed
 
 ## installation
 
@@ -65,6 +71,7 @@ align="center">](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/ht
 i mostly glued other people's work together, so:
 
 - [**ViTune**](https://github.com/25huizengek1/ViTune): the codebase i forked
+- [**Metrolist**](https://github.com/MetrolistGroup/Metrolist) (GPL-3.0): Listen Together protocol & UI, Discord RPC preview & integration, Apple Music canvas & animated covers, lyrics animation styles (Apple Music, Metrolist, Braccato, Expressive, Simple), and Color Spec 2025
 - [**ViMusic**](https://github.com/vfsfitvnm/ViMusic): where all of this started (and headphones icon)
 - [**accompanist-lyrics**](https://github.com/6xingyv/accompanist-lyrics-ui) by [6xingyv](https://github.com/6xingyv) (Apache-2.0): fluid karaoke lyrics UI and syllable timing models
 - [**lrc.red**](https://lrc.red): community-driven synchronized lyrics and translation provider

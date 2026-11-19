@@ -82,8 +82,9 @@ fun SettingsScreen() {
                     tab(4, R.string.database, R.drawable.server, canHide = false)
                     tab(5, R.string.sync, R.drawable.sync, canHide = false)
                     tab(6, R.string.other, R.drawable.shapes, canHide = false)
-                    tab(7, R.string.rich_presence, R.drawable.person, canHide = false)
-                    tab(8, R.string.about, R.drawable.information, canHide = false)
+                    tab(7, R.string.listen_together, R.drawable.group, canHide = false)
+                    tab(8, R.string.discord_rich_presence, R.drawable.discord, canHide = false)
+                    tab(9, R.string.about, R.drawable.information, canHide = false)
                 }
             ) { currentTabIndex ->
                 saveableStateHolder.SaveableStateProvider(currentTabIndex) {
@@ -95,8 +96,9 @@ fun SettingsScreen() {
                         4 -> DatabaseSettings()
                         5 -> SyncSettings()
                         6 -> OtherSettings()
-                        7 -> RichPresenceSettings()
-                        8 -> About()
+                        7 -> app.vitune.android.ui.screens.listentogether.ListenTogetherScreen(onBack = pop)
+                        8 -> RichPresenceSettings()
+                        9 -> About()
                     }
                 }
             }

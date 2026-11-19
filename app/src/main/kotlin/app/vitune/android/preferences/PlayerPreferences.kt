@@ -52,7 +52,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var lyricsShowSystemBars by boolean(true)
     var lyricsTextPosition by enum(LyricsTextPosition.Left)
     var playerBackgroundStyle by enum(PlayerBackgroundStyle.LavaLamp)
-    var lyricsAnimationStyle by enum(LyricsAnimationStyle.Metrolist)
+    var lyricsAnimationStyle by enum(LyricsAnimationStyle.AppleMusic)
     var lyricsLineBlur by boolean(true)
     var lyricsOptimizedAndroid12 by boolean(true)
     var lyricsShine by boolean(true)
@@ -68,6 +68,9 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         set(value) { hideLyricsFullscreenButton = !value }
     var enableCanvas by boolean(true)
     var canvasLoadOnlyWifi by boolean(false)
+    var enableAnimatedCovers by boolean(true)
+    var animatedCoverResolution by enum(AnimatedCoverResolution.MEDIUM_720)
+    var disableAnimatedArtworkOnMobileData by boolean(false)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)
@@ -154,8 +157,19 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         Solid(displayName = { stringResource(R.string.background_solid) })
     }
 
+    enum class AnimatedCoverResolution(val displayName: @Composable () -> String) {
+        LOW_360(displayName = { "360p" }),
+        MEDIUM_720(displayName = { "720p" }),
+        HIGH_1080(displayName = { "1080p" }),
+        ORIGINAL(displayName = { "Original" })
+    }
+
     enum class LyricsAnimationStyle(val displayName: @Composable () -> String) {
+        AppleMusic(displayName = { stringResource(R.string.lyrics_style_apple_music) }),
         Metrolist(displayName = { stringResource(R.string.lyrics_style_metrolist) }),
+        Braccato(displayName = { stringResource(R.string.lyrics_style_braccato) }),
+        Expressive(displayName = { stringResource(R.string.lyrics_style_expressive) }),
+        Simple(displayName = { stringResource(R.string.lyrics_style_simple) }),
         Classic(displayName = { stringResource(R.string.lyrics_style_classic) })
     }
 }

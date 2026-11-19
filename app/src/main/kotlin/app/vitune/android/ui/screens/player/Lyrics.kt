@@ -664,7 +664,7 @@ fun Lyrics(
                 }
 
                 LaunchedEffect(activeIndex, isAutoScrollEnabled, PlayerPreferences.lyricsAnimationStyle) {
-                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                    if (PlayerPreferences.lyricsAnimationStyle != PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
                         if (isAutoScrollEnabled && activeIndex >= 0 && activeIndex < parsedEntries.size) {
                             performSmoothPageScroll(activeIndex, duration = 800)
                         }
@@ -746,7 +746,7 @@ fun Lyrics(
                                 Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
                             }
                         }
-                    } else {
+                    } else if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
                         val syncedLyrics = remember(parsedEntries) {
                             parsedEntries.toSyncedLyrics()
                         }
@@ -780,10 +780,54 @@ fun Lyrics(
                                 },
                             )
                         }
+                    } else {
+                        LazyColumn(
+                            state = lazyListState,
+                            userScrollEnabled = true,
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier
+                                .verticalFadingEdge()
+                                .nestedScroll(nestedScrollConnection)
+                                .fillMaxSize()
+                        ) {
+                            item(key = "header") {
+                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.35f))
+                            }
+                            itemsIndexed(
+                                items = parsedEntries,
+                                key = { index, entry -> "${entry.time}_$index" }
+                            ) { index, entry ->
+                                val isActive = index == activeIndex
+                                MetrolistLyricsLine(
+                                    index = index,
+                                    item = entry,
+                                    isSynced = showSynchronizedLyrics,
+                                    isActiveLine = isActive,
+                                    currentPositionState = currentPositionMs,
+                                    player = binder?.player,
+                                    expressiveAccent = colorPalette.accent,
+                                    displayedCurrentLineIndex = activeIndex,
+                                    isAutoScrollEnabled = isAutoScrollEnabled,
+                                    animationStyle = PlayerPreferences.lyricsAnimationStyle,
+                                    onClick = {
+                                        binder?.player?.seekTo(entry.time + (lyrics?.startTime ?: 0L))
+                                        isAutoScrollEnabled = true
+                                        lastPreviewTime = 0L
+                                        coroutineScope.launch {
+                                            performSmoothPageScroll(index, duration = 800)
+                                        }
+                                    }
+                                )
+                            }
+                            item(key = "footer") {
+                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
+                            }
+                        }
                     }
 
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) !isAutoScrollEnabled else accompanistListState.isManualScrolling,
+                        visible = if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) accompanistListState.isManualScrolling else !isAutoScrollEnabled,
                         enter = fadeIn() + slideInVertically { it },
                         exit = fadeOut() + slideOutVertically { it },
                         modifier = Modifier
@@ -797,14 +841,14 @@ fun Lyrics(
                                 .clip(RoundedCornerShape(20.dp))
                                 .background(colorPalette.accent)
                                 .clickable {
-                                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Classic) {
+                                    if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.AppleMusic) {
+                                        accompanistListState.resumeAutoScroll(currentPositionMs.toInt())
+                                    } else {
                                         isAutoScrollEnabled = true
                                         lastPreviewTime = 0L
                                         coroutineScope.launch {
                                             performSmoothPageScroll(activeIndex, duration = 800)
                                         }
-                                    } else {
-                                        accompanistListState.resumeAutoScroll(currentPositionMs.toInt())
                                     }
                                 }
                                 .padding(horizontal = 14.dp, vertical = 6.dp)

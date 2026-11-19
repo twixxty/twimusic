@@ -117,6 +117,7 @@ fun MetrolistLyricsLine(
     expressiveAccent: Color,
     displayedCurrentLineIndex: Int,
     isAutoScrollEnabled: Boolean,
+    animationStyle: PlayerPreferences.LyricsAnimationStyle = PlayerPreferences.lyricsAnimationStyle,
     onSizeChanged: (Int) -> Unit = {},
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -249,7 +250,8 @@ fun MetrolistLyricsLine(
                     expressiveAccent = expressiveAccent,
                     isBackground = item.isBackground,
                     focusedAlpha = focusedAlpha,
-                    alignment = agentTextAlign
+                    alignment = agentTextAlign,
+                    animationStyle = animationStyle
                 )
             } else {
                 Text(
@@ -277,7 +279,8 @@ private fun WordLevelLyrics(
     expressiveAccent: Color,
     isBackground: Boolean,
     focusedAlpha: Float,
-    alignment: TextAlign
+    alignment: TextAlign,
+    animationStyle: PlayerPreferences.LyricsAnimationStyle = PlayerPreferences.lyricsAnimationStyle
 ) {
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -608,35 +611,73 @@ private fun WordLevelLyrics(
                             nudgeStrength * sin(charLp * PI.toFloat()) * exp(-3f * charLp)
                         } else 0f
 
-                        val charScaleX = 1f + wobbleX + crescendoDeltaX + nudgeScale * 0.3f
-                        val charScaleY = 1f + wobbleY + crescendoDeltaY + nudgeScale
+                        val metrolistScaleX = 1f + wobbleX + crescendoDeltaX + nudgeScale * 0.3f
+                        val metrolistScaleY = 1f + wobbleY + crescendoDeltaY + nudgeScale
+
+                        var rawWaveOffset = 0f
+                        if (groupWord != null) {
+                            val wallTime = System.currentTimeMillis()
+                            val adjSmoothPos = smoothPosition
+                            val timeInGroup = (adjSmoothPos - groupWord.groupStartMs).toFloat()
+                            val timeToGroupEnd = (groupWord.groupEndMs - adjSmoothPos).toFloat()
+                            val waveFade = (timeInGroup / 200f).coerceIn(0f, 1f) * (timeToGroupEnd / 200f).coerceIn(0f, 1f)
+                            if (waveFade > 0.01f) {
+                                val waveSpeed = 0.006f
+                                val waveHeight = 3.24f
+                                val phaseOffset = i * 0.4f
+                                rawWaveOffset = sin(wallTime * waveSpeed + phaseOffset) * waveHeight * waveFade
+                            }
+                        }
+
+                        val finalScaleX: Float
+                        val finalScaleY: Float
+                        val finalWaveOffset: Float
+                        val finalShouldGlow: Boolean
+
+                        when (animationStyle) {
+                            PlayerPreferences.LyricsAnimationStyle.Simple -> {
+                                finalScaleX = 1f
+                                finalScaleY = 1f
+                                finalWaveOffset = 0f
+                                finalShouldGlow = false
+                            }
+                            PlayerPreferences.LyricsAnimationStyle.Braccato -> {
+                                val bounce = if (wordItem != null && !isWordSung && sungFactor > 0f) {
+                                    0.09f * sin(sungFactor * PI.toFloat())
+                                } else 0f
+                                finalScaleX = 1f + bounce
+                                finalScaleY = 1f + bounce
+                                finalWaveOffset = 0f
+                                finalShouldGlow = false
+                            }
+                            PlayerPreferences.LyricsAnimationStyle.Expressive -> {
+                                val slide = if (wordItem != null && !isWordSung && sungFactor > 0f) {
+                                    -4f * sin(sungFactor * PI.toFloat())
+                                } else 0f
+                                finalScaleX = 1f
+                                finalScaleY = 1f
+                                finalWaveOffset = slide
+                                finalShouldGlow = shouldGlow || (wordItem != null && !isWordSung && sungFactor > 0.001f)
+                            }
+                            else -> {
+                                finalScaleX = metrolistScaleX
+                                finalScaleY = metrolistScaleY
+                                finalWaveOffset = rawWaveOffset
+                                finalShouldGlow = shouldGlow
+                            }
+                        }
 
                         withTransform({
-                            var waveOffset = 0f
-                            if (groupWord != null) {
-                                val wallTime = System.currentTimeMillis()
-                                val adjSmoothPos = smoothPosition
-                                val timeInGroup = (adjSmoothPos - groupWord.groupStartMs).toFloat()
-                                val timeToGroupEnd = (groupWord.groupEndMs - adjSmoothPos).toFloat()
-                                val waveFade = (timeInGroup / 200f).coerceIn(0f, 1f) * (timeToGroupEnd / 200f).coerceIn(0f, 1f)
-                                if (waveFade > 0.01f) {
-                                    val waveSpeed = 0.006f
-                                    val waveHeight = 3.24f
-                                    val phaseOffset = i * 0.4f
-                                    waveOffset = sin(wallTime * waveSpeed + phaseOffset) * waveHeight * waveFade
-                                }
-                            }
-
-                            translate(left = charBounds.left, top = charBounds.top + waveOffset)
+                            translate(left = charBounds.left, top = charBounds.top + finalWaveOffset)
                             if (wordIdx != -1) {
                                 scale(
-                                    charScaleX,
-                                    charScaleY,
+                                    finalScaleX,
+                                    finalScaleY,
                                     pivot = Offset(charBounds.width / 2f, charBounds.height / 2f)
                                 )
                             }
                         }) {
-                            if (shouldGlow && wordItem != null) {
+                            if (finalShouldGlow && wordItem != null) {
                                 val sMs = wordItem.startTime * 1000
                                 val eMs = wordItem.endTime * 1000
                                 val dur = eMs - sMs

@@ -1,7 +1,18 @@
 package app.vitune.android.ui.screens.player
 
+import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
+import androidx.compose.ui.platform.LocalContext
+
+private fun Context.isMobileData(): Boolean {
+    val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+    val net = cm.activeNetwork ?: return false
+    val caps = cm.getNetworkCapabilities(net) ?: return false
+    return caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)
+}
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -147,6 +158,7 @@ fun Player(
     ),
     windowInsets: WindowInsets = WindowInsets.systemBars
 ) = with(PlayerPreferences) {
+    val context = LocalContext.current
     val menuState = LocalMenuState.current
     val [colorPalette, typography, thumbnailCornerSize] = LocalAppearance.current
     val binder = LocalPlayerServiceBinder.current
@@ -166,9 +178,20 @@ fun Player(
     var canvasArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
     var spotifyCanvasUrl by remember(mediaItem?.mediaId) { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(mediaItem?.mediaId, PlayerPreferences.enableCanvas) {
+    LaunchedEffect(
+        mediaItem?.mediaId,
+        PlayerPreferences.enableCanvas,
+        PlayerPreferences.enableAnimatedCovers,
+        PlayerPreferences.animatedCoverResolution,
+        PlayerPreferences.disableAnimatedArtworkOnMobileData
+    ) {
         val item = mediaItem ?: return@LaunchedEffect
-        if (!PlayerPreferences.enableCanvas) {
+        if (!PlayerPreferences.enableCanvas || !PlayerPreferences.enableAnimatedCovers) {
+            canvasArtwork = null
+            spotifyCanvasUrl = null
+            return@LaunchedEffect
+        }
+        if (PlayerPreferences.disableAnimatedArtworkOnMobileData && context.isMobileData()) {
             canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
@@ -485,7 +508,11 @@ fun Player(
         )
 
         val canvasVideoUrl = (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
-            ?.takeIf { PlayerPreferences.enableCanvas }
+            ?.takeIf {
+                PlayerPreferences.enableCanvas &&
+                PlayerPreferences.enableAnimatedCovers &&
+                (!PlayerPreferences.disableAnimatedArtworkOnMobileData || !context.isMobileData())
+            }
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
 

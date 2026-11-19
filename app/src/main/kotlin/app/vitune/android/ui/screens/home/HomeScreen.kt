@@ -1,12 +1,14 @@
 package app.vitune.android.ui.screens.home
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import app.vitune.android.R
 import app.vitune.android.models.toUiMood
 import app.vitune.android.preferences.UIStatePreferences
 import app.vitune.android.ui.components.themed.Scaffold
 import app.vitune.android.ui.screens.GlobalRoutes
+import app.vitune.android.ui.screens.LocalDismissToHome
 import app.vitune.android.ui.screens.Route
 import app.vitune.android.ui.screens.albumRoute
 import app.vitune.android.ui.screens.artistRoute
@@ -37,29 +39,30 @@ fun HomeScreen() {
     PersistMapCleanup("home/")
 
     RouteHandler {
-        GlobalRoutes()
+        CompositionLocalProvider(LocalDismissToHome provides { replace(null) }) {
+            GlobalRoutes()
 
-        localPlaylistRoute { playlistId ->
-            LocalPlaylistScreen(playlistId = playlistId)
-        }
+            localPlaylistRoute { playlistId ->
+                LocalPlaylistScreen(playlistId = playlistId)
+            }
 
-        builtInPlaylistRoute { builtInPlaylist ->
-            BuiltInPlaylistScreen(builtInPlaylist = builtInPlaylist)
-        }
+            builtInPlaylistRoute { builtInPlaylist ->
+                BuiltInPlaylistScreen(builtInPlaylist = builtInPlaylist)
+            }
 
-        moodRoute { mood ->
-            MoodScreen(mood = mood)
-        }
+            moodRoute { mood ->
+                MoodScreen(mood = mood)
+            }
 
-        moreMoodsRoute {
-            MoreMoodsScreen()
-        }
+            moreMoodsRoute {
+                MoreMoodsScreen()
+            }
 
-        moreAlbumsRoute {
-            MoreAlbumsScreen()
-        }
+            moreAlbumsRoute {
+                MoreAlbumsScreen()
+            }
 
-        Content {
+            Content {
             Scaffold(
                 key = "home",
                 topIconButtonId = R.drawable.settings,

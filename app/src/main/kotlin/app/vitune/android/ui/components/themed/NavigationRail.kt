@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -51,6 +52,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastForEachIndexed
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
+import app.vitune.android.preferences.DiscordPreferences
+import app.vitune.android.preferences.ListenTogetherPreferences
+import app.vitune.android.ui.screens.listenTogetherRoute
 import app.vitune.android.ui.screens.settings.SwitchSettingsEntry
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
@@ -241,26 +245,63 @@ inline fun NavigationRail(
         Box(
             contentAlignment = Alignment.TopCenter,
             modifier = Modifier
-                .size(
-                    width = if (isLandscape) Dimensions.navigationRail.widthLandscape
-                    else Dimensions.navigationRail.width,
-                    height = Dimensions.items.headerHeight
+                .width(
+                    if (isLandscape) Dimensions.navigationRail.widthLandscape
+                    else Dimensions.navigationRail.width
                 )
+                .heightIn(min = Dimensions.items.headerHeight)
         ) {
-            Image(
-                painter = painterResource(topIconButtonId),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                modifier = Modifier
-                    .offset(
-                        x = if (isLandscape) 0.dp else Dimensions.navigationRail.iconOffset,
-                        y = 48.dp
-                    )
-                    .clip(CircleShape)
-                    .clickable(onClick = onTopIconButtonClick)
-                    .padding(all = 12.dp)
-                    .size(22.dp)
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.offset(
+                    x = if (isLandscape) 0.dp else Dimensions.navigationRail.iconOffset,
+                    y = 48.dp
+                )
+            ) {
+                Image(
+                    painter = painterResource(topIconButtonId),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .clickable(onClick = onTopIconButtonClick)
+                        .padding(all = 12.dp)
+                        .size(22.dp)
+                )
+
+                if (topIconButtonId == R.drawable.settings) {
+                    if (ListenTogetherPreferences.showQuickAccess) {
+                        Image(
+                            painter = painterResource(R.drawable.group),
+                            contentDescription = stringResource(R.string.listen_together),
+                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable { listenTogetherRoute.global() }
+                                .padding(all = 12.dp)
+                                .size(22.dp)
+                        )
+                    }
+
+                    if (DiscordPreferences.showQuickToggle) {
+                        Image(
+                            painter = painterResource(R.drawable.discord),
+                            contentDescription = stringResource(R.string.discord_rich_presence),
+                            colorFilter = ColorFilter.tint(
+                                if (DiscordPreferences.enabled) colorPalette.accent
+                                else colorPalette.textDisabled
+                            ),
+                            modifier = Modifier
+                                .clip(CircleShape)
+                                .clickable {
+                                    DiscordPreferences.enabled = !DiscordPreferences.enabled
+                                }
+                                .padding(all = 12.dp)
+                                .size(22.dp)
+                        )
+                    }
+                }
+            }
         }
 
         Column(

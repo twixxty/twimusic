@@ -181,6 +181,14 @@ fun About() = SettingsCategoryScreen(
                     uriHandler = uriHandler
                 )
                 LicenseItem(
+                    name = "Metrolist",
+                    author = "MetrolistGroup",
+                    license = "GPL-3.0",
+                    url = "https://github.com/MetrolistGroup/Metrolist",
+                    description = "Listen Together, Discord Rich Presence, Apple Music Canvas, Lyrics Animation Styles & Color Spec 2025",
+                    uriHandler = uriHandler
+                )
+                LicenseItem(
                     name = "Metrolist InnerTube",
                     author = "metrolistgroup",
                     license = "Apache-2.0",
