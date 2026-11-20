@@ -36,6 +36,7 @@ import app.vitune.android.ui.screens.artistRoute
 import app.vitune.android.ui.screens.playlistRoute
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.forcePlay
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.compose.persist.LocalPersistMap
 import app.vitune.compose.persist.PersistMapCleanup
@@ -135,9 +136,12 @@ fun SearchResultScreen(query: String, onSearchAgain: () -> Unit) {
                                             }
                                         },
                                         onClick = {
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(song.asMediaItem)
-                                            binder?.setupRadio(song.info?.endpoint)
+                                            val mediaItem = song.asMediaItem
+                                            binder?.playOrSuggest(mediaItem) {
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlay(mediaItem)
+                                                binder?.setupRadio(song.info?.endpoint)
+                                            }
                                         }
                                     ),
                                     isPlaying = playing && currentMediaId == song.key
@@ -244,9 +248,12 @@ fun SearchResultScreen(query: String, onSearchAgain: () -> Unit) {
                                             }
                                         },
                                         onClick = {
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(video.asMediaItem)
-                                            binder?.setupRadio(video.info?.endpoint)
+                                            val mediaItem = video.asMediaItem
+                                            binder?.playOrSuggest(mediaItem) {
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlay(mediaItem)
+                                                binder?.setupRadio(video.info?.endpoint)
+                                            }
                                         }
                                     )
                                 )

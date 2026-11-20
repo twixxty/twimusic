@@ -68,6 +68,7 @@ import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
 import app.vitune.android.utils.forcePlay
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.android.utils.rememberSnapLayoutInfo
 import app.vitune.android.utils.secondary
@@ -456,11 +457,13 @@ fun QuickPicks(
                                                     },
                                                     onClick = {
                                                         val mediaItem = song.asMediaItem
-                                                        binder?.stopRadio()
-                                                        binder?.player?.forcePlay(mediaItem)
-                                                        binder?.setupRadio(
-                                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                                        )
+                                                        binder?.playOrSuggest(mediaItem) {
+                                                            binder?.stopRadio()
+                                                            binder?.player?.forcePlay(mediaItem)
+                                                            binder?.setupRadio(
+                                                                NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                                            )
+                                                        }
                                                     }
                                                 )
                                                 .animateItem(fadeInSpec = null, fadeOutSpec = null)
@@ -501,11 +504,13 @@ fun QuickPicks(
                                                 },
                                                 onClick = {
                                                     val mediaItem = song.asMediaItem
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlay(mediaItem)
-                                                    binder?.setupRadio(
-                                                        NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                                    )
+                                                    binder?.playOrSuggest(mediaItem) {
+                                                        binder?.stopRadio()
+                                                        binder?.player?.forcePlay(mediaItem)
+                                                        binder?.setupRadio(
+                                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                                        )
+                                                    }
                                                 }
                                             )
                                             .animateItem(fadeInSpec = null, fadeOutSpec = null)
@@ -552,11 +557,13 @@ fun QuickPicks(
                                                 thumbnailSize = Dimensions.thumbnails.song,
                                                 modifier = Modifier.clickable {
                                                     val mediaItem = item.song.asMediaItem
-                                                    binder?.stopRadio()
-                                                    binder?.player?.forcePlay(mediaItem)
-                                                    binder?.setupRadio(
-                                                        NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                                    )
+                                                    binder?.playOrSuggest(mediaItem) {
+                                                        binder?.stopRadio()
+                                                        binder?.player?.forcePlay(mediaItem)
+                                                        binder?.setupRadio(
+                                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                                        )
+                                                    }
                                                 }
                                             )
                                         }

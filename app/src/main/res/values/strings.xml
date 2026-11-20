@@ -419,11 +419,13 @@
     <string name="lyrics_animation_style">Lyrics animation style</string>
     <string name="lyrics_style_accompanist">Accompanist</string>
     <string name="lyrics_style_apple_music">Apple Music</string>
-    <string name="lyrics_style_metrolist">Metrolist</string>
+    <string name="lyrics_style_metrolist">Apple Music (Metrolist)</string>
     <string name="lyrics_style_braccato">Braccato</string>
     <string name="lyrics_style_expressive">Expressive</string>
     <string name="lyrics_style_simple">Simple</string>
     <string name="lyrics_style_classic">Classic</string>
+    <string name="lt_suggest_prompt">Suggest \"%1$s\" by %2$s to the host?</string>
+    <string name="lt_suggest_button">Suggest</string>
     <string name="lyrics_location">Lyrics vertical position</string>
     <string name="lyrics_location_top">Top</string>
     <string name="lyrics_location_center">Center</string>

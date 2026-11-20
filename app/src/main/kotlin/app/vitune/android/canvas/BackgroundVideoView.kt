@@ -39,7 +39,8 @@ fun BackgroundVideoView(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-    onVideoReady: (Boolean) -> Unit = {}
+    onVideoReady: (Boolean) -> Unit = {},
+    onError: () -> Unit = {}
 ) {
     if (videoUrl.isBlank()) return
 
@@ -104,6 +105,7 @@ fun BackgroundVideoView(
             override fun onPlayerError(error: PlaybackException) {
                 isVideoReady = false
                 onVideoReady(false)
+                onError()
             }
         }
         exoPlayer.addListener(listener)

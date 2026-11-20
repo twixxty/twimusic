@@ -382,16 +382,14 @@ class ListenTogetherManager(
 
     fun approveSuggestion(id: String) {
         autoApproving.remove(id)
-        launchSend(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(id)) {
-            if (ProtocolFeatures.REQUEST_ID !in serverFeatures) dropSuggestion(id)
-        }
+        dropSuggestion(id)
+        launchSend(MessageTypes.APPROVE_SUGGESTION, ApproveSuggestionPayload(id))
     }
 
     fun rejectSuggestion(id: String, reason: String? = null) {
         autoApproving.remove(id)
-        launchSend(MessageTypes.REJECT_SUGGESTION, RejectSuggestionPayload(id, reason)) {
-            if (ProtocolFeatures.REQUEST_ID !in serverFeatures) dropSuggestion(id)
-        }
+        dropSuggestion(id)
+        launchSend(MessageTypes.REJECT_SUGGESTION, RejectSuggestionPayload(id, reason))
     }
 
     fun suggestTrack(track: TrackInfo) {
@@ -749,6 +747,8 @@ class ListenTogetherManager(
                 if (!send(MessageTypes.SUGGEST_TRACK, SuggestTrackPayload(track))) return@launch
                 if (ProtocolFeatures.SUGGESTION_ACK !in serverFeatures) {
                     outgoingSuggestions.remove(track.id)
+                    _submittedSuggestions.value += track.id to track
+                    emitNotice(ListenTogetherEvent.Notice.Key.SuggestionSubmitted)
                 }
             }
         }
@@ -870,6 +870,9 @@ class ListenTogetherManager(
                 if (it.suggestionId in _submittedSuggestions.value) {
                     _submittedSuggestions.value -= it.suggestionId
                     emitNotice(ListenTogetherEvent.Notice.Key.SuggestionApproved)
+                } else if (_submittedSuggestions.value.isNotEmpty()) {
+                    _submittedSuggestions.value = _submittedSuggestions.value.filterKeys { key -> key != it.suggestionId }
+                    emitNotice(ListenTogetherEvent.Notice.Key.SuggestionApproved)
                 }
                 dropSuggestion(it.suggestionId)
             }
@@ -878,6 +881,9 @@ class ListenTogetherManager(
                 autoApproving.remove(it.suggestionId)
                 if (it.suggestionId in _submittedSuggestions.value) {
                     _submittedSuggestions.value -= it.suggestionId
+                    emitNotice(ListenTogetherEvent.Notice.Key.SuggestionRejected)
+                } else if (_submittedSuggestions.value.isNotEmpty()) {
+                    _submittedSuggestions.value = _submittedSuggestions.value.filterKeys { key -> key != it.suggestionId }
                     emitNotice(ListenTogetherEvent.Notice.Key.SuggestionRejected)
                 }
                 dropSuggestion(it.suggestionId)
@@ -1112,20 +1118,20 @@ class ListenTogetherManager(
         _roomState.value = _roomState.value?.let { ListenTogetherProtocolReducer.reduce(it, payload) }
 
         if (isQueueAction) {
-            val ownEcho = _role.value == ListenTogetherRoomRole.HOST &&
-                payload.originUserId == _userId.value
-            if (_role.value == ListenTogetherRoomRole.HOST && !ownEcho &&
-                payload.originUserId != null
-            ) {
-                // Approved guest suggestion: apply the canonical queue locally.
+            if (_role.value == ListenTogetherRoomRole.HOST) {
+                // Apply the canonical queue locally if it differs from current upcoming queue.
                 _roomState.value?.queue?.let {
                     playback.replaceUpcoming(it)
                     lastQueue = it
                 }
-            } else if (_role.value == ListenTogetherRoomRole.GUEST && loadingTrackId == null &&
-                hasLoadedRoomTrack()
-            ) {
+            } else if (_role.value == ListenTogetherRoomRole.GUEST && loadingTrackId == null) {
                 _roomState.value?.queue?.let(playback::replaceUpcoming)
+            }
+            _roomState.value?.queue?.let { queue ->
+                val queueIds = queue.map { it.id }.toSet()
+                if (_submittedSuggestions.value.isNotEmpty()) {
+                    _submittedSuggestions.value = _submittedSuggestions.value.filterNot { it.value.id in queueIds }
+                }
             }
             return
         }

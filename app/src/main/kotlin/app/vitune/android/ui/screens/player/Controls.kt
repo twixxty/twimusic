@@ -275,6 +275,7 @@ private fun ClassicControls(
                 ) {
                     AnimatedPlayPauseButton(
                         playing = shouldBePlaying,
+                        color = Color(0xff16171d),
                         modifier = Modifier
                             .align(Alignment.Center)
                             .size(32.dp)

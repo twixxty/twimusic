@@ -74,6 +74,7 @@ import app.vitune.android.utils.addNext
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.enqueue
 import app.vitune.android.utils.forcePlay
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.formatAsDuration
 import app.vitune.android.utils.isCached
 import app.vitune.android.utils.launchYouTubeMusic
@@ -164,14 +165,16 @@ fun NonQueuedMediaItemMenu(
         mediaItem = mediaItem,
         onDismiss = onDismiss,
         onStartRadio = {
-            binder?.stopRadio()
-            binder?.player?.forcePlay(mediaItem)
-            binder?.setupRadio(
-                NavigationEndpoint.Endpoint.Watch(
-                    videoId = mediaItem.mediaId,
-                    playlistId = mediaItem.mediaMetadata.extras?.getString("playlistId")
+            binder?.playOrSuggest(mediaItem) {
+                binder?.stopRadio()
+                binder?.player?.forcePlay(mediaItem)
+                binder?.setupRadio(
+                    NavigationEndpoint.Endpoint.Watch(
+                        videoId = mediaItem.mediaId,
+                        playlistId = mediaItem.mediaMetadata.extras?.getString("playlistId")
+                    )
                 )
-            )
+            }
         },
         onPlayNext = { binder?.player?.addNext(mediaItem) },
         onEnqueue = { binder?.player?.enqueue(mediaItem) },

@@ -51,6 +51,8 @@ import app.vitune.android.utils.completed
 import app.vitune.android.utils.enqueue
 import app.vitune.android.utils.forcePlayAtIndex
 import app.vitune.android.utils.forcePlayFromBeginning
+import app.vitune.android.utils.playAtIndexOrSuggest
+import app.vitune.android.utils.playFromBeginningOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.compose.persist.persist
 import app.vitune.core.ui.Dimensions
@@ -220,8 +222,10 @@ fun PlaylistSongList(
                                 onClick = {
                                     playlistPage?.songsPage?.items?.map(Innertube.SongItem::asMediaItem)
                                         ?.let { mediaItems ->
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlayAtIndex(mediaItems, index)
+                                            binder?.playAtIndexOrSuggest(mediaItems, index) {
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlayAtIndex(mediaItems, index)
+                                            }
                                         }
                                 }
                             ),
@@ -244,10 +248,11 @@ fun PlaylistSongList(
                 onClick = {
                     playlistPage?.songsPage?.items?.let { songs ->
                         if (songs.isNotEmpty()) {
-                            binder?.stopRadio()
-                            binder?.player?.forcePlayFromBeginning(
-                                songs.shuffled().map(Innertube.SongItem::asMediaItem)
-                            )
+                            val mediaItems = songs.shuffled().map(Innertube.SongItem::asMediaItem)
+                            binder?.playFromBeginningOrSuggest(mediaItems) {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayFromBeginning(mediaItems)
+                            }
                         }
                     }
                 }

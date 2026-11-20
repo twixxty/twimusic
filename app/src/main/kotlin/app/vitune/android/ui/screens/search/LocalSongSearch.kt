@@ -36,6 +36,7 @@ import app.vitune.android.utils.align
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.forcePlay
 import app.vitune.android.utils.medium
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.compose.persist.persistList
 import app.vitune.core.ui.Dimensions
@@ -117,11 +118,13 @@ fun LocalSongSearch(
                             },
                             onClick = {
                                 val mediaItem = song.asMediaItem
-                                binder?.stopRadio()
-                                binder?.player?.forcePlay(mediaItem)
-                                binder?.setupRadio(
-                                    NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                )
+                                binder?.playOrSuggest(mediaItem) {
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlay(mediaItem)
+                                    binder?.setupRadio(
+                                        NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                    )
+                                }
                             }
                         )
                         .animateItem(),

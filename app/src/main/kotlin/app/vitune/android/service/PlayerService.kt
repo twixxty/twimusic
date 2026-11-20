@@ -1225,6 +1225,8 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         var isLoadingRadio by mutableStateOf(false)
             private set
 
+        var pendingSuggestMediaItem by mutableStateOf<MediaItem?>(null)
+
         var invincible
             get() = isInvincibilityEnabled
             set(value) {

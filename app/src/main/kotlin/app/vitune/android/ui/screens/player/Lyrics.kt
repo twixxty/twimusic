@@ -617,11 +617,11 @@ fun Lyrics(
                     shouldAutoHideFullscreen,
                     onSetFullscreen
                 ) {
-                    if (!shouldAutoHideFullscreen || onSetFullscreen == null) return@LaunchedEffect
+                    if (onSetFullscreen == null) return@LaunchedEffect
 
                     if (isFullscreen && (!isPlayerPlaying || isDesynced)) {
                         onSetFullscreen(false)
-                    } else if (!isFullscreen && !isDesynced && isPlayerPlaying) {
+                    } else if (shouldAutoHideFullscreen && !isFullscreen && !isDesynced && isPlayerPlaying) {
                         val elapsed = android.os.SystemClock.elapsedRealtime() - lastInteractionTime
                         val remaining = 5000L - elapsed
                         if (remaining > 0) {
@@ -630,6 +630,20 @@ fun Lyrics(
                         if (!isDesynced && isPlayerPlaying && (android.os.SystemClock.elapsedRealtime() - lastInteractionTime) >= 5000L) {
                             onSetFullscreen(true)
                         }
+                    }
+                }
+
+                LaunchedEffect(lazyListState.isScrollInProgress) {
+                    if (lazyListState.isScrollInProgress) {
+                        isAutoScrollEnabled = false
+                        lastInteractionTime = android.os.SystemClock.elapsedRealtime()
+                        onSetFullscreen?.invoke(false)
+                    }
+                }
+
+                LaunchedEffect(showSynchronizedLyrics) {
+                    if (!showSynchronizedLyrics) {
+                        onSetFullscreen?.invoke(false)
                     }
                 }
 

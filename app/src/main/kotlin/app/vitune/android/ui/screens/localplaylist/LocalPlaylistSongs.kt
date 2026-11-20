@@ -60,6 +60,8 @@ import app.vitune.android.utils.completed
 import app.vitune.android.utils.enqueue
 import app.vitune.android.utils.forcePlayAtIndex
 import app.vitune.android.utils.forcePlayFromBeginning
+import app.vitune.android.utils.playAtIndexOrSuggest
+import app.vitune.android.utils.playFromBeginningOrSuggest
 import app.vitune.android.utils.launchYouTubeMusic
 import app.vitune.android.utils.playingSong
 import app.vitune.android.utils.toast
@@ -290,11 +292,14 @@ fun LocalPlaylistSongs(
                                     }
                                 },
                                 onClick = {
-                                    binder?.stopRadio()
-                                    binder?.player?.forcePlayAtIndex(
-                                        items = songs.map { it.asMediaItem },
-                                        index = index
-                                    )
+                                    val mediaItems = songs.map { it.asMediaItem }
+                                    binder?.playAtIndexOrSuggest(mediaItems, index) {
+                                        binder?.stopRadio()
+                                        binder?.player?.forcePlayAtIndex(
+                                            items = mediaItems,
+                                            index = index
+                                        )
+                                    }
                                 }
                             )
                             .animateItemPlacement(reorderingState)
@@ -325,10 +330,11 @@ fun LocalPlaylistSongs(
             onClick = {
                 if (songs.isEmpty()) return@FloatingActionsContainerWithScrollToTop
 
-                binder?.stopRadio()
-                binder?.player?.forcePlayFromBeginning(
-                    songs.shuffled().map { it.asMediaItem }
-                )
+                val mediaItems = songs.shuffled().map { it.asMediaItem }
+                binder?.playFromBeginningOrSuggest(mediaItems) {
+                    binder?.stopRadio()
+                    binder?.player?.forcePlayFromBeginning(mediaItems)
+                }
             }
         )
     }

@@ -63,6 +63,34 @@ fun Player.forcePlayAtIndex(
 
 fun Player.forcePlayFromBeginning(items: List<MediaItem>) = forcePlayAtIndex(items, 0)
 
+fun app.vitune.android.service.PlayerService.Binder.playOrSuggest(
+    mediaItem: MediaItem,
+    onDirectPlay: () -> Unit = { player.forcePlay(mediaItem) }
+) {
+    if (listenTogether.isGuestPlaybackLocked) {
+        pendingSuggestMediaItem = mediaItem
+    } else {
+        onDirectPlay()
+    }
+}
+
+fun app.vitune.android.service.PlayerService.Binder.playAtIndexOrSuggest(
+    items: List<MediaItem>,
+    index: Int,
+    onDirectPlay: () -> Unit = { player.forcePlayAtIndex(items, index) }
+) {
+    if (listenTogether.isGuestPlaybackLocked) {
+        pendingSuggestMediaItem = items.getOrNull(index)
+    } else {
+        onDirectPlay()
+    }
+}
+
+fun app.vitune.android.service.PlayerService.Binder.playFromBeginningOrSuggest(
+    items: List<MediaItem>,
+    onDirectPlay: () -> Unit = { player.forcePlayFromBeginning(items) }
+) = playAtIndexOrSuggest(items, 0, onDirectPlay)
+
 @Suppress("NestedBlockDepth") // TODO
 fun Player.forceSeekToPrevious(
     hideExplicit: Boolean = AppearancePreferences.hideExplicit,

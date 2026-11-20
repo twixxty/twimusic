@@ -37,6 +37,7 @@ import app.vitune.android.ui.screens.albumRoute
 import app.vitune.android.ui.screens.searchresult.ItemsPage
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.forcePlay
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.compose.persist.PersistMapCleanup
 import app.vitune.compose.persist.persist
@@ -233,9 +234,12 @@ fun ArtistScreen(browseId: String) {
                                             }
                                         },
                                         onClick = {
-                                            binder?.stopRadio()
-                                            binder?.player?.forcePlay(song.asMediaItem)
-                                            binder?.setupRadio(song.info?.endpoint)
+                                            val mediaItem = song.asMediaItem
+                                            binder?.playOrSuggest(mediaItem) {
+                                                binder?.stopRadio()
+                                                binder?.player?.forcePlay(mediaItem)
+                                                binder?.setupRadio(song.info?.endpoint)
+                                            }
                                         }
                                     ),
                                     isPlaying = playing && currentMediaId == song.key

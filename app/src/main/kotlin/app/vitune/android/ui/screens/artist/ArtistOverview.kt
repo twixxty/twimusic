@@ -41,6 +41,7 @@ import app.vitune.android.ui.items.SongItemPlaceholder
 import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.forcePlay
 import app.vitune.android.utils.medium
+import app.vitune.android.utils.playOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
@@ -154,11 +155,13 @@ fun ArtistOverview(
                                     },
                                     onClick = {
                                         val mediaItem = song.asMediaItem
-                                        binder?.stopRadio()
-                                        binder?.player?.forcePlay(mediaItem)
-                                        binder?.setupRadio(
-                                            NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
-                                        )
+                                        binder?.playOrSuggest(mediaItem) {
+                                            binder?.stopRadio()
+                                            binder?.player?.forcePlay(mediaItem)
+                                            binder?.setupRadio(
+                                                NavigationEndpoint.Endpoint.Watch(videoId = mediaItem.mediaId)
+                                            )
+                                        }
                                     }
                                 )
                                 .padding(endPaddingValues),

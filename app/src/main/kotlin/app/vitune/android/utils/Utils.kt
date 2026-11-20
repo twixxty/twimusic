@@ -145,17 +145,50 @@ val Duration.formatted
         }
     }
 
+private val GoogleArtworkSizeSuffix = Regex("=(?:s(\\d+)|w(\\d+)(?:-[^-?#=]+)*-h\\d+)([^?#]*)")
+private val YouTubeVideoArtworkPath =
+    Regex("(/vi(?:_webp)?/[^/?#]+/)(mqdefault|hqdefault|sddefault|hq720|maxresdefault)(\\.(?:jpg|webp))(?=[?#]|$)")
+
 fun String.thumbnail(
     size: Int,
     maxSize: Int = AppearancePreferences.maxThumbnailSize
 ): String {
-    val actualSize = size.coerceAtMost(maxSize)
-    return when {
-        this.startsWith("https://lh3.googleusercontent.com") ||
-            this.startsWith("https://yt3.googleusercontent.com") -> "$this-w$actualSize-h$actualSize"
-        this.startsWith("https://yt3.ggpht.com") -> "$this-w$actualSize-h$actualSize-s$actualSize"
-        else -> this
+    val actualSize = size.coerceIn(48, maxSize.coerceAtMost(1024))
+    val host = substringAfter("://", missingDelimiterValue = "")
+        .substringBefore('/')
+        .substringBefore(':')
+        .lowercase()
+
+    val isGoogleArtworkHost = host.endsWith(".googleusercontent.com") || host.endsWith(".ggpht.com")
+    val isYouTubeArtworkHost = host == "i.ytimg.com" || host.endsWith(".ytimg.com")
+
+    if (isYouTubeArtworkHost) {
+        val sourcePath = substringBefore('#').substringBefore('?')
+        val videoPath = YouTubeVideoArtworkPath.find(sourcePath)
+        if (videoPath != null) {
+            val fragment = substringAfter('#', missingDelimiterValue = "")
+            val source = sourcePath + fragment.takeIf { it.isNotEmpty() }?.let { "#$it" }.orEmpty()
+            return if (videoPath.groupValues[2] == "mqdefault" && actualSize > 320) {
+                source.replaceRange(videoPath.range, "${videoPath.groupValues[1]}maxresdefault${videoPath.groupValues[3]}")
+            } else {
+                source
+            }
+        }
     }
+
+    if (isGoogleArtworkHost) {
+        if (GoogleArtworkSizeSuffix.containsMatchIn(this)) {
+            return replace(GoogleArtworkSizeSuffix) { match ->
+                val suffix = match.groupValues[3]
+                val sizeStr = if ("s" in suffix.split('-')) "w$actualSize-h$actualSize" else "s$actualSize"
+                "=$sizeStr$suffix"
+            }
+        }
+        val suffixIndex = indexOfAny(charArrayOf('?', '#')).takeIf { it >= 0 } ?: length
+        return substring(0, suffixIndex) + "=s$actualSize" + substring(suffixIndex)
+    }
+
+    return this
 }
 
 fun Uri.thumbnail(size: Int) = toString().thumbnail(size).toUri()

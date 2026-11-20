@@ -215,26 +215,19 @@ fun Player(
             val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
 
             if (PlayerPreferences.enableAnimatedCovers && canvasArtwork == null) {
-                val appleArtwork = runCatching {
-                    AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
+                val tidalArtwork = runCatching {
+                    TidalMotionartworkProvider.getBySongArtist(title, artist, album)
                         ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
                 }.getOrNull()
 
-                val tidalArtwork = if (appleArtwork == null) {
-                    runCatching {
-                        TidalMotionartworkProvider.getBySongArtist(title, artist, album)
-                            ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
-                    }.getOrNull()
-                } else null
-
-                val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
+                val viviArtwork = if (tidalArtwork == null) {
                     runCatching {
                         ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
                             ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
                     }.getOrNull()
                 } else null
 
-                val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
+                val resolvedArtwork = tidalArtwork ?: viviArtwork
                 if (resolvedArtwork != null) {
                     MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
                     withContext(Dispatchers.Main) {
@@ -587,6 +580,11 @@ fun Player(
                         videoUrl = videoUrl,
                         isPlaying = isPlayingState && !isShowingLyrics,
                         onVideoReady = { isVideoReady = it },
+                        onError = {
+                            isVideoReady = false
+                            canvasArtwork = null
+                            spotifyCanvasUrl = null
+                        },
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)

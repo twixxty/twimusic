@@ -32,6 +32,8 @@ import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.enqueue
 import app.vitune.android.utils.forcePlayAtIndex
 import app.vitune.android.utils.forcePlayFromBeginning
+import app.vitune.android.utils.playAtIndexOrSuggest
+import app.vitune.android.utils.playFromBeginningOrSuggest
 import app.vitune.android.utils.playingSong
 import app.vitune.core.ui.Dimensions
 import app.vitune.core.ui.LocalAppearance
@@ -117,11 +119,14 @@ fun AlbumSongs(
                             }
                         },
                         onClick = {
-                            binder?.stopRadio()
-                            binder?.player?.forcePlayAtIndex(
-                                items = songs.map(Song::asMediaItem),
-                                index = index
-                            )
+                            val mediaItems = songs.map(Song::asMediaItem)
+                            binder?.playAtIndexOrSuggest(mediaItems, index) {
+                                binder?.stopRadio()
+                                binder?.player?.forcePlayAtIndex(
+                                    items = mediaItems,
+                                    index = index
+                                )
+                            }
                         }
                     ),
                     isPlaying = playing && currentMediaId == song.id
@@ -142,10 +147,11 @@ fun AlbumSongs(
             icon = R.drawable.shuffle,
             onClick = {
                 if (songs.isNotEmpty()) {
-                    binder?.stopRadio()
-                    binder?.player?.forcePlayFromBeginning(
-                        songs.shuffled().map(Song::asMediaItem)
-                    )
+                    val mediaItems = songs.shuffled().map(Song::asMediaItem)
+                    binder?.playFromBeginningOrSuggest(mediaItems) {
+                        binder?.stopRadio()
+                        binder?.player?.forcePlayFromBeginning(mediaItems)
+                    }
                 }
             }
         )

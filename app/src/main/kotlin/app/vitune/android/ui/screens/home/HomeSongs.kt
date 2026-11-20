@@ -73,6 +73,7 @@ import app.vitune.android.utils.asMediaItem
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
 import app.vitune.android.utils.forcePlayAtIndex
+import app.vitune.android.utils.playAtIndexOrSuggest
 import app.vitune.android.utils.formatted
 import app.vitune.android.utils.playingSong
 import app.vitune.android.utils.secondary
@@ -256,11 +257,12 @@ fun HomeSongs(
                             },
                             onClick = {
                                 keyboardController?.hide()
-                                binder?.stopRadio()
-                                binder?.player?.forcePlayAtIndex(
-                                    items.map(Song::asMediaItem),
-                                    items.indexOf(song)
-                                )
+                                val mediaItems = items.map(Song::asMediaItem)
+                                val index = items.indexOf(song)
+                                binder?.playAtIndexOrSuggest(mediaItems, index) {
+                                    binder?.stopRadio()
+                                    binder?.player?.forcePlayAtIndex(mediaItems, index)
+                                }
                             }
                         )
                         .animateItem()

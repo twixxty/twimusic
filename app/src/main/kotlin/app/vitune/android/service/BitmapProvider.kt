@@ -85,14 +85,34 @@ class BitmapProvider(
         }
 
         val oldTask = currentTask
+        val targetData = uri.thumbnail(512)
         currentTask = context.applicationContext.imageLoader.enqueue(
             ImageRequest.Builder(context.applicationContext)
-                .data(uri.thumbnail(getBitmapSize()))
+                .data(targetData)
                 .allowHardware(false)
                 .listener(
                     onError = { _, _ ->
-                        lastBitmap = null
-                        onDone(bitmap)
+                        if (lastUri == uri && lastBitmap != null) {
+                            onDone(bitmap)
+                        } else {
+                            // Try raw URI as fallback before giving up
+                            context.applicationContext.imageLoader.enqueue(
+                                ImageRequest.Builder(context.applicationContext)
+                                    .data(uri)
+                                    .allowHardware(false)
+                                    .listener(
+                                        onError = { _, _ ->
+                                            lastBitmap = null
+                                            onDone(bitmap)
+                                        },
+                                        onSuccess = { _, result ->
+                                            lastBitmap = result.image.run { toBitmap(width, height) }
+                                            onDone(bitmap)
+                                        }
+                                    )
+                                    .build()
+                            )
+                        }
                     },
                     onSuccess = { _, result ->
                         lastBitmap = result.image.run { toBitmap(width, height) }

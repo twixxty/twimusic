@@ -74,6 +74,9 @@ import app.vitune.android.service.ServiceNotifications
 import app.vitune.android.service.downloadState
 import app.vitune.android.ui.components.BottomSheetMenu
 import app.vitune.android.ui.components.rememberBottomSheetState
+import android.widget.Toast
+import app.vitune.android.service.toTrackInfo
+import app.vitune.android.ui.components.themed.ConfirmationDialog
 import app.vitune.android.ui.components.themed.LinearProgressIndicator
 import app.vitune.android.ui.components.themed.UpdateDialog
 import app.vitune.android.utils.AppUpdater
@@ -326,6 +329,26 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
 
                     Box {
                         HomeScreen()
+                    }
+
+                    val pendingSuggest = vm.binder?.pendingSuggestMediaItem
+                    if (pendingSuggest != null) {
+                        val trackTitle = pendingSuggest.mediaMetadata.title?.toString() ?: stringResource(R.string.unknown)
+                        val trackArtist = pendingSuggest.mediaMetadata.artist?.toString() ?: stringResource(R.string.unknown)
+                        ConfirmationDialog(
+                            text = stringResource(R.string.lt_suggest_prompt, trackTitle, trackArtist),
+                            confirmText = stringResource(R.string.lt_suggest_button),
+                            cancelText = stringResource(R.string.cancel),
+                            onDismiss = { vm.binder?.pendingSuggestMediaItem = null },
+                            onConfirm = {
+                                val binder = vm.binder
+                                vm.binder?.pendingSuggestMediaItem = null
+                                pendingSuggest.toTrackInfo()?.let { track ->
+                                    binder?.listenTogether?.suggestTrack(track)
+                                    Toast.makeText(this@MainActivity, R.string.lt_suggestion_submitted, Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        )
                     }
 
                     AnimatedVisibility(
