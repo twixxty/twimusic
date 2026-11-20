@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.listentogether.ListenTogetherManager
 import app.vitune.android.preferences.ListenTogetherPreferences
 import app.vitune.android.ui.components.themed.Header
 import app.vitune.android.ui.components.themed.IconButton
@@ -119,7 +120,13 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
                 manager?.setServerUrl(selected)
                 selectingServer = false
             },
-            valueText = { url -> servers.firstOrNull { it.url == url }?.name ?: url }
+            valueText = { url ->
+                if (url == ListenTogetherManager.DEFAULT_SERVER_URL) {
+                    "The Meowery (metroserver by Nyx)"
+                } else {
+                    servers.firstOrNull { it.url == url }?.name ?: url
+                }
+            }
         )
     }
 
@@ -195,7 +202,11 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
                 isEnabled = enabled
             )
 
-            val currentServerName = servers.firstOrNull { it.url == serverUrl }?.name ?: serverUrl
+            val currentServerName = if (serverUrl == ListenTogetherManager.DEFAULT_SERVER_URL) {
+                "The Meowery (metroserver by Nyx)"
+            } else {
+                servers.firstOrNull { it.url == serverUrl }?.name ?: serverUrl
+            }
             SettingsEntry(
                 title = stringResource(R.string.lt_server),
                 text = currentServerName.ifBlank { "Select server" },
@@ -263,6 +274,10 @@ fun ListenTogetherSettingsScreen(onBack: () -> Unit = {}) {
                     isEnabled = enabled
                 )
             }
+
+            SettingsDescription(
+                text = stringResource(R.string.lt_server_attribution_caption)
+            )
         }
 
         if (blocked.isNotEmpty()) {

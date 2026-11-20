@@ -514,6 +514,7 @@
     <string name="lt_username">Display name</string>
     <string name="lt_username_hint">Choose a name</string>
     <string name="lt_server">Server</string>
+    <string name="lt_server_attribution_caption">The default server \"The Meowery\" runs metroserver, developed and hosted by Nyx.</string>
     <string name="lt_add_server">Add custom server</string>
     <string name="lt_remove_server">Tap to remove</string>
     <string name="lt_auto_approve_joins">Auto-approve join requests</string>

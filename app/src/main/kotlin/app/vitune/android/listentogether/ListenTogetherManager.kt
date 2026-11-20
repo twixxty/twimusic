@@ -511,7 +511,11 @@ class ListenTogetherManager(
                         incoming.close(t)
                     }
                 }
-                val ws = client.newWebSocket(Request.Builder().url(_serverUrl.value).build(), listener)
+                val request = Request.Builder()
+                    .url(_serverUrl.value)
+                    .header("User-Agent", "twimusic/$appVersion (Android)")
+                    .build()
+                val ws = client.newWebSocket(request, listener)
                 transport = ws
                 codec.compressionEnabled = false
                 ws.send(
@@ -520,7 +524,7 @@ class ListenTogetherManager(
                         ClientCapabilities(
                             supportsProtobuf = true,
                             supportsCompression = true,
-                            clientVersion = appVersion,
+                            clientVersion = "twimusic/$appVersion",
                             features = ProtocolFeatures.supported
                         ),
                         0L,
@@ -1664,7 +1668,7 @@ class ListenTogetherManager(
     }
 
     private fun buildServers(): List<ListenTogetherServer> =
-        listOf(ListenTogetherServer("The Meowery", DEFAULT_SERVER_URL)) +
+        listOf(ListenTogetherServer("The Meowery (metroserver by Nyx)", DEFAULT_SERVER_URL)) +
             parseSet(ListenTogetherPreferences.customServers)
                 .filterNot { it == DEFAULT_SERVER_URL }
                 .map { ListenTogetherServer(it.removePrefix("wss://"), it, isCustom = true) }
