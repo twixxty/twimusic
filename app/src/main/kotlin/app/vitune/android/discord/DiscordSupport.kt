@@ -136,13 +136,9 @@ internal object DiscordHttp {
     }
 }
 
-internal fun discordAppId(): String =
-    DiscordPreferences.customAppId.trim().takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
-        ?: DiscordDefaults.DEFAULT_APP_ID
+internal fun discordAppId(): String = DiscordDefaults.DEFAULT_APP_ID
 
-internal fun discordRedirectUri(): String =
-    if (discordAppId() == DiscordDefaults.DEFAULT_APP_ID) DiscordDefaults.DEFAULT_REDIRECT_URI
-    else DiscordDefaults.CUSTOM_REDIRECT_URI
+internal fun discordRedirectUri(): String = DiscordDefaults.DEFAULT_REDIRECT_URI
 
 @Serializable
 private data class PendingDiscordAuth(val session: DiscordAuthSession, val expiresAt: Long)

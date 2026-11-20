@@ -20,11 +20,9 @@ object DiscordDefaults {
 
     const val DISCORD_OAUTH_AUTHORIZE = "https://discord.com/oauth2/authorize"
     const val DISCORD_OAUTH_TOKEN = "https://discord.com/api/v10/oauth2/token"
-    /** Application whose OAuth client the sign-in uses (the same public one Metrolist ships). */
-    const val DEFAULT_APP_ID = "1447278780795064401"
-    const val DEFAULT_REDIRECT_URI = "metrolist-auth://discord/callback"
-
-    /** Used when the user supplies their own Discord application ID. */
+    /** Application whose OAuth client the sign-in uses. */
+    const val DEFAULT_APP_ID = "1573339712846831666"
+    const val DEFAULT_REDIRECT_URI = "twimusic-auth://discord/callback"
     const val CUSTOM_REDIRECT_URI = "twimusic-auth://discord/callback"
 
     const val DISCORD_SCOPES = "openid sdk.social_layer_presence"

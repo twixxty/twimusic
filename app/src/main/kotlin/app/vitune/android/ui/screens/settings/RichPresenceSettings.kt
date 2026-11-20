@@ -479,19 +479,6 @@ fun RichPresenceSettings() {
                         keyboardType = KeyboardType.Uri
                     )
                 }
-
-                TextSettingsEntry(
-                    title = stringResource(R.string.discord_custom_app_id),
-                    value = DiscordPreferences.customAppId,
-                    hint = stringResource(R.string.discord_custom_app_id_hint),
-                    onValue = {
-                        DiscordPreferences.customAppId = it.filter(Char::isDigit)
-                        DiscordRpcManager.logout()
-                    },
-                    isEnabled = enabled,
-                    keyboardType = KeyboardType.Number
-                )
-                SettingsDescription(text = stringResource(R.string.discord_custom_app_id_description))
             }
         }
     }
