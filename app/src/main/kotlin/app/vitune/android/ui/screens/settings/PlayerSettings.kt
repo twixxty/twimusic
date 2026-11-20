@@ -85,7 +85,7 @@ fun PlayerSettings() = with(PlayerPreferences) {
                 EnumValueSelectorSettingsEntry(
                     title = stringResource(R.string.canvas_style),
                     selectedValue = canvasStyle,
-                    onValueSelected = { canvasStyle = it },
+                    onValueSelect = { canvasStyle = it },
                     valueText = { it.displayName() }
                 )
             }

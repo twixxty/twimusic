@@ -240,7 +240,7 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 EnumValueSelectorSettingsEntry(
                     title = stringResource(R.string.canvas_style),
                     selectedValue = PlayerPreferences.canvasStyle,
-                    onValueSelected = { PlayerPreferences.canvasStyle = it },
+                    onValueSelect = { PlayerPreferences.canvasStyle = it },
                     valueText = { it.displayName() }
                 )
             }
