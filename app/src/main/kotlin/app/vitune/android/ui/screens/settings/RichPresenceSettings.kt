@@ -340,7 +340,7 @@ fun RichPresenceSettings() {
                         DiscordRpcManager.clearLastError()
                         val session = DiscordRpcManager.auth.createSession()
                         DiscordLoginFlow.start(session)
-                        uriHandler.openUri(session.authorizeUrl)
+                        launchCustomTab(context, session.authorizeUrl)
                     }.onFailure {
                         Toast.makeText(
                             context,
@@ -353,8 +353,12 @@ fun RichPresenceSettings() {
 
             error?.let { info ->
                 val resId = context.resources.getIdentifier(info.type, "string", context.packageName)
+                val baseMsg = if (resId != 0) context.getString(resId) else info.type
+                val displayMsg = if (info.message.isNotBlank() && info.message != info.type) {
+                    "$baseMsg\n${info.message}"
+                } else baseMsg
                 SettingsDescription(
-                    text = if (resId != 0) context.getString(resId) else info.message,
+                    text = displayMsg,
                     important = true
                 )
             }
@@ -481,5 +485,31 @@ fun RichPresenceSettings() {
                 }
             }
         }
+    }
+}
+
+private fun launchCustomTab(context: android.content.Context, url: String) {
+    val uri = android.net.Uri.parse(url)
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
+            val extras = android.os.Bundle()
+            extras.putBinder("android.support.customtabs.extra.SESSION", null)
+            putExtras(extras)
+            putExtra("android.support.customtabs.extra.TITLE_VISIBILITY", 1)
+            putExtra("android.support.customtabs.extra.ENABLE_URLBAR_HIDING", true)
+            putExtra("androidx.browser.customtabs.extra.SHARE_STATE", 2)
+            putExtra(android.provider.Browser.EXTRA_APPLICATION_ID, context.packageName)
+            if (context !is android.app.Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        context.startActivity(intent)
+    } catch (_: Exception) {
+        val fallbackIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+            if (context !is android.app.Activity) {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+        }
+        context.startActivity(fallbackIntent)
     }
 }

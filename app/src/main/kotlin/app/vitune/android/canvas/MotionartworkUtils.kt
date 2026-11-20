@@ -1,5 +1,6 @@
 package app.vitune.android.canvas
 
+import app.vitune.android.lyrics.LyricsUtils
 import java.text.Normalizer
 import java.util.Locale
 
@@ -36,15 +37,22 @@ fun validateMotionartworkMatch(
         val requestedList = splitAndNormalizeArtists(requestedArtist)
         val resultList = splitAndNormalizeArtists(artist)
         requestedList.isNotEmpty() && resultList.isNotEmpty() &&
-            requestedList.all { req -> resultList.any { res -> res == req } }
+            requestedList.any { req -> resultList.any { res -> res == req || res.contains(req) || req.contains(res) } }
     } else true
 
-    val songMatches = if (name != null && requestedTitle.isNotBlank()) {
-        name.normalizeForComparison() == requestedTitle.normalizeForComparison()
+    val cleanReqTitle = LyricsUtils.cleanTitleForSearch(requestedTitle).normalizeForComparison()
+    val cleanResName = name?.let { LyricsUtils.cleanTitleForSearch(it).normalizeForComparison() }
+
+    val songMatches = if (cleanResName != null && cleanReqTitle.isNotBlank()) {
+        cleanResName == cleanReqTitle ||
+        cleanResName.contains(cleanReqTitle) ||
+        cleanReqTitle.contains(cleanResName)
     } else true
 
     val albumMatches = if (albumName != null && requestedAlbum.isNotBlank()) {
-        albumName.normalizeForComparison() == requestedAlbum.normalizeForComparison()
+        val normResAlbum = albumName.normalizeForComparison()
+        val normReqAlbum = requestedAlbum.normalizeForComparison()
+        normResAlbum == normReqAlbum || normResAlbum.contains(normReqAlbum) || normReqAlbum.contains(normResAlbum)
     } else false
 
     return (songMatches || albumMatches) && artistMatches

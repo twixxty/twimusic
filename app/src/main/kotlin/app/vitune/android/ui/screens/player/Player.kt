@@ -30,7 +30,14 @@ import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.ui.components.LiquidBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
+import app.vitune.android.canvas.Motionartwork
+import app.vitune.android.canvas.MotionartworkPlaybackCache
+import app.vitune.android.canvas.AppleMusicMotionartworkProvider
+import app.vitune.android.canvas.ViviMusicMotionartworkProvider
+import app.vitune.android.canvas.TidalMotionartworkProvider
 import app.vitune.android.canvas.SpotifyCanvasProvider
+import app.vitune.android.canvas.validateMotionartworkMatch
+import app.vitune.android.lyrics.LyricsUtils
 import app.vitune.android.spotify.Spotify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -172,6 +179,7 @@ fun Player(
     }
     var shouldBePlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
 
+    var canvasArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
     var spotifyCanvasUrl by remember(mediaItem?.mediaId) { mutableStateOf<String?>(null) }
 
     LaunchedEffect(
@@ -181,20 +189,58 @@ fun Player(
     ) {
         val item = mediaItem ?: return@LaunchedEffect
         if (!PlayerPreferences.enableCanvas) {
+            canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
         }
         if (PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()) {
+            canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
         }
 
         val currentId = item.mediaId
-        val title = item.mediaMetadata.title?.toString() ?: ""
-        val artist = item.mediaMetadata.artist?.toString() ?: ""
+        val rawTitle = item.mediaMetadata.title?.toString() ?: ""
+        val title = LyricsUtils.cleanTitleForSearch(rawTitle).ifBlank { rawTitle }
+        val rawArtist = item.mediaMetadata.artist?.toString() ?: ""
+        val artist = rawArtist.replace(Regex("(?i)\\s*-\\s*topic$"), "").trim()
+        val album = item.mediaMetadata.albumTitle?.toString() ?: ""
+
+        MotionartworkPlaybackCache.get(currentId)?.let { cached ->
+            canvasArtwork = cached
+            return@LaunchedEffect
+        }
 
         withContext(Dispatchers.IO) {
-            if (spotifyCanvasUrl == null) {
+            val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
+
+            val appleArtwork = runCatching {
+                (AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
+                    ?: if (storefront != "us") AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, "us") else null)
+                    ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+            }.getOrNull()
+
+            val tidalArtwork = if (appleArtwork == null) {
+                runCatching {
+                    TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+                        ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                }.getOrNull()
+            } else null
+
+            val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
+                runCatching {
+                    ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
+                        ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                }.getOrNull()
+            } else null
+
+            val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
+            if (resolvedArtwork != null) {
+                MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
+                withContext(Dispatchers.Main) {
+                    canvasArtwork = resolvedArtwork
+                }
+            } else {
                 val token = Spotify.getValidToken()
                 if (token != null) {
                     val spTrackId = Spotify.searchTrackRest("$title $artist")
@@ -499,14 +545,20 @@ fun Player(
         val allowCanvas = PlayerPreferences.enableCanvas
         val isMobileBlocked = PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()
 
-        val canvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else spotifyCanvasUrl
+        val artworkSquareVideo = canvasArtwork?.animated ?: canvasArtwork?.videoUrl
+        val artworkTallVideo = canvasArtwork?.animatedTall
+        val hasSquareArtwork = !artworkSquareVideo.isNullOrBlank()
+
+        val canvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else {
+            artworkSquareVideo ?: artworkTallVideo ?: spotifyCanvasUrl
+        }
 
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
-        var isSquareCanvas by remember(canvasVideoUrl) {
-            mutableStateOf(false)
+        var isSquareCanvas by remember(canvasVideoUrl, hasSquareArtwork) {
+            mutableStateOf(hasSquareArtwork)
         }
 
         val containerModifier = Modifier
@@ -545,6 +597,7 @@ fun Player(
                         },
                         onError = {
                             isVideoReady = false
+                            canvasArtwork = null
                             spotifyCanvasUrl = null
                         },
                         modifier = Modifier
