@@ -602,4 +602,7 @@
     <string name="lt_request_song">Request a Song</string>
     <string name="lt_requested_songs">Requested Songs</string>
     <string name="lt_no_requests">No pending requests</string>
+    <string name="canvas_style">Canvas display style</string>
+    <string name="canvas_style_wide">Wide / Fullscreen</string>
+    <string name="canvas_style_cover">Cover Art</string>
 </resources>

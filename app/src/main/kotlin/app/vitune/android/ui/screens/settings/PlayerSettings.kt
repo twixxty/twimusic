@@ -81,6 +81,15 @@ fun PlayerSettings() = with(PlayerPreferences) {
                 onCheckedChange = { enableCanvas = it }
             )
 
+            AnimatedVisibility(visible = enableCanvas) {
+                EnumValueSelectorSettingsEntry(
+                    title = stringResource(R.string.canvas_style),
+                    selectedValue = canvasStyle,
+                    onValueSelected = { canvasStyle = it },
+                    valueText = { it.displayName() }
+                )
+            }
+
         }
         SettingsGroup(title = stringResource(R.string.audio)) {
             AnimatedVisibility(visible = changed) {

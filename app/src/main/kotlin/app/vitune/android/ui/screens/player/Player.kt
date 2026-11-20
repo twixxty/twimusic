@@ -544,21 +544,27 @@ fun Player(
 
         val allowCanvas = PlayerPreferences.enableCanvas
         val isMobileBlocked = PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()
+        val preferCover = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Cover
 
         val artworkSquareVideo = canvasArtwork?.animated ?: canvasArtwork?.videoUrl
         val artworkTallVideo = canvasArtwork?.animatedTall
-        val hasSquareArtwork = !artworkSquareVideo.isNullOrBlank()
 
         val canvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else {
-            artworkSquareVideo ?: artworkTallVideo ?: spotifyCanvasUrl
+            if (preferCover) {
+                artworkSquareVideo ?: artworkTallVideo ?: spotifyCanvasUrl
+            } else {
+                artworkTallVideo ?: artworkSquareVideo ?: spotifyCanvasUrl
+            }
         }
 
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
-        var isSquareCanvas by remember(canvasVideoUrl, hasSquareArtwork) {
-            mutableStateOf(hasSquareArtwork)
+        val shouldShowInCover = preferCover || (!artworkSquareVideo.isNullOrBlank() && artworkTallVideo.isNullOrBlank() && canvasVideoUrl == artworkSquareVideo)
+
+        var isSquareCanvas by remember(canvasVideoUrl, shouldShowInCover) {
+            mutableStateOf(shouldShowInCover)
         }
 
         val containerModifier = Modifier

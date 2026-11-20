@@ -70,6 +70,12 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var enableCanvas by boolean(false)
     var canvasLoadOnlyWifi by boolean(false)
 
+    enum class CanvasStyle(val displayName: @Composable () -> String) {
+        Cover(displayName = { stringResource(R.string.canvas_style_cover) }),
+        Wide(displayName = { stringResource(R.string.canvas_style_wide) })
+    }
+    var canvasStyle by enum(CanvasStyle.Cover)
+
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)
 

@@ -236,6 +236,15 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 onCheckedChange = { PlayerPreferences.enableCanvas = it }
             )
 
+            AnimatedVisibility(visible = PlayerPreferences.enableCanvas) {
+                EnumValueSelectorSettingsEntry(
+                    title = stringResource(R.string.canvas_style),
+                    selectedValue = PlayerPreferences.canvasStyle,
+                    onValueSelected = { PlayerPreferences.canvasStyle = it },
+                    valueText = { it.displayName() }
+                )
+            }
+
             SwitchSettingsEntry(
                 title = stringResource(R.string.pip),
                 text = stringResource(R.string.pip_description),

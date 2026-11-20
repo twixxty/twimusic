@@ -20,11 +20,13 @@ object DiscordDefaults {
 
     const val DISCORD_OAUTH_AUTHORIZE = "https://discord.com/oauth2/authorize"
     const val DISCORD_OAUTH_TOKEN = "https://discord.com/api/v10/oauth2/token"
-    /** Application ID used for Discord OAuth sign-in and Rich Presence display. */
+    /** Application ID used for Discord Rich Presence display (user's bot). */
     const val DEFAULT_APP_ID = "1573339712846831666"
-    const val OAUTH_CLIENT_ID = "1573339712846831666"
-    const val DEFAULT_REDIRECT_URI = "twimusic-auth://discord/callback"
-    const val OAUTH_REDIRECT_URI = "twimusic-auth://discord/callback"
+
+    /** Public client used for Discord OAuth sign-in (has whitelisted sdk.social_layer_presence scope). */
+    const val OAUTH_CLIENT_ID = "1447278780795064401"
+    const val DEFAULT_REDIRECT_URI = "metrolist-auth://discord/callback"
+    const val OAUTH_REDIRECT_URI = "metrolist-auth://discord/callback"
     const val CUSTOM_REDIRECT_URI = "twimusic-auth://discord/callback"
 
     const val DISCORD_SCOPES = "openid sdk.social_layer_presence"

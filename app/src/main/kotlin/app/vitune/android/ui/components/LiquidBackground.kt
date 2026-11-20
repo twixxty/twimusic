@@ -56,8 +56,6 @@ private class AndroidLiquidBlurCache(
     private val canvasA: AndroidCanvas = AndroidCanvas(bitmapA)
     private val canvasB: AndroidCanvas = AndroidCanvas(bitmapB)
 
-    private val pixels = IntArray(width * height)
-
     private val workMatrix = Matrix()
 
     private val layerPaint =
@@ -66,8 +64,6 @@ private class AndroidLiquidBlurCache(
         AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG or AndroidPaint.DITHER_FLAG).apply {
             style = AndroidPaint.Style.FILL
         }
-    private val colorMatrix = ColorMatrix()
-    private var cachedSaturation: Float = -1f
 
     private val w = width.toFloat()
     private val h = height.toFloat()
@@ -76,11 +72,31 @@ private class AndroidLiquidBlurCache(
     private val offsetX = -(maxDim - w) / 2f
     private val offsetY = -(maxDim - h) / 2f
 
-    private var lastResult: ImageBitmap? = null
-    private var lastActive: Bitmap? = null
-    private var lastPrevious: Bitmap? = null
-    private var lastAlpha: Float = -1f
-    private var lastRotation: Long = Long.MIN_VALUE
+    private var cachedActiveSource: Bitmap? = null
+    private var cachedActiveBlurred: Bitmap? = null
+
+    private var cachedPrevSource: Bitmap? = null
+    private var cachedPrevBlurred: Bitmap? = null
+
+    private fun getOrCreateBlurred(src: Bitmap?, saturation: Float): Bitmap? {
+        if (src == null || src.isRecycled || src.width <= 0 || src.height <= 0) return null
+        val targetDim = 96
+        val small = Bitmap.createScaledBitmap(src, targetDim, targetDim, true)
+        val saturated = Bitmap.createBitmap(targetDim, targetDim, Bitmap.Config.ARGB_8888)
+        val c = AndroidCanvas(saturated)
+        val p = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG).apply {
+            val cm = ColorMatrix().apply { setSaturation(saturation) }
+            colorFilter = ColorMatrixColorFilter(cm)
+        }
+        c.drawBitmap(small, 0f, 0f, p)
+        if (small !== src) small.recycle()
+
+        val px = IntArray(targetDim * targetDim)
+        saturated.getPixels(px, 0, targetDim, 0, 0, targetDim, targetDim)
+        BitmapBlur.blurArgb(px, targetDim, targetDim, blurRadius)
+        saturated.setPixels(px, 0, targetDim, 0, 0, targetDim, targetDim)
+        return saturated
+    }
 
     fun render(
         activeBitmap: Bitmap?,
@@ -89,20 +105,14 @@ private class AndroidLiquidBlurCache(
         rotationTimeMs: Long,
         saturation: Float,
     ): ImageBitmap {
-        val cached = lastResult
-        if (cached != null &&
-            activeBitmap === lastActive &&
-            previousBitmap === lastPrevious &&
-            crossfadeAlpha == lastAlpha &&
-            rotationTimeMs == lastRotation &&
-            saturation == cachedSaturation
-        ) {
-            return cached
+        if (activeBitmap !== cachedActiveSource) {
+            cachedActiveSource = activeBitmap
+            cachedActiveBlurred = getOrCreateBlurred(activeBitmap, saturation)
         }
-        lastActive = activeBitmap
-        lastPrevious = previousBitmap
-        lastAlpha = crossfadeAlpha
-        lastRotation = rotationTimeMs
+        if (previousBitmap !== cachedPrevSource) {
+            cachedPrevSource = previousBitmap
+            cachedPrevBlurred = getOrCreateBlurred(previousBitmap, saturation)
+        }
 
         useA = !useA
         val targetBmp = if (useA) bitmapA else bitmapB
@@ -110,33 +120,23 @@ private class AndroidLiquidBlurCache(
 
         targetBmp.eraseColor(0)
 
-        if (cachedSaturation != saturation) {
-            cachedSaturation = saturation
-            colorMatrix.setSaturation(saturation)
-            layerPaint.colorFilter = ColorMatrixColorFilter(colorMatrix)
-        }
-
         val curRotM = -360f * (rotationTimeMs % 130_000L) / 130_000f
         val curRotN = 360f * (rotationTimeMs % 90_000L) / 90_000f
         val curRotO = 360f * (rotationTimeMs % 70_000L) / 70_000f
 
-        if (previousBitmap != null && crossfadeAlpha < 1f) {
-            drawLayers(targetCanvas, previousBitmap, 1f - crossfadeAlpha, curRotM, curRotN, curRotO)
+        if (cachedPrevBlurred != null && crossfadeAlpha < 1f) {
+            drawLayers(targetCanvas, cachedPrevBlurred, 1f - crossfadeAlpha, curRotM, curRotN, curRotO)
         }
-        drawLayers(targetCanvas, activeBitmap, crossfadeAlpha, curRotM, curRotN, curRotO)
+        if (cachedActiveBlurred != null) {
+            drawLayers(targetCanvas, cachedActiveBlurred, crossfadeAlpha, curRotM, curRotN, curRotO)
+        }
 
         scrimPaint.color = SCRIM_COLOR_1
         targetCanvas.drawPaint(scrimPaint)
         scrimPaint.color = SCRIM_COLOR_2
         targetCanvas.drawPaint(scrimPaint)
 
-        targetBmp.getPixels(pixels, 0, width, 0, 0, width, height)
-        BitmapBlur.blurArgb(pixels, width, height, blurRadius)
-        targetBmp.setPixels(pixels, 0, width, 0, 0, width, height)
-
-        val result = if (useA) imageA else imageB
-        lastResult = result
-        return result
+        return if (useA) imageA else imageB
     }
 
     private fun drawLayers(
