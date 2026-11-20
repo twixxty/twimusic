@@ -32,6 +32,7 @@ import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
 import app.vitune.android.canvas.Motionartwork
 import app.vitune.android.canvas.MotionartworkPlaybackCache
+import app.vitune.android.canvas.AppleMusicMotionartworkProvider
 import app.vitune.android.canvas.ViviMusicMotionartworkProvider
 import app.vitune.android.canvas.TidalMotionartworkProvider
 import app.vitune.android.canvas.SpotifyCanvasProvider
@@ -207,20 +208,29 @@ fun Player(
         }
 
         withContext(Dispatchers.IO) {
+            val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
+
             if (canvasArtwork == null) {
-                val tidalArtwork = runCatching {
-                    TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+                val appleArtwork = runCatching {
+                    AppleMusicMotionartworkProvider.getBySongArtist(title, artist, album, storefront)
                         ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
                 }.getOrNull()
 
-                val viviArtwork = if (tidalArtwork == null) {
+                val tidalArtwork = if (appleArtwork == null) {
+                    runCatching {
+                        TidalMotionartworkProvider.getBySongArtist(title, artist, album)
+                            ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
+                    }.getOrNull()
+                } else null
+
+                val viviArtwork = if (appleArtwork == null && tidalArtwork == null) {
                     runCatching {
                         ViviMusicMotionartworkProvider.getBySongArtist(title, artist, album)
                             ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
                     }.getOrNull()
                 } else null
 
-                val resolvedArtwork = tidalArtwork ?: viviArtwork
+                val resolvedArtwork = appleArtwork ?: tidalArtwork ?: viviArtwork
                 if (resolvedArtwork != null) {
                     MotionartworkPlaybackCache.put(currentId, resolvedArtwork)
                     withContext(Dispatchers.Main) {

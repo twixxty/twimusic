@@ -54,7 +54,8 @@ sealed class DiscordAuthException(
 class DiscordAuth(
     private val httpClient: HttpClient,
 ) {
-    private val redirectUri: String = discordRedirectUri()
+    private val redirectUri: String = DiscordDefaults.OAUTH_REDIRECT_URI
+    private val clientId: String = DiscordDefaults.OAUTH_CLIENT_ID
 
     fun createSession(): DiscordAuthSession {
         val pkce = generatePkcePair()
@@ -63,7 +64,7 @@ class DiscordAuth(
         val authorizeUrl =
             URLBuilder(DISCORD_OAUTH_AUTHORIZE)
                 .apply {
-                    parameters.append("client_id", discordAppId())
+                    parameters.append("client_id", clientId)
                     parameters.append("response_type", "code")
                     parameters.append("redirect_uri", redirectUri)
                     parameters.append("scope", DISCORD_SCOPES)
@@ -120,7 +121,7 @@ class DiscordAuth(
                     url = DISCORD_OAUTH_TOKEN,
                     formParameters =
                         parameters {
-                            append("client_id", discordAppId())
+                            append("client_id", clientId)
                             append("grant_type", grantType)
                             extraParams.forEach { (name, value) -> append(name, value) }
                         },

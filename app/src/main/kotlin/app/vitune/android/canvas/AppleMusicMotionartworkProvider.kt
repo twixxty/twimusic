@@ -58,9 +58,9 @@ object AppleMusicMotionartworkProvider {
     // Public read-only JWT used by the Apple Music web player for unauthenticated catalog reads.
     private const val APPLE_MUSIC_TOKEN =
         "eyJ0eXAiOiJKV1QiLCJhbGciOiJFUzI1NiIsImtpZCI6IldlYlBsYXlLaWQifQ" +
-        ".eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzgxMDMyODU1LCJleHAiOjE3ODQw" +
-        "NTY4NTUsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ" +
-        ".fiMFcJWkfSlxKP9NVA0UW9CbItD1Rge0SISuepz203XcpU762OqdCpU9M-YkmtKkjRmaIWtjsfGgqZPrlMonpA"
+        ".eyJpc3MiOiJBTVBXZWJQbGF5IiwiaWF0IjoxNzkzOTAwNzA4LCJleHAiOjE3OTk5" +
+        "NDg3MDgsInJvb3RfaHR0cHNfb3JpZ2luIjpbImFwcGxlLmNvbSJdfQ" +
+        ".7L-PYJHjO8PpFdhKS-OSkf_snyFvg5cq-JDERUs_N_UcUX9Vk0kf1WLatgDeEvhB_Arg1b5Tl-99G1v6hUwH0A"
 
     private var cachedToken: String? = null
     private var tokenExpiryMs: Long = 0L
@@ -97,7 +97,7 @@ object AppleMusicMotionartworkProvider {
                         val body = token.split(".")[1]
                         val decodedBytes = java.util.Base64.getUrlDecoder().decode(body)
                         val decoded = String(decodedBytes, Charsets.UTF_8)
-                        if (decoded.contains("iss") && decoded.contains("exp")) {
+                        if (decoded.contains("AMPWebPlay") && decoded.contains("\"exp\":")) {
                             val expIndex = decoded.indexOf("\"exp\":")
                             if (expIndex != -1) {
                                 val expValStr = decoded.substring(expIndex + 6).takeWhile { it.isDigit() }
