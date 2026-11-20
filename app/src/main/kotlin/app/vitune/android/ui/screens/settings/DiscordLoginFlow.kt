@@ -43,8 +43,10 @@ object DiscordLoginFlow {
         }
         if (data.getQueryParameter("state") != session.state) return true
         clear()
-        if (data.getQueryParameter("error") != null) {
-            DiscordRpcManager.setError("discord_error_denied")
+        val errorParam = data.getQueryParameter("error")
+        if (errorParam != null) {
+            val errorDesc = data.getQueryParameter("error_description") ?: errorParam
+            DiscordRpcManager.setError("discord_error_denied", errorDesc)
             return true
         }
         val code = data.getQueryParameter("code")
