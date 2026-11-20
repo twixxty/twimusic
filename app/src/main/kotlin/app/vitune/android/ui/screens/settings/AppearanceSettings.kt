@@ -237,22 +237,6 @@ fun AppearanceSettings() = with(AppearancePreferences) {
             )
 
             SwitchSettingsEntry(
-                title = stringResource(R.string.enable_animated_covers),
-                text = stringResource(R.string.enable_animated_covers_description),
-                isChecked = PlayerPreferences.enableAnimatedCovers,
-                onCheckedChange = { PlayerPreferences.enableAnimatedCovers = it }
-            )
-
-            AnimatedVisibility(visible = PlayerPreferences.enableAnimatedCovers) {
-                EnumValueSelectorSettingsEntry(
-                    title = stringResource(R.string.animated_cover_resolution),
-                    selectedValue = PlayerPreferences.animatedCoverResolution,
-                    onValueSelect = { PlayerPreferences.animatedCoverResolution = it },
-                    valueText = { it.displayName() }
-                )
-            }
-
-            SwitchSettingsEntry(
                 title = stringResource(R.string.pip),
                 text = stringResource(R.string.pip_description),
                 isChecked = autoPip,

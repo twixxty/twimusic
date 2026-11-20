@@ -633,43 +633,10 @@ private fun WordLevelLyrics(
                             }
                         }
 
-                        val finalScaleX: Float
-                        val finalScaleY: Float
-                        val finalWaveOffset: Float
-                        val finalShouldGlow: Boolean
-
-                        when (animationStyle) {
-                            PlayerPreferences.LyricsAnimationStyle.Simple -> {
-                                finalScaleX = 1f
-                                finalScaleY = 1f
-                                finalWaveOffset = 0f
-                                finalShouldGlow = false
-                            }
-                            PlayerPreferences.LyricsAnimationStyle.Braccato -> {
-                                val bounce = if (wordItem != null && !isWordSung && sungFactor > 0f) {
-                                    0.09f * sin(sungFactor * PI.toFloat())
-                                } else 0f
-                                finalScaleX = 1f + bounce
-                                finalScaleY = 1f + bounce
-                                finalWaveOffset = 0f
-                                finalShouldGlow = false
-                            }
-                            PlayerPreferences.LyricsAnimationStyle.Expressive -> {
-                                val slide = if (wordItem != null && !isWordSung && sungFactor > 0f) {
-                                    -4f * sin(sungFactor * PI.toFloat())
-                                } else 0f
-                                finalScaleX = 1f
-                                finalScaleY = 1f
-                                finalWaveOffset = slide
-                                finalShouldGlow = shouldGlow || (wordItem != null && !isWordSung && sungFactor > 0.001f)
-                            }
-                            else -> {
-                                finalScaleX = metrolistScaleX
-                                finalScaleY = metrolistScaleY
-                                finalWaveOffset = rawWaveOffset
-                                finalShouldGlow = shouldGlow
-                            }
-                        }
+                        val finalScaleX = metrolistScaleX
+                        val finalScaleY = metrolistScaleY
+                        val finalWaveOffset = rawWaveOffset
+                        val finalShouldGlow = shouldGlow
 
                         withTransform({
                             translate(left = charBounds.left, top = charBounds.top + finalWaveOffset)

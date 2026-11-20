@@ -413,11 +413,12 @@
     <string name="lyrics_text_position">Lyrics text alignment</string>
     <string name="player_background_style">Player background style</string>
     <string name="background_blur">Blur (Artwork)</string>
+    <string name="background_liquid">Liquid</string>
     <string name="background_lava_lamp">Lava Lamp (Fluid animated)</string>
     <string name="background_gradient">Gradient</string>
     <string name="background_solid">Solid</string>
     <string name="lyrics_animation_style">Lyrics animation style</string>
-    <string name="lyrics_style_accompanist">Accompanist</string>
+    <string name="lyrics_style_accompanist">Apple Music</string>
     <string name="lyrics_style_apple_music">Apple Music</string>
     <string name="lyrics_style_metrolist">Apple Music (Metrolist)</string>
     <string name="lyrics_style_braccato">Braccato</string>

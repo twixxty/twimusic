@@ -69,9 +69,6 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         set(value) { hideLyricsFullscreenButton = !value }
     var enableCanvas by boolean(false)
     var canvasLoadOnlyWifi by boolean(false)
-    var enableAnimatedCovers by boolean(false)
-    var animatedCoverResolution by enum(AnimatedCoverResolution.MEDIUM_720)
-    var disableAnimatedArtworkOnMobileData by boolean(false)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)
@@ -153,16 +150,10 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class PlayerBackgroundStyle(val displayName: @Composable () -> String) {
         Blur(displayName = { stringResource(R.string.background_blur) }),
+        Liquid(displayName = { stringResource(R.string.background_liquid) }),
         LavaLamp(displayName = { stringResource(R.string.background_lava_lamp) }),
         Gradient(displayName = { stringResource(R.string.background_gradient) }),
         Solid(displayName = { stringResource(R.string.background_solid) })
-    }
-
-    enum class AnimatedCoverResolution(val displayName: @Composable () -> String) {
-        LOW_360(displayName = { "360p" }),
-        MEDIUM_720(displayName = { "720p" }),
-        HIGH_1080(displayName = { "1080p" }),
-        ORIGINAL(displayName = { "Original" })
     }
 
     enum class LyricsLocation(val displayName: @Composable () -> String) {
@@ -172,10 +163,6 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class LyricsAnimationStyle(val displayName: @Composable () -> String) {
         Accompanist(displayName = { stringResource(R.string.lyrics_style_accompanist) }),
-        Metrolist(displayName = { stringResource(R.string.lyrics_style_metrolist) }),
-        Braccato(displayName = { stringResource(R.string.lyrics_style_braccato) }),
-        Expressive(displayName = { stringResource(R.string.lyrics_style_expressive) }),
-        Simple(displayName = { stringResource(R.string.lyrics_style_simple) }),
         Classic(displayName = { stringResource(R.string.lyrics_style_classic) })
     }
 }

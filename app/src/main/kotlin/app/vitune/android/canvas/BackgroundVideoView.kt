@@ -39,6 +39,7 @@ fun BackgroundVideoView(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+    onVideoSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> },
     onVideoReady: (Boolean) -> Unit = {},
     onError: () -> Unit = {}
 ) {
@@ -50,7 +51,8 @@ fun BackgroundVideoView(
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
             parameters = buildUponParameters()
-                .setMaxVideoSize(1080, 1080)
+                .setMaxVideoSize(4096, 4096)
+                .setForceHighestSupportedBitrate(true)
                 .build()
         }
     }
@@ -58,12 +60,9 @@ fun BackgroundVideoView(
     val exoPlayer = remember {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .setDefaultRequestProperties(
-                mapOf(
-                    "Origin" to "https://music.apple.com",
-                    "Referer" to "https://music.apple.com/"
-                )
-            )
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(8000)
+            .setReadTimeoutMs(8000)
         val defaultDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(context)
             .setDataSourceFactory(defaultDataSourceFactory)
@@ -73,7 +72,7 @@ fun BackgroundVideoView(
             .setTrackSelector(trackSelector)
             .setLoadControl(
                 DefaultLoadControl.Builder()
-                    .setTargetBufferBytes(4 * 1024 * 1024)
+                    .setTargetBufferBytes(8 * 1024 * 1024)
                     .build()
             )
             .build().apply {
@@ -96,6 +95,7 @@ fun BackgroundVideoView(
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
                     aspectRatioFrameLayout.setAspectRatio(videoSize.width.toFloat() / videoSize.height)
+                    onVideoSizeChanged(videoSize.width, videoSize.height)
                 }
             }
             override fun onRenderedFirstFrame() {

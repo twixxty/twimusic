@@ -27,11 +27,11 @@ import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.ui.components.BlurredArtworkBackground
+import app.vitune.android.ui.components.LiquidBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
 import app.vitune.android.canvas.Motionartwork
 import app.vitune.android.canvas.MotionartworkPlaybackCache
-import app.vitune.android.canvas.AppleMusicMotionartworkProvider
 import app.vitune.android.canvas.ViviMusicMotionartworkProvider
 import app.vitune.android.canvas.TidalMotionartworkProvider
 import app.vitune.android.canvas.SpotifyCanvasProvider
@@ -183,18 +183,15 @@ fun Player(
     LaunchedEffect(
         mediaItem?.mediaId,
         PlayerPreferences.enableCanvas,
-        PlayerPreferences.enableAnimatedCovers,
-        PlayerPreferences.animatedCoverResolution,
-        PlayerPreferences.disableAnimatedArtworkOnMobileData,
         PlayerPreferences.canvasLoadOnlyWifi
     ) {
         val item = mediaItem ?: return@LaunchedEffect
-        if (!PlayerPreferences.enableCanvas && !PlayerPreferences.enableAnimatedCovers) {
+        if (!PlayerPreferences.enableCanvas) {
             canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
         }
-        if ((PlayerPreferences.disableAnimatedArtworkOnMobileData || PlayerPreferences.canvasLoadOnlyWifi) && context.isMobileData()) {
+        if (PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()) {
             canvasArtwork = null
             spotifyCanvasUrl = null
             return@LaunchedEffect
@@ -205,16 +202,12 @@ fun Player(
         val artist = item.mediaMetadata.artist?.toString() ?: ""
         val album = item.mediaMetadata.albumTitle?.toString() ?: ""
 
-        if (PlayerPreferences.enableAnimatedCovers) {
-            MotionartworkPlaybackCache.get(currentId)?.let { cached ->
-                canvasArtwork = cached
-            }
+        MotionartworkPlaybackCache.get(currentId)?.let { cached ->
+            canvasArtwork = cached
         }
 
         withContext(Dispatchers.IO) {
-            val storefront = Locale.getDefault().country.lowercase(Locale.ROOT).takeIf { it.length == 2 } ?: "us"
-
-            if (PlayerPreferences.enableAnimatedCovers && canvasArtwork == null) {
+            if (canvasArtwork == null) {
                 val tidalArtwork = runCatching {
                     TidalMotionartworkProvider.getBySongArtist(title, artist, album)
                         ?.takeIf { !it.preferredAnimationUrl.isNullOrBlank() && validateMotionartworkMatch(it, title, artist, album) }
@@ -236,7 +229,7 @@ fun Player(
                 }
             }
 
-            if (PlayerPreferences.enableCanvas && spotifyCanvasUrl == null) {
+            if (spotifyCanvasUrl == null) {
                 val token = Spotify.getValidToken()
                 if (token != null) {
                     val spTrackId = Spotify.searchTrackRest("$title $artist")
@@ -538,18 +531,22 @@ fun Player(
             expandedBound = layoutState.expandedBound
         )
 
-        val allowMotion = PlayerPreferences.enableAnimatedCovers
         val allowCanvas = PlayerPreferences.enableCanvas
-        val isMobileBlocked = (PlayerPreferences.disableAnimatedArtworkOnMobileData || PlayerPreferences.canvasLoadOnlyWifi) && context.isMobileData()
+        val isMobileBlocked = PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()
 
-        val canvasVideoUrl = if (isMobileBlocked) null else {
-            (if (allowMotion) canvasArtwork?.preferredAnimationUrl else null)
-                ?: (if (allowCanvas) spotifyCanvasUrl else null)
+        val canvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else {
+            (canvasArtwork?.preferredAnimationUrl ?: spotifyCanvasUrl)
         }
 
         val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
+
+        var isSquareCanvas by remember(canvasVideoUrl, canvasArtwork) {
+            mutableStateOf(
+                canvasArtwork != null && (canvasArtwork?.animated != null || canvasArtwork?.videoUrl != null) && canvasArtwork?.animatedTall == null
+            )
+        }
 
         val containerModifier = Modifier
             .padding(
@@ -580,6 +577,11 @@ fun Player(
                         videoUrl = videoUrl,
                         isPlaying = isPlayingState && !isShowingLyrics,
                         onVideoReady = { isVideoReady = it },
+                        onVideoSizeChanged = { width, height ->
+                            if (width > 0 && height > 0) {
+                                isSquareCanvas = (width.toFloat() / height.toFloat() in 0.82f..1.22f)
+                            }
+                        },
                         onError = {
                             isVideoReady = false
                             canvasArtwork = null
@@ -630,6 +632,8 @@ fun Player(
                     onOpenDialog = { isShowingLyricsDialog = true },
                     likedAt = likedAt,
                     setLikedAt = { likedAt = it },
+                    squareCanvasUrl = if (isCanvasActive && isSquareCanvas) canvasVideoUrl else null,
+                    isPlaying = isPlayingState && !isShowingLyrics,
                     modifier = Modifier
                         .nestedScroll(layoutState.preUpPostDownNestedScrollConnection)
                         .pinchToToggle(
@@ -707,6 +711,15 @@ fun Player(
             )
 
             when (playerBackgroundStyle) {
+                PlayerPreferences.PlayerBackgroundStyle.Liquid -> {
+                    LiquidBackground(
+                        bitmap = sampleBitmap,
+                        isPlaying = isPlayingState,
+                        overlayAlpha = { darkOverlayAlpha },
+                        fallbackColor = colorPalette.background0,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
                 PlayerPreferences.PlayerBackgroundStyle.Blur -> {
                     BlurredArtworkBackground(
                         bitmap = sampleBitmap,
@@ -744,7 +757,7 @@ fun Player(
                 }
             }
 
-            if (!isLandscape && isCanvasActive) {
+            if (!isLandscape && isCanvasActive && !isSquareCanvas) {
                 AnimatedVisibility(
                     visible = !isShowingLyrics,
                     enter = fadeIn(tween(350, easing = FastOutSlowInEasing)),
@@ -818,7 +831,7 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                            } else if (isCanvasActive && isVideoReady) {
+                            } else if (isCanvasActive && !isSquareCanvas && isVideoReady) {
                                 canvasContent(Modifier.fillMaxSize())
                             } else {
                                 thumbnailContent(Modifier.size(coverArtTargetSize))
@@ -883,7 +896,7 @@ fun Player(
                         ) { showLyrics ->
                             if (showLyrics) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                            } else if (isCanvasActive && isVideoReady) {
+                            } else if (isCanvasActive && !isSquareCanvas && isVideoReady) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()

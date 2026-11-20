@@ -81,28 +81,6 @@ fun PlayerSettings() = with(PlayerPreferences) {
                 onCheckedChange = { enableCanvas = it }
             )
 
-            SwitchSettingsEntry(
-                title = stringResource(R.string.enable_animated_covers),
-                text = stringResource(R.string.enable_animated_covers_description),
-                isChecked = enableAnimatedCovers,
-                onCheckedChange = { enableAnimatedCovers = it }
-            )
-
-            AnimatedVisibility(visible = enableAnimatedCovers) {
-                EnumValueSelectorSettingsEntry(
-                    title = stringResource(R.string.animated_cover_resolution),
-                    selectedValue = animatedCoverResolution,
-                    onValueSelect = { animatedCoverResolution = it },
-                    valueText = { it.displayName() }
-                )
-            }
-
-            SwitchSettingsEntry(
-                title = stringResource(R.string.disable_animated_artwork_on_mobile_data),
-                text = stringResource(R.string.disable_animated_artwork_on_mobile_data_desc),
-                isChecked = disableAnimatedArtworkOnMobileData,
-                onCheckedChange = { disableAnimatedArtworkOnMobileData = it }
-            )
         }
         SettingsGroup(title = stringResource(R.string.audio)) {
             AnimatedVisibility(visible = changed) {

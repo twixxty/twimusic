@@ -227,6 +227,7 @@ object TidalMotionartworkProvider {
                             name = resultTitle ?: songValidation ?: albumValidation ?: "",
                             artist = combinedArtistStr.ifBlank { artistValidation ?: "" },
                             videoUrl = videoUrl,
+                            animated = videoUrl,
                             albumName = albumTitle
                         )
                     }

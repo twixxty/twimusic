@@ -763,7 +763,7 @@ fun Lyrics(
                                 Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
                             }
                         }
-                    } else if (PlayerPreferences.lyricsAnimationStyle == PlayerPreferences.LyricsAnimationStyle.Accompanist) {
+                    } else {
                         val syncedLyrics = remember(parsedEntries) {
                             parsedEntries.toSyncedLyrics()
                         }
@@ -806,55 +806,6 @@ fun Lyrics(
                                     if (PlayerPreferences.lyricsBouncyScroll) LyricsScrollChain() else null
                                 },
                             )
-                        }
-                    } else {
-                        val headerFraction = if (PlayerPreferences.lyricsLocation == PlayerPreferences.LyricsLocation.Center) 0.45f else 0.16f
-                        LazyColumn(
-                            state = lazyListState,
-                            userScrollEnabled = true,
-                            horizontalAlignment = when (PlayerPreferences.lyricsTextPosition) {
-                                PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start
-                                PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally
-                                PlayerPreferences.LyricsTextPosition.Right -> Alignment.End
-                            },
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                            modifier = Modifier
-                                .verticalFadingEdge()
-                                .nestedScroll(nestedScrollConnection)
-                                .fillMaxSize()
-                        ) {
-                            item(key = "header") {
-                                Spacer(modifier = Modifier.height(containerMaxHeight * headerFraction))
-                            }
-                            itemsIndexed(
-                                items = parsedEntries,
-                                key = { index, entry -> "${entry.time}_$index" }
-                            ) { index, entry ->
-                                val isActive = index == activeIndex
-                                MetrolistLyricsLine(
-                                    index = index,
-                                    item = entry,
-                                    isSynced = showSynchronizedLyrics,
-                                    isActiveLine = isActive,
-                                    currentPositionState = currentPositionMs,
-                                    player = binder?.player,
-                                    expressiveAccent = colorPalette.accent,
-                                    displayedCurrentLineIndex = activeIndex,
-                                    isAutoScrollEnabled = isAutoScrollEnabled,
-                                    animationStyle = PlayerPreferences.lyricsAnimationStyle,
-                                    onClick = {
-                                        binder?.player?.seekTo(entry.time + (lyrics?.startTime ?: 0L))
-                                        isAutoScrollEnabled = true
-                                        lastPreviewTime = 0L
-                                        coroutineScope.launch {
-                                            performSmoothPageScroll(index, duration = 800)
-                                        }
-                                    }
-                                )
-                            }
-                            item(key = "footer") {
-                                Spacer(modifier = Modifier.height(containerMaxHeight * 0.5f))
-                            }
                         }
                     }
 

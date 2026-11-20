@@ -1,6 +1,8 @@
 package app.vitune.android.ui.screens.player
 
 import androidx.compose.animation.AnimatedContent
+import androidx.media3.ui.AspectRatioFrameLayout
+import app.vitune.android.canvas.BackgroundVideoView
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Companion.Left
 import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection.Companion.Right
 import androidx.compose.animation.ContentTransform
@@ -86,7 +88,9 @@ fun Thumbnail(
     setShouldShowSynchronizedLyrics: (Boolean) -> Unit = {
         PlayerPreferences.isShowingSynchronizedLyrics = it
     },
-    showLyricsControls: Boolean = true
+    showLyricsControls: Boolean = true,
+    squareCanvasUrl: String? = null,
+    isPlaying: Boolean = true
 ) {
     val binder = LocalPlayerServiceBinder.current
     val [colorPalette, _, _, thumbnailShape] = LocalAppearance.current
@@ -171,36 +175,52 @@ fun Thumbnail(
                     )
             ) {
                 androidx.compose.animation.AnimatedVisibility(
-                visible = !isShowingStatsForNerds && error == null,
-                enter = fadeIn(tween(300)),
-                exit = fadeOut(tween(300))
-            ) {
-                AsyncImage(
-                    model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
-                    placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
-                    error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
-                    contentDescription = null,
-                    contentScale = contentScale,
-                    modifier = Modifier
-                        .pointerInput(Unit) {
-                            detectTapGestures(
-                                onTap = { onShowLyrics(true) },
-                                onLongPress = { onShowStatsForNerds(true) },
-                                onDoubleTap = {
-                                    if (likedAt == null) setLikedAt(System.currentTimeMillis())
+                    visible = !isShowingStatsForNerds && error == null,
+                    enter = fadeIn(tween(300)),
+                    exit = fadeOut(tween(300))
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        AsyncImage(
+                            model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
+                            placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
+                            error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
+                            contentDescription = null,
+                            contentScale = contentScale,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(colorPalette.background0)
+                        )
 
-                                    coroutineScope.launch {
-                                        val spec = tween<Float>(durationMillis = 500)
-                                        transitionState.animateTo(true, spec)
-                                        transitionState.animateTo(false, spec)
-                                    }
-                                }
+                        if (!squareCanvasUrl.isNullOrBlank()) {
+                            BackgroundVideoView(
+                                videoUrl = squareCanvasUrl,
+                                isPlaying = isPlaying,
+                                resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+                                modifier = Modifier.fillMaxSize()
                             )
                         }
-                        .fillMaxSize()
-                        .background(colorPalette.background0)
-                )
-            }
+
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(
+                                        onTap = { onShowLyrics(true) },
+                                        onLongPress = { onShowStatsForNerds(true) },
+                                        onDoubleTap = {
+                                            if (likedAt == null) setLikedAt(System.currentTimeMillis())
+
+                                            coroutineScope.launch {
+                                                val spec = tween<Float>(durationMillis = 500)
+                                                transitionState.animateTo(true, spec)
+                                                transitionState.animateTo(false, spec)
+                                            }
+                                        }
+                                    )
+                                }
+                        )
+                    }
+                }
 
             StatsForNerds(
                 mediaId = currentWindow.mediaItem.mediaId,
