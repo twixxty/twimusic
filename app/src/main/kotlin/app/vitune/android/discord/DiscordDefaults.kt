@@ -28,5 +28,5 @@ object DiscordDefaults {
     const val OAUTH_REDIRECT_URI = "twimusic-auth://discord/callback"
     const val CUSTOM_REDIRECT_URI = "twimusic-auth://discord/callback"
 
-    const val DISCORD_SCOPES = "identify"
+    const val DISCORD_SCOPES = "openid sdk.social_layer_presence"
 }

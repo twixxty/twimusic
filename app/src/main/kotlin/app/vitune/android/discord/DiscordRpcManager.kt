@@ -512,8 +512,16 @@ object DiscordRpcManager {
                     } catch (e: DiscordAuthException) {
                         Logger.w(TAG, "Token refresh failed", e)
                         _connectionStatus.value = Status.Disconnected
+                        val isPermanentAuthFailure = e is DiscordAuthException.InvalidGrant ||
+                            e.message?.contains("invalid_client") == true ||
+                            e.message?.contains("401") == true
+                        if (isPermanentAuthFailure) {
+                            logout()
+                        }
                         setError("discord_error_token_refresh_failed", e.message)
-                        if (e is DiscordAuthException.NetworkFailure) scheduleRefreshRetry(token, rejectedToken)
+                        if (!isPermanentAuthFailure && e is DiscordAuthException.NetworkFailure) {
+                            scheduleRefreshRetry(token, rejectedToken)
+                        }
                         return@withLock
                     }
                 }
