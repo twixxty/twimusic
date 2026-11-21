@@ -94,7 +94,7 @@ object DiscordTokenStore {
         DiscordPreferences.accessToken = accessToken
         DiscordPreferences.refreshToken = refreshToken
         DiscordPreferences.expiresAt = DiscordClock.nowMs() / 1000L + expiresInSec
-        DiscordPreferences.authorizedAppId = discordAppId()
+        DiscordPreferences.authorizedAppId = DiscordDefaults.OAUTH_CLIENT_ID
     }
 
     fun storeAccessToken(accessToken: String) {
@@ -102,9 +102,11 @@ object DiscordTokenStore {
     }
 
     fun retrieve(): String? {
-        val currentAppId = discordAppId()
-        // If a stored token was authorized under a different client ID (e.g. old Metrolist ID) or prior to tracking, clear it
-        if (DiscordPreferences.accessToken.isNotEmpty() && DiscordPreferences.authorizedAppId != currentAppId) {
+        // Invalidate tokens issued under a different OAuth client (e.g. switching apps)
+        if (DiscordPreferences.accessToken.isNotEmpty() &&
+            DiscordPreferences.authorizedAppId.isNotEmpty() &&
+            DiscordPreferences.authorizedAppId != DiscordDefaults.OAUTH_CLIENT_ID
+        ) {
             clear()
             return null
         }

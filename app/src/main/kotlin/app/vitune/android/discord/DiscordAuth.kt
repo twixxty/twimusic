@@ -55,7 +55,7 @@ class DiscordAuth(
     private val httpClient: HttpClient,
 ) {
     private val redirectUri: String get() = discordRedirectUri()
-    private val clientId: String get() = discordAppId()
+    private val clientId: String get() = DiscordDefaults.OAUTH_CLIENT_ID
 
     fun createSession(): DiscordAuthSession {
         val pkce = generatePkcePair()

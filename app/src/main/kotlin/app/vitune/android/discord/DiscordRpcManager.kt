@@ -345,10 +345,13 @@ object DiscordRpcManager {
             scope.launch {
                 val client = httpClient ?: return@launch
                 val token = accessToken ?: return@launch
+                val assetAppId =
+                    DiscordPreferences.authorizedAppId.takeIf { it.isNotEmpty() }
+                        ?: DiscordDefaults.OAUTH_CLIENT_ID
                 val resolved =
                     DiscordExternalAssets.resolveAll(
                         listOfNotNull(largeImageUrl, smallImageUrl),
-                        DISCORD_APP_ID,
+                        assetAppId,
                         "Bearer $token",
                         client,
                     )
