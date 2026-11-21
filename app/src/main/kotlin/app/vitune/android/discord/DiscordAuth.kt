@@ -54,8 +54,8 @@ sealed class DiscordAuthException(
 class DiscordAuth(
     private val httpClient: HttpClient,
 ) {
-    private val redirectUri: String = DiscordDefaults.OAUTH_REDIRECT_URI
-    private val clientId: String = DiscordDefaults.OAUTH_CLIENT_ID
+    private val redirectUri: String get() = discordRedirectUri()
+    private val clientId: String get() = discordAppId()
 
     fun createSession(): DiscordAuthSession {
         val pkce = generatePkcePair()
@@ -67,7 +67,7 @@ class DiscordAuth(
                     parameters.append("client_id", clientId)
                     parameters.append("response_type", "code")
                     parameters.append("redirect_uri", redirectUri)
-                    parameters.append("scope", DISCORD_SCOPES)
+                    parameters.append("scope", DiscordDefaults.DISCORD_SCOPES)
                     parameters.append("state", state)
                     parameters.append("code_challenge_method", "S256")
                     parameters.append("code_challenge", pkce.challenge)
@@ -134,7 +134,7 @@ class DiscordAuth(
                     accessToken = json["access_token"]?.jsonPrimitive?.content ?: "",
                     refreshToken = json["refresh_token"]?.jsonPrimitive?.content ?: "",
                     expiresInSec = json["expires_in"]?.jsonPrimitive?.long ?: 0L,
-                    scope = json["scope"]?.jsonPrimitive?.content ?: DISCORD_SCOPES,
+                    scope = json["scope"]?.jsonPrimitive?.content ?: DiscordDefaults.DISCORD_SCOPES,
                 )
             }
 
@@ -164,7 +164,6 @@ class DiscordAuth(
         private const val TAG = "DiscordSvc"
         private const val DISCORD_OAUTH_AUTHORIZE = "https://discord.com/oauth2/authorize"
         private const val DISCORD_OAUTH_TOKEN = "https://discord.com/api/v10/oauth2/token"
-        private const val DISCORD_SCOPES = "openid sdk.social_layer_presence"
 
         fun generatePkcePair(): PkcePair {
             val bytes = DeviceCrypto.secureRandomBytes(64)

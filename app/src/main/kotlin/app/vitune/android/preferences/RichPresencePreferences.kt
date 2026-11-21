@@ -30,6 +30,8 @@ object DiscordPreferences : GlobalPreferencesHolder() {
     var accessToken by string("")
     var refreshToken by string("")
     var expiresAt by long(0L)
+    var authorizedAppId by string("")
+    var customRedirectUri by string("")
     var deviceVendorId by string("")
     var clientUuid by string("")
     var pendingAuthSession by string("")

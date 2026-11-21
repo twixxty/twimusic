@@ -94,13 +94,23 @@ object DiscordTokenStore {
         DiscordPreferences.accessToken = accessToken
         DiscordPreferences.refreshToken = refreshToken
         DiscordPreferences.expiresAt = DiscordClock.nowMs() / 1000L + expiresInSec
+        DiscordPreferences.authorizedAppId = discordAppId()
     }
 
     fun storeAccessToken(accessToken: String) {
         DiscordPreferences.accessToken = accessToken
     }
 
-    fun retrieve(): String? = DiscordPreferences.accessToken.takeIf { it.isNotEmpty() }
+    fun retrieve(): String? {
+        val currentAppId = discordAppId()
+        // If a stored token was authorized under a different client ID (e.g. old Metrolist ID) or prior to tracking, clear it
+        if (DiscordPreferences.accessToken.isNotEmpty() && DiscordPreferences.authorizedAppId != currentAppId) {
+            clear()
+            return null
+        }
+        return DiscordPreferences.accessToken.takeIf { it.isNotEmpty() }
+    }
+
     fun getRefreshToken(): String? = DiscordPreferences.refreshToken.takeIf { it.isNotEmpty() }
     fun getExpiresAt(): Long = DiscordPreferences.expiresAt
 
@@ -122,6 +132,7 @@ object DiscordTokenStore {
         DiscordPreferences.accessToken = ""
         DiscordPreferences.refreshToken = ""
         DiscordPreferences.expiresAt = 0L
+        DiscordPreferences.authorizedAppId = ""
         DiscordPreferences.deviceVendorId = ""
         DiscordPreferences.clientUuid = ""
     }
@@ -136,9 +147,13 @@ internal object DiscordHttp {
     }
 }
 
-internal fun discordAppId(): String = DiscordDefaults.DEFAULT_APP_ID
+internal fun discordAppId(): String =
+    DiscordPreferences.customAppId.trim().takeIf { it.isNotEmpty() && it.all(Char::isDigit) }
+        ?: DiscordDefaults.DEFAULT_APP_ID
 
-internal fun discordRedirectUri(): String = DiscordDefaults.DEFAULT_REDIRECT_URI
+internal fun discordRedirectUri(): String =
+    DiscordPreferences.customRedirectUri.trim().takeIf { it.isNotEmpty() }
+        ?: DiscordDefaults.DEFAULT_REDIRECT_URI
 
 @Serializable
 private data class PendingDiscordAuth(val session: DiscordAuthSession, val expiresAt: Long)
