@@ -606,32 +606,7 @@ fun Player(
                             canvasArtwork = null
                             spotifyCanvasUrl = null
                         },
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
-                            .drawWithContent {
-                                drawContent()
-                                drawRect(
-                                    brush = if (landscape) {
-                                        Brush.horizontalGradient(
-                                            0.0f to androidx.compose.ui.graphics.Color.White,
-                                            0.50f to androidx.compose.ui.graphics.Color.White,
-                                            0.80f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
-                                            0.95f to androidx.compose.ui.graphics.Color.Transparent,
-                                            1.0f to androidx.compose.ui.graphics.Color.Transparent
-                                        )
-                                    } else {
-                                        Brush.verticalGradient(
-                                            0.0f to androidx.compose.ui.graphics.Color.White,
-                                            0.40f to androidx.compose.ui.graphics.Color.White,
-                                            0.75f to androidx.compose.ui.graphics.Color.White.copy(alpha = 0.3f),
-                                            0.90f to androidx.compose.ui.graphics.Color.Transparent,
-                                            1.0f to androidx.compose.ui.graphics.Color.Transparent
-                                        )
-                                    },
-                                    blendMode = BlendMode.DstIn
-                                )
-                            }
+                        modifier = Modifier.fillMaxSize()
                     )
                 }
             }

@@ -42,6 +42,14 @@ class LavaLampAssets(
     val quarterScale: Float
 )
 
+@Immutable
+class LiquidAssets(
+    /** Blurred saturated artwork base covering the full screen. */
+    val base: ImageBitmap,
+    /** Heavily blurred, saturated artwork with feathered transparent borders. */
+    val blob: ImageBitmap
+)
+
 /**
  * Renders the blurred images used by the player backgrounds. Blurring happens exactly once per
  * artwork, on a tiny (<= 128px) copy, off the main thread - the result is then upscaled with
@@ -60,6 +68,7 @@ internal object ArtworkBlur {
 
     val backgroundCache = PrerenderCache<ImageBitmap>(maxEntries = 4)
     val lavaCache = PrerenderCache<LavaLampAssets>(maxEntries = 3)
+    val liquidCache = PrerenderCache<LiquidAssets>(maxEntries = 3)
 
     fun renderBackground(source: Bitmap): ImageBitmap? = guarded {
         val small = BitmapBlur.downscale(source, WORKING_SIZE)
@@ -108,6 +117,32 @@ internal object ArtworkBlur {
                 ),
                 quarterScale = (side + 2 * padding).toFloat() / side
             )
+        } finally {
+            saturated.recycle()
+            if (small !== source) small.recycle()
+        }
+    }
+
+    fun renderLiquid(source: Bitmap): LiquidAssets? = guarded {
+        val small = BitmapBlur.downscale(source, WORKING_SIZE)
+        val saturated = BitmapBlur.saturated(small, LAVA_SATURATION)
+        try {
+            val washSigma = max(small.width, small.height) * 0.14f
+            val base = BitmapBlur.blurred(saturated, washSigma).toImage()
+
+            val side = max(saturated.width, saturated.height)
+            val blobSigma = side * 0.18f
+            val padding = ceil(blobSigma * 2.5f).toInt()
+            val totalSize = side + 2 * padding
+            val padded = Bitmap.createBitmap(totalSize, totalSize, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(padded)
+            val left = padding + (side - saturated.width) / 2
+            val top = padding + (side - saturated.height) / 2
+            canvas.drawBitmap(saturated, left.toFloat(), top.toFloat(), null)
+
+            val blob = BitmapBlur.blurred(padded, blobSigma).also { padded.recycle() }.toImage()
+
+            LiquidAssets(base = base, blob = blob)
         } finally {
             saturated.recycle()
             if (small !== source) small.recycle()

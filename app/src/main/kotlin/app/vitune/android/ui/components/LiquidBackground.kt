@@ -1,181 +1,39 @@
 package app.vitune.android.ui.components
 
 import android.graphics.Bitmap
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Matrix
-import androidx.compose.animation.core.Animatable
+import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
-import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
-import app.vitune.android.utils.BitmapBlur
-import app.vitune.core.ui.LocalAppearance
-import kotlin.math.max
-import kotlin.math.roundToInt
-import android.graphics.Canvas as AndroidCanvas
-import android.graphics.Paint as AndroidPaint
-
-private const val SCRIM_COLOR_1 = 0x80000000.toInt()
-private const val SCRIM_COLOR_2 = 0x0DFFFFFF
-
-private class AndroidLiquidBlurCache(
-    val width: Int,
-    val height: Int,
-    val blurRadius: Float,
-) {
-    private val bitmapA: Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    private val bitmapB: Bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-    private val imageA: ImageBitmap = bitmapA.asImageBitmap()
-    private val imageB: ImageBitmap = bitmapB.asImageBitmap()
-    private var useA = true
-
-    private val canvasA: AndroidCanvas = AndroidCanvas(bitmapA)
-    private val canvasB: AndroidCanvas = AndroidCanvas(bitmapB)
-
-    private val workMatrix = Matrix()
-
-    private val layerPaint =
-        AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG or AndroidPaint.DITHER_FLAG)
-    private val scrimPaint =
-        AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG or AndroidPaint.DITHER_FLAG).apply {
-            style = AndroidPaint.Style.FILL
-        }
-
-    private val w = width.toFloat()
-    private val h = height.toFloat()
-    private val maxDim = (max(w, h) * 1.3f).roundToInt().toFloat()
-    private val pivot = maxDim / 2f
-    private val offsetX = -(maxDim - w) / 2f
-    private val offsetY = -(maxDim - h) / 2f
-
-    private var cachedActiveSource: Bitmap? = null
-    private var cachedActiveBlurred: Bitmap? = null
-
-    private var cachedPrevSource: Bitmap? = null
-    private var cachedPrevBlurred: Bitmap? = null
-
-    private fun getOrCreateBlurred(src: Bitmap?, saturation: Float): Bitmap? {
-        if (src == null || src.isRecycled || src.width <= 0 || src.height <= 0) return null
-        val targetDim = 96
-        val small = Bitmap.createScaledBitmap(src, targetDim, targetDim, true)
-        val saturated = Bitmap.createBitmap(targetDim, targetDim, Bitmap.Config.ARGB_8888)
-        val c = AndroidCanvas(saturated)
-        val p = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG or AndroidPaint.FILTER_BITMAP_FLAG).apply {
-            val cm = ColorMatrix().apply { setSaturation(saturation) }
-            colorFilter = ColorMatrixColorFilter(cm)
-        }
-        c.drawBitmap(small, 0f, 0f, p)
-        if (small !== src) small.recycle()
-
-        val px = IntArray(targetDim * targetDim)
-        saturated.getPixels(px, 0, targetDim, 0, 0, targetDim, targetDim)
-        BitmapBlur.blurArgb(px, targetDim, targetDim, blurRadius)
-        saturated.setPixels(px, 0, targetDim, 0, 0, targetDim, targetDim)
-        return saturated
-    }
-
-    fun render(
-        activeBitmap: Bitmap?,
-        previousBitmap: Bitmap?,
-        crossfadeAlpha: Float,
-        rotationTimeMs: Long,
-        saturation: Float,
-    ): ImageBitmap {
-        if (activeBitmap !== cachedActiveSource) {
-            cachedActiveSource = activeBitmap
-            cachedActiveBlurred = getOrCreateBlurred(activeBitmap, saturation)
-        }
-        if (previousBitmap !== cachedPrevSource) {
-            cachedPrevSource = previousBitmap
-            cachedPrevBlurred = getOrCreateBlurred(previousBitmap, saturation)
-        }
-
-        useA = !useA
-        val targetBmp = if (useA) bitmapA else bitmapB
-        val targetCanvas = if (useA) canvasA else canvasB
-
-        targetBmp.eraseColor(0)
-
-        val curRotM = -360f * (rotationTimeMs % 130_000L) / 130_000f
-        val curRotN = 360f * (rotationTimeMs % 90_000L) / 90_000f
-        val curRotO = 360f * (rotationTimeMs % 70_000L) / 70_000f
-
-        if (cachedPrevBlurred != null && crossfadeAlpha < 1f) {
-            drawLayers(targetCanvas, cachedPrevBlurred, 1f - crossfadeAlpha, curRotM, curRotN, curRotO)
-        }
-        if (cachedActiveBlurred != null) {
-            drawLayers(targetCanvas, cachedActiveBlurred, crossfadeAlpha, curRotM, curRotN, curRotO)
-        }
-
-        scrimPaint.color = SCRIM_COLOR_1
-        targetCanvas.drawPaint(scrimPaint)
-        scrimPaint.color = SCRIM_COLOR_2
-        targetCanvas.drawPaint(scrimPaint)
-
-        return if (useA) imageA else imageB
-    }
-
-    private fun drawLayers(
-        targetCanvas: AndroidCanvas,
-        srcBitmap: Bitmap?,
-        alpha: Float,
-        curRotM: Float,
-        curRotN: Float,
-        curRotO: Float,
-    ) {
-        if (alpha <= 0f || srcBitmap == null || srcBitmap.isRecycled) return
-        val srcH = srcBitmap.height.toFloat()
-        if (srcBitmap.width <= 0 || srcH <= 0f) return
-
-        layerPaint.alpha = (alpha * 255f).roundToInt().coerceIn(0, 255)
-
-        val scale = maxDim / srcH
-
-        workMatrix.setScale(scale, scale)
-        workMatrix.postRotate(curRotM, pivot, pivot)
-        workMatrix.postTranslate(offsetX, offsetY)
-        targetCanvas.drawBitmap(srcBitmap, workMatrix, layerPaint)
-
-        workMatrix.setScale(scale, scale)
-        workMatrix.postRotate(curRotN, pivot, pivot)
-        workMatrix.postTranslate(offsetX - 0.95f * w, offsetY - 0.7f * h)
-        targetCanvas.drawBitmap(srcBitmap, workMatrix, layerPaint)
-
-        workMatrix.setScale(scale, scale)
-        workMatrix.postRotate(curRotO, pivot, pivot)
-        workMatrix.postTranslate(offsetX - 0.5f * w, offsetY + 0.7f * h)
-        workMatrix.postRotate(curRotO, w / 2f, h / 2f)
-        targetCanvas.drawBitmap(srcBitmap, workMatrix, layerPaint)
-    }
-}
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.max
 
 /**
- * Liquid background ported from Metrolist with double-buffered software rendering
- * and lightweight Gaussian blur, keeping CPU and memory overhead minimal (<1MB).
+ * Ultra-optimized Liquid background ported from Metrolist.
+ *
+ * Saturated artwork is deeply blurred once off the main thread (see [ArtworkBlur.renderLiquid]);
+ * while the animation runs, the GPU rotates pre-blurred textured quads with zero per-frame
+ * recomposition or CPU software drawing. On Android 12+ (API 31+), hardware GPU blur is applied across the
+ * composite layer to create an ultra-smooth, fluid liquid effect without taxing the CPU.
  */
 @Composable
 fun LiquidBackground(
@@ -185,133 +43,134 @@ fun LiquidBackground(
     overlayAlpha: () -> Float = { 0.40f },
     fallbackColor: Color = Color(0xff121216)
 ) {
-    val (colorPalette) = LocalAppearance.current
-    val isLightTheme = colorPalette.background0.luminance() >= 0.5f
-
-    var activeBitmap by remember { mutableStateOf(bitmap) }
-    var previousBitmap by remember { mutableStateOf<Bitmap?>(null) }
-    val crossfade = remember { Animatable(1f) }
-
-    LaunchedEffect(bitmap) {
-        if (bitmap != null && bitmap !== activeBitmap) {
-            previousBitmap = activeBitmap
-            activeBitmap = bitmap
-            crossfade.snapTo(0f)
-            crossfade.animateTo(1f, tween(800))
-            previousBitmap = null
-        } else if (bitmap == null) {
-            activeBitmap = null
-            previousBitmap = null
-        }
-    }
-
-    val transition = rememberInfiniteTransition(label = "liquidTransition")
-    val liquidTimeProg by transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(130_000, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart
-        ),
-        label = "liquidProgress"
-    )
-
-    if (activeBitmap == null && previousBitmap == null) {
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(fallbackColor)
-        )
-        return
-    }
-
-    val renderer = remember {
-        object {
-            var cache: AndroidLiquidBlurCache? = null
-
-            fun draw(
-                scope: DrawScope,
-                active: Bitmap?,
-                previous: Bitmap?,
-                alpha: Float,
-                timeMs: Long
-            ) {
-                val width = scope.size.width
-                val height = scope.size.height
-                if (width <= 0f || height <= 0f) return
-
-                val maxTargetDim = 128f
-                val aspect = width / height
-                val scaledW: Int
-                val scaledH: Int
-                if (aspect >= 1f) {
-                    scaledW = maxTargetDim.roundToInt()
-                    scaledH = (maxTargetDim / aspect).roundToInt().coerceAtLeast(1)
-                } else {
-                    scaledW = (maxTargetDim * aspect).roundToInt().coerceAtLeast(1)
-                    scaledH = maxTargetDim.roundToInt()
-                }
-
-                val blurRadius = 14f
-                val saturation = 2.5f
-
-                var current = cache
-                if (current == null || current.width != scaledW || current.height != scaledH) {
-                    current = AndroidLiquidBlurCache(scaledW, scaledH, blurRadius)
-                    cache = current
-                }
-
-                val renderedBitmap = current.render(
-                    activeBitmap = active,
-                    previousBitmap = previous,
-                    crossfadeAlpha = alpha,
-                    rotationTimeMs = timeMs,
-                    saturation = saturation
-                )
-
-                val bw = (width * 1.3f).roundToInt()
-                val bh = (height * 1.3f).roundToInt()
-                val tx = -(bw - width.roundToInt()) / 2
-                val ty = -(bh - height.roundToInt()) / 2
-
-                scope.drawImage(
-                    image = renderedBitmap,
-                    dstOffset = IntOffset(tx, ty),
-                    dstSize = IntSize(bw, bh),
-                    filterQuality = FilterQuality.Low
-                )
-            }
-        }
-    }
-
-    val rotationTimeMs = remember(liquidTimeProg, isPlaying) {
-        (liquidTimeProg * 130_000).toLong()
-    }
+    val assets = rememberPrerendered(bitmap, ArtworkBlur.liquidCache, ArtworkBlur::renderLiquid)
 
     Box(
         modifier = modifier
             .fillMaxSize()
+            .background(fallbackColor)
             .clipToBounds()
     ) {
-        Canvas(
+        ArtworkTransition(target = assets, label = "liquidArtwork") { current ->
+            LiquidLayers(assets = current, isPlaying = isPlaying)
+        }
+
+        Scrim(
+            overlayAlpha = overlayAlpha,
+            gradientStart = 0.55f,
+            gradientEndAlpha = 0.55f
+        )
+    }
+}
+
+@Composable
+private fun LiquidLayers(assets: LiquidAssets, isPlaying: Boolean) {
+    val transition = rememberInfiniteTransition(label = "liquidLayers")
+
+    // Metrolist timings:
+    // Layer 1: 130s counter-clockwise
+    // Layer 2: 90s clockwise
+    // Layer 3: 70s clockwise
+    // NOTE: Stored as State<Float> and read ONLY inside graphicsLayer blocks to avoid recomposition.
+    val rotM = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = -360f,
+        animationSpec = infiniteRepeatable(tween(130_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "liquidRotM"
+    )
+    val rotN = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(90_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "liquidRotN"
+    )
+    val rotO = transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(70_000, easing = LinearEasing), RepeatMode.Restart),
+        label = "liquidRotO"
+    )
+
+    val blurModifier = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        Modifier.blur(48.dp)
+    } else {
+        Modifier
+    }
+
+    BoxWithConstraints(
+        modifier = Modifier
+            .fillMaxSize()
+            .then(blurModifier)
+    ) {
+        val w = maxWidth
+        val h = maxHeight
+        val maxDim = max(w, h) * 1.6f
+
+        // Base wash covering full screen
+        Image(
+            bitmap = assets.base,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            filterQuality = FilterQuality.Low,
             modifier = Modifier
                 .fillMaxSize()
-                .drawWithContent {
-                    drawContent()
-                    if (isLightTheme) {
-                        drawRect(Color.White.copy(alpha = 0.48f))
-                    } else {
-                        drawRect(Color.Black.copy(alpha = overlayAlpha()))
-                    }
+                .graphicsLayer {
+                    scaleX = 1.35f
+                    scaleY = 1.35f
                 }
-        ) {
-            renderer.draw(
-                scope = this,
-                active = activeBitmap,
-                previous = previousBitmap,
-                alpha = crossfade.value,
-                timeMs = if (isPlaying) rotationTimeMs else 0L
-            )
-        }
+        )
+
+        // Layer 1: Center blob (130s CCW)
+        Image(
+            bitmap = assets.blob,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = Modifier
+                .size(maxDim)
+                .align(Alignment.Center)
+                .graphicsLayer {
+                    rotationZ = if (isPlaying) rotM.value else 0f
+                    scaleX = 1.2f
+                    scaleY = 1.2f
+                    alpha = 0.90f
+                }
+        )
+
+        // Layer 2: Top-left blob (90s CW)
+        Image(
+            bitmap = assets.blob,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = Modifier
+                .size(maxDim)
+                .align(Alignment.Center)
+                .offset(x = w * (-0.48f), y = h * (-0.35f))
+                .graphicsLayer {
+                    rotationZ = if (isPlaying) rotN.value else 0f
+                    scaleX = 1.3f
+                    scaleY = 1.3f
+                    alpha = 0.80f
+                }
+        )
+
+        // Layer 3: Bottom-right blob (70s CW)
+        Image(
+            bitmap = assets.blob,
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            filterQuality = FilterQuality.Low,
+            modifier = Modifier
+                .size(maxDim)
+                .align(Alignment.Center)
+                .offset(x = w * (-0.25f), y = h * 0.35f)
+                .graphicsLayer {
+                    rotationZ = if (isPlaying) rotO.value else 0f
+                    scaleX = 1.4f
+                    scaleY = 1.4f
+                    alpha = 0.75f
+                }
+        )
     }
 }

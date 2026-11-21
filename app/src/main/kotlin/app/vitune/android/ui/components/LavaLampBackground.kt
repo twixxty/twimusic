@@ -27,8 +27,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
+import app.vitune.core.ui.LocalAppearance
 
 private const val ARTWORK_CROSSFADE_MS = 600
 
@@ -230,7 +232,7 @@ fun BlurredArtworkBackground(
  * fading in. (A plain cross-fade would fade both at once and dip to the fallback colour halfway.)
  */
 @Composable
-private fun <T : Any> ArtworkTransition(
+internal fun <T : Any> ArtworkTransition(
     target: T?,
     label: String,
     content: @Composable (T) -> Unit
@@ -250,24 +252,39 @@ private fun <T : Any> ArtworkTransition(
 
 /** A flat dark tint plus a bottom gradient, drawn in a single pass. */
 @Composable
-private fun Scrim(
+internal fun Scrim(
     overlayAlpha: () -> Float,
     gradientStart: Float,
     gradientEndAlpha: Float
 ) {
-    val gradient = remember(gradientStart, gradientEndAlpha) {
-        Brush.verticalGradient(
-            0.0f to Color.Transparent,
-            gradientStart to Color.Transparent,
-            1.0f to Color.Black.copy(alpha = gradientEndAlpha)
-        )
+    val (colorPalette) = LocalAppearance.current
+    val isLightTheme = colorPalette.background0.luminance() >= 0.5f
+
+    val gradient = remember(gradientStart, gradientEndAlpha, isLightTheme) {
+        if (isLightTheme) {
+            Brush.verticalGradient(
+                0.0f to Color.Transparent,
+                gradientStart to Color.Transparent,
+                1.0f to Color.White.copy(alpha = gradientEndAlpha)
+            )
+        } else {
+            Brush.verticalGradient(
+                0.0f to Color.Transparent,
+                gradientStart to Color.Transparent,
+                1.0f to Color.Black.copy(alpha = gradientEndAlpha)
+            )
+        }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(Color.Black.copy(alpha = overlayAlpha().coerceIn(0f, 1f)))
+                if (isLightTheme) {
+                    drawRect(Color.White.copy(alpha = 0.45f))
+                } else {
+                    drawRect(Color.Black.copy(alpha = overlayAlpha().coerceIn(0f, 1f)))
+                }
                 drawRect(gradient)
             }
     )
