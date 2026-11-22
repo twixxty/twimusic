@@ -67,7 +67,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var showLyricsFullscreenButton: Boolean
         get() = !hideLyricsFullscreenButton
         set(value) { hideLyricsFullscreenButton = !value }
-    var enableCanvas by boolean(false)
+    var enableCanvas by boolean(true)
     var canvasLoadOnlyWifi by boolean(false)
 
     enum class CanvasStyle(val displayName: @Composable () -> String) {

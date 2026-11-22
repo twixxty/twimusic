@@ -200,25 +200,27 @@ fun Thumbnail(
                             )
                         }
 
-                        Box(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .pointerInput(Unit) {
-                                    detectTapGestures(
-                                        onTap = { onShowLyrics(true) },
-                                        onLongPress = { onShowStatsForNerds(true) },
-                                        onDoubleTap = {
-                                            if (likedAt == null) setLikedAt(System.currentTimeMillis())
+                        if (!isShowingLyrics) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .pointerInput(Unit) {
+                                        detectTapGestures(
+                                            onTap = { onShowLyrics(true) },
+                                            onLongPress = { onShowStatsForNerds(true) },
+                                            onDoubleTap = {
+                                                if (likedAt == null) setLikedAt(System.currentTimeMillis())
 
-                                            coroutineScope.launch {
-                                                val spec = tween<Float>(durationMillis = 500)
-                                                transitionState.animateTo(true, spec)
-                                                transitionState.animateTo(false, spec)
+                                                coroutineScope.launch {
+                                                    val spec = tween<Float>(durationMillis = 500)
+                                                    transitionState.animateTo(true, spec)
+                                                    transitionState.animateTo(false, spec)
+                                                }
                                             }
-                                        }
-                                    )
-                                }
-                        )
+                                        )
+                                    }
+                            )
+                        }
                     }
                 }
 

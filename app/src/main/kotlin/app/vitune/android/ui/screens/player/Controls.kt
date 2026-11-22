@@ -375,8 +375,8 @@ private fun ModernControls(
         val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
 
         val expressiveSpring = spring<Float>(
-            dampingRatio = 0.72f,
-            stiffness = Spring.StiffnessMediumLow
+            dampingRatio = 0.8f,
+            stiffness = 380f
         )
 
         val hasTopPrev = PlayerPreferences.showLike
@@ -437,8 +437,8 @@ private fun ModernControls(
         )
 
         val expressiveSpringDp = spring<Dp>(
-            dampingRatio = 0.72f,
-            stiffness = Spring.StiffnessMediumLow
+            dampingRatio = 0.8f,
+            stiffness = 380f
         )
 
         val currentPlayRadius by animateDpAsState(
@@ -600,7 +600,7 @@ private fun SkipButton(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
-                scaleY = scale
+                scaleY = 1f
             }
             .let {
                 if (offsetOnPress != 0.dp) {
@@ -641,7 +641,7 @@ private fun PlayButton(
         modifier = modifier
             .graphicsLayer {
                 scaleX = scale
-                scaleY = scale
+                scaleY = 1f
             }
             .clip(radius.roundedShape)
             .clickable(
