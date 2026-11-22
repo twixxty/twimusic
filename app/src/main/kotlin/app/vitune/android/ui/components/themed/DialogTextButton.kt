@@ -8,14 +8,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TextButton
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.color
 import app.vitune.android.utils.disabled
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.primary
+import app.vitune.android.utils.semiBold
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
 
@@ -43,7 +46,7 @@ fun DialogTextButton(
             ) {
                 BasicText(
                     text = text,
-                    style = typography.xs.semiBold.copy(color = colorPalette.onAccent)
+                    style = typography.xs.semiBold.color(colorPalette.onAccent)
                 )
             }
         } else {
@@ -58,7 +61,7 @@ fun DialogTextButton(
             ) {
                 BasicText(
                     text = text,
-                    style = typography.xs.medium.copy(color = colorPalette.accent)
+                    style = typography.xs.medium.color(colorPalette.accent)
                 )
             }
         }

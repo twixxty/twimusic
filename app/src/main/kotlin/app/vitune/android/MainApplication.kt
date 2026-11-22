@@ -223,7 +223,7 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
             materialAccentColor = Color(monet.getAccentColor(this@MainActivity)),
             sampleBitmap = sampleBitmap,
             applyFontPadding = applyFontPadding,
-            thumbnailRoundness = if (themeMode == ThemeMode.Material3Expressive) 20.dp else thumbnailRoundness.dp
+            thumbnailRoundness = if (themeMode == AppearancePreferences.ThemeMode.Material3Expressive) 20.dp else thumbnailRoundness.dp
         )
 
         SystemBarAppearance(palette = appearance.colorPalette)
