@@ -5,7 +5,9 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
+import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -249,6 +251,7 @@ inline fun NavigationRail(
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier
                 .width(
                     if (isLandscape) Dimensions.navigationRail.widthLandscape
@@ -256,8 +259,7 @@ inline fun NavigationRail(
                 )
                 .padding(
                     top = 48.dp,
-                    bottom = 16.dp,
-                    start = if (isLandscape) 0.dp else Dimensions.navigationRail.iconOffset
+                    bottom = 16.dp
                 )
         ) {
             Image(
@@ -325,58 +327,47 @@ inline fun NavigationRail(
                 else Dimensions.navigationRail.width
             )
         ) {
-            val transition = updateTransition(targetState = tabIndex, label = null)
+            val transition = updateTransition(targetState = tabIndex, label = "tabTransition")
 
             tabs.fastForEachIndexed { index, tab ->
                 AnimatedVisibility(
                     visible = tabIndex == index || tab.key !in hiddenTabs,
                     label = ""
                 ) {
-                    val dothAlpha by transition.animateFloat(label = "") {
+                    val isSelected = tabIndex == index
+                    val dothAlpha by transition.animateFloat(
+                        transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 380f) },
+                        label = "tabAlpha"
+                    ) {
                         if (it == index) 1f else 0f
                     }
 
-                    val textColor by transition.animateColor(label = "") {
+                    val iconWidth by transition.animateDp(
+                        transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 380f) },
+                        label = "tabIconWidth"
+                    ) {
+                        if (it == index) 16.dp else 0.dp
+                    }
+
+                    val iconGap by transition.animateDp(
+                        transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 380f) },
+                        label = "tabIconGap"
+                    ) {
+                        if (it == index) 6.dp else 0.dp
+                    }
+
+                    val textColor by transition.animateColor(
+                        label = "tabColor"
+                    ) {
                         if (it == index) {
                             if (isExpressive) colorPalette.accent else colorPalette.text
                         } else colorPalette.textDisabled
                     }
 
-                    val iconContent: @Composable () -> Unit = {
-                        Image(
-                            painter = painterResource(tab.icon),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(
-                                if (isExpressive && tabIndex == index) colorPalette.accent else colorPalette.text
-                            ),
-                            modifier = Modifier
-                                .vertical(enabled = !isLandscape)
-                                .graphicsLayer {
-                                    alpha = dothAlpha
-                                    translationX = (1f - dothAlpha) * -48.dp.toPx()
-                                    rotationZ = if (isLandscape) 0f else -90f
-                                }
-                                .size(Dimensions.navigationRail.iconOffset * 2)
-                        )
-                    }
-
-                    val textContent: @Composable () -> Unit = {
-                        BasicText(
-                            text = tab.title(),
-                            style = typography.xs.semiBold.center.color(textColor),
-                            modifier = Modifier
-                                .vertical(enabled = !isLandscape)
-                                .rotate(if (isLandscape) 0f else -90f)
-                                .padding(horizontal = 16.dp),
-                            overflow = TextOverflow.Ellipsis,
-                            maxLines = 2
-                        )
-                    }
-
                     val contentModifier = Modifier
                         .clip(24.dp.roundedShape)
                         .let {
-                            if (isExpressive && tabIndex == index) {
+                            if (isExpressive && isSelected) {
                                 it.background(colorPalette.accent.copy(alpha = 0.20f), RoundedCornerShape(20.dp))
                             } else it
                         }
@@ -385,20 +376,76 @@ inline fun NavigationRail(
                             onLongClick = { editing = true }
                         )
 
-                    if (isLandscape) Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = contentModifier
-                            .padding(vertical = 8.dp)
-                            .fillMaxWidth()
-                    ) {
-                        iconContent()
-                        textContent()
-                    } else Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = contentModifier.padding(horizontal = 8.dp)
-                    ) {
-                        iconContent()
-                        textContent()
+                    if (isLandscape) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier = contentModifier
+                                .padding(vertical = 8.dp)
+                                .fillMaxWidth()
+                        ) {
+                            if (dothAlpha > 0f) {
+                                Image(
+                                    painter = painterResource(tab.icon),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(
+                                        if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
+                                    ),
+                                    modifier = Modifier
+                                        .graphicsLayer { alpha = dothAlpha }
+                                        .size(18.dp)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                            }
+
+                            BasicText(
+                                text = tab.title(),
+                                style = typography.xs.semiBold.center.color(textColor),
+                                modifier = Modifier.padding(horizontal = 8.dp),
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 2
+                            )
+                        }
+                    } else {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = contentModifier
+                                .padding(vertical = 4.dp)
+                                .heightIn(min = 88.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center,
+                                modifier = Modifier
+                                    .vertical()
+                                    .rotate(-90f)
+                                    .padding(horizontal = 8.dp)
+                            ) {
+                                if (iconWidth > 0.dp) {
+                                    Image(
+                                        painter = painterResource(tab.icon),
+                                        contentDescription = null,
+                                        colorFilter = ColorFilter.tint(
+                                            if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
+                                        ),
+                                        modifier = Modifier
+                                            .size(16.dp)
+                                            .width(iconWidth)
+                                            .graphicsLayer {
+                                                alpha = dothAlpha
+                                                translationX = (1f - dothAlpha) * -8.dp.toPx()
+                                            }
+                                    )
+                                    Spacer(Modifier.width(iconGap))
+                                }
+
+                                BasicText(
+                                    text = tab.title(),
+                                    style = typography.xs.semiBold.center.color(textColor),
+                                    overflow = TextOverflow.Ellipsis,
+                                    maxLines = 1
+                                )
+                            }
+                        }
                     }
                 }
             }

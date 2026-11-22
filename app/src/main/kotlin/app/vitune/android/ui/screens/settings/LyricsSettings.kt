@@ -92,7 +92,7 @@ fun LyricsSettings() = with(PlayerPreferences) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 currentOrder.forEachIndexed { index, providerName ->
                     val isEnabled = remember(providerName, enabledVersion) {
@@ -102,7 +102,7 @@ fun LyricsSettings() = with(PlayerPreferences) {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
+                            .clip(RoundedCornerShape(16.dp))
                             .background(colorPalette.background1)
                             .clickable {
                                 LyricsPreferences.setProviderEnabled(providerName, !isEnabled)

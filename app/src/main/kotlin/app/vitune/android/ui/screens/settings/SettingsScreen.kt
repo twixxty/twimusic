@@ -200,29 +200,68 @@ fun SliderSettingsEntry(
     isEnabled: Boolean = true,
     usePadding: Boolean = true,
     showTicks: Boolean = steps != 0
-) = Column(modifier = modifier) {
-    SettingsEntry(
-        title = title,
-        text = "$text (${toDisplay(state)})",
-        onClick = {},
-        isEnabled = isEnabled,
-        usePadding = usePadding
-    )
+) {
+    val isExpressive = LocalIsExpressiveTheme.current
+    val (colorPalette, typography) = LocalAppearance.current
 
-    Slider(
-        state = state,
-        setState = onSlide,
-        onSlideComplete = onSlideComplete,
-        range = range,
-        steps = steps,
-        showTicks = showTicks,
-        modifier = Modifier
-            .height(36.dp)
-            .alpha(if (isEnabled) 1f else 0.5f)
-            .let { if (usePadding) it.padding(start = 32.dp, end = 16.dp) else it }
-            .padding(vertical = 16.dp)
-            .fillMaxWidth()
-    )
+    if (isExpressive) {
+        Column(
+            modifier = modifier
+                .padding(horizontal = 16.dp, vertical = 3.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(colorPalette.background1, RoundedCornerShape(16.dp))
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .fillMaxWidth()
+        ) {
+            BasicText(
+                text = title,
+                style = typography.xs.semiBold.copy(color = colorPalette.text)
+            )
+            BasicText(
+                text = "$text (${toDisplay(state)})",
+                style = typography.xs.semiBold.secondary
+            )
+            Spacer(Modifier.height(8.dp))
+            Slider(
+                state = state,
+                setState = onSlide,
+                onSlideComplete = onSlideComplete,
+                range = range,
+                steps = steps,
+                showTicks = showTicks,
+                modifier = Modifier
+                    .height(36.dp)
+                    .alpha(if (isEnabled) 1f else 0.5f)
+                    .fillMaxWidth()
+            )
+        }
+        return
+    }
+
+    Column(modifier = modifier) {
+        SettingsEntry(
+            title = title,
+            text = "$text (${toDisplay(state)})",
+            onClick = {},
+            isEnabled = isEnabled,
+            usePadding = usePadding
+        )
+
+        Slider(
+            state = state,
+            setState = onSlide,
+            onSlideComplete = onSlideComplete,
+            range = range,
+            steps = steps,
+            showTicks = showTicks,
+            modifier = Modifier
+                .height(36.dp)
+                .alpha(if (isEnabled) 1f else 0.5f)
+                .let { if (usePadding) it.padding(start = 32.dp, end = 16.dp) else it }
+                .padding(vertical = 16.dp)
+                .fillMaxWidth()
+        )
+    }
 }
 
 @Composable
@@ -276,8 +315,9 @@ fun SettingsEntry(
 
     val entryModifier = if (isExpressive) {
         modifier
-            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .padding(horizontal = 16.dp, vertical = 3.dp)
             .clip(RoundedCornerShape(16.dp))
+            .background(colorPalette.background1, RoundedCornerShape(16.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
@@ -325,14 +365,15 @@ fun SettingsDescription(
     important: Boolean = false
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
 
     BasicText(
         text = text,
         style = if (important) typography.xxs.semiBold.color(colorPalette.red)
         else typography.xxs.secondary,
         modifier = modifier
-            .padding(start = 16.dp)
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(start = if (isExpressive) 20.dp else 32.dp, end = 16.dp)
+            .padding(vertical = 4.dp)
     )
 }
 
@@ -342,13 +383,14 @@ fun SettingsEntryGroupText(
     modifier: Modifier = Modifier
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
 
     BasicText(
         text = title,
         style = typography.xs.semiBold.copy(colorPalette.accent),
         modifier = modifier
-            .padding(start = 16.dp)
-            .padding(horizontal = 16.dp)
+            .padding(start = if (isExpressive) 20.dp else 32.dp, end = 16.dp)
+            .padding(vertical = 4.dp)
             .semantics { text = AnnotatedString(text = title) }
     )
 }
@@ -401,26 +443,33 @@ fun SettingsGroup(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val isExpressive = LocalIsExpressiveTheme.current
-    val (colorPalette) = LocalAppearance.current
+    val (colorPalette, typography) = LocalAppearance.current
 
     if (isExpressive) {
         Column(
             modifier = modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .padding(vertical = 4.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    SettingsEntryGroupText(title = title, modifier = Modifier.padding(0.dp))
+                    BasicText(
+                        text = title,
+                        style = typography.xs.semiBold.copy(colorPalette.accent),
+                        modifier = Modifier.semantics { text = AnnotatedString(text = title) }
+                    )
 
                     description?.let { description ->
-                        SettingsDescription(
+                        Spacer(Modifier.height(2.dp))
+                        BasicText(
                             text = description,
-                            important = important,
-                            modifier = Modifier.padding(0.dp)
+                            style = if (important) typography.xxs.semiBold.color(colorPalette.red)
+                            else typography.xxs.secondary
                         )
                     }
                 }
@@ -430,24 +479,9 @@ fun SettingsGroup(
                 }
             }
 
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
 
-            Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = colorPalette.background1
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
-                    content()
-                }
-            }
+            content()
 
             SettingsGroupSpacer()
         }
