@@ -40,6 +40,14 @@ fun AppearanceSettings() = with(AppearancePreferences) {
     val isDark = isSystemInDarkTheme()
 
     SettingsCategoryScreen(title = stringResource(R.string.appearance)) {
+        SettingsGroup(title = stringResource(R.string.theme_style)) {
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.theme_style),
+                selectedValue = themeMode,
+                onValueSelect = { themeMode = it },
+                valueText = { stringResource(it.displayNameRes) }
+            )
+        }
         SettingsGroup(title = stringResource(R.string.app_icon)) {
             EnumValueSelectorSettingsEntry(
                 title = stringResource(R.string.app_icon),

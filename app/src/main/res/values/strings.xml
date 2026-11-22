@@ -36,6 +36,9 @@
     <string name="videos">Videos</string>
     <string name="about">About</string>
     <string name="appearance">Appearance</string>
+    <string name="theme_style">Theme style</string>
+    <string name="theme_mode_classic">Classic</string>
+    <string name="theme_mode_m3_expressive">Material 3 Expressive</string>
     <string name="colors">Colors</string>
     <string name="shapes">Shapes</string>
     <string name="skip_back">Skip back</string>

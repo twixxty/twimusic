@@ -242,7 +242,12 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
                 LocalPersistMap provides Dependencies.application.persistMap,
                 LocalMonetCompat provides monet
             ) {
-                content()
+                app.vitune.android.ui.theme.Material3ExpressiveTheme(
+                    appearance = appearance,
+                    isExpressive = AppearancePreferences.themeMode == AppearancePreferences.ThemeMode.Material3Expressive
+                ) {
+                    content()
+                }
             }
         }
     }
