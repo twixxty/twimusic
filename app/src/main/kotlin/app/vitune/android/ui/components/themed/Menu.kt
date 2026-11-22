@@ -91,13 +91,14 @@ fun getMenuEntryShape(position: MenuEntryPosition, isExpressive: Boolean): Shape
 }
 
 data class MenuEntryData(
-    @DrawableRes val icon: Int,
-    val text: String,
-    val onClick: () -> Unit,
+    @DrawableRes val icon: Int = 0,
+    val text: String = "",
+    val onClick: () -> Unit = {},
     val secondaryText: String? = null,
     val enabled: Boolean = true,
     val onLongClick: (() -> Unit)? = null,
-    val trailingContent: (@Composable () -> Unit)? = null
+    val trailingContent: (@Composable () -> Unit)? = null,
+    val customContent: (@Composable (position: MenuEntryPosition) -> Unit)? = null
 )
 
 class MenuSectionBuilder {
@@ -124,14 +125,19 @@ class MenuSectionBuilder {
             )
         )
     }
+
+    fun item(content: @Composable (position: MenuEntryPosition) -> Unit) {
+        items.add(MenuEntryData(customContent = content))
+    }
 }
 
 @Composable
 fun MenuSection(
     modifier: Modifier = Modifier,
-    builder: MenuSectionBuilder.() -> Unit
+    builder: @Composable MenuSectionBuilder.() -> Unit
 ) {
-    val section = MenuSectionBuilder().apply(builder)
+    val section = MenuSectionBuilder()
+    section.builder()
     if (section.items.isEmpty()) return
 
     Column(
@@ -146,16 +152,20 @@ fun MenuSection(
                 index == section.items.lastIndex -> MenuEntryPosition.Bottom
                 else -> MenuEntryPosition.Middle
             }
-            MenuEntry(
-                icon = item.icon,
-                text = item.text,
-                onClick = item.onClick,
-                secondaryText = item.secondaryText,
-                enabled = item.enabled,
-                onLongClick = item.onLongClick,
-                trailingContent = item.trailingContent,
-                position = position
-            )
+            if (item.customContent != null) {
+                item.customContent.invoke(position)
+            } else {
+                MenuEntry(
+                    icon = item.icon,
+                    text = item.text,
+                    onClick = item.onClick,
+                    secondaryText = item.secondaryText,
+                    enabled = item.enabled,
+                    onLongClick = item.onLongClick,
+                    trailingContent = item.trailingContent,
+                    position = position
+                )
+            }
         }
     }
 }
