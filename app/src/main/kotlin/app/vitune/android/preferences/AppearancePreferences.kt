@@ -34,6 +34,18 @@ object AppearancePreferences : GlobalPreferencesHolder() {
             }
     }
 
+    enum class ThemeMode {
+        Classic,
+        Material3Expressive;
+
+        val displayNameRes: Int
+            get() = when (this) {
+                Classic -> R.string.theme_mode_classic
+                Material3Expressive -> R.string.theme_mode_m3_expressive
+            }
+    }
+
+    var themeMode by enum(ThemeMode.Classic)
     var appLogo by enum(AppLogo.Headphones)
     var colorSource by enum(
         when (OldPreferences.oldColorPaletteName) {

@@ -441,8 +441,10 @@ private fun ModernControls(
             stiffness = 380f
         )
 
+        val isExpressiveTheme = app.vitune.android.ui.theme.LocalIsExpressiveTheme.current
+        val basePlayRadius = if (isExpressiveTheme) 32.dp else playButtonRadius
         val currentPlayRadius by animateDpAsState(
-            targetValue = if (isPlayPressed) (playButtonRadius - 2.dp).coerceAtLeast(14.dp) else playButtonRadius,
+            targetValue = if (isPlayPressed) (basePlayRadius - 2.dp).coerceAtLeast(14.dp) else basePlayRadius,
             animationSpec = expressiveSpringDp,
             label = "playRadius"
         )
