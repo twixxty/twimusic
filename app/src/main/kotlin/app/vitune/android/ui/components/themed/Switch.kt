@@ -14,6 +14,8 @@ import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.SwitchDefaults
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.drawCircle
 import app.vitune.core.ui.LocalAppearance
 
@@ -23,6 +25,23 @@ fun Switch(
     modifier: Modifier = Modifier
 ) {
     val (colorPalette) = LocalAppearance.current
+
+    if (LocalIsExpressiveTheme.current) {
+        androidx.compose.material3.Switch(
+            checked = isChecked,
+            onCheckedChange = null,
+            modifier = modifier,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = colorPalette.onAccent,
+                checkedTrackColor = colorPalette.accent,
+                checkedBorderColor = colorPalette.accent,
+                uncheckedThumbColor = colorPalette.textDisabled,
+                uncheckedTrackColor = colorPalette.background2,
+                uncheckedBorderColor = colorPalette.textDisabled.copy(alpha = 0.5f)
+            )
+        )
+        return
+    }
 
     val transition = updateTransition(targetState = isChecked, label = null)
 

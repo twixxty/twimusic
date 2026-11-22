@@ -47,6 +47,10 @@ import app.vitune.android.utils.center
 import app.vitune.android.utils.drawCircle
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.semiBold
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
 import kotlinx.collections.immutable.ImmutableList
@@ -222,17 +226,20 @@ fun DefaultDialog(
     horizontalPadding: Dp = 24.dp,
     content: @Composable ColumnScope.() -> Unit
 ) = Dialog(onDismissRequest = onDismiss) {
+    val isExpressive = LocalIsExpressiveTheme.current
+    val dialogShape = if (isExpressive) RoundedCornerShape(28.dp) else 8.dp.roundedShape
+
     Column(
         horizontalAlignment = horizontalAlignment,
         modifier = modifier
-            .padding(all = 48.dp)
+            .padding(all = if (isExpressive) 24.dp else 48.dp)
             .background(
                 color = LocalAppearance.current.colorPalette.background1,
-                shape = 8.dp.roundedShape
+                shape = dialogShape
             )
             .padding(
                 horizontal = horizontalPadding,
-                vertical = 16.dp
+                vertical = if (isExpressive) 24.dp else 16.dp
             ),
         content = content
     )
@@ -248,6 +255,9 @@ fun <T> ValueSelectorDialog(
     modifier: Modifier = Modifier,
     valueText: @Composable (T) -> String = { it.toString() }
 ) = Dialog(onDismissRequest = onDismiss) {
+    val isExpressive = LocalIsExpressiveTheme.current
+    val dialogShape = if (isExpressive) RoundedCornerShape(28.dp) else 8.dp.roundedShape
+
     ValueSelectorDialogBody(
         onDismiss = onDismiss,
         title = title,
@@ -255,12 +265,12 @@ fun <T> ValueSelectorDialog(
         values = values,
         onValueSelect = onValueSelect,
         modifier = modifier
-            .padding(all = 48.dp)
+            .padding(all = if (isExpressive) 24.dp else 48.dp)
             .background(
                 color = LocalAppearance.current.colorPalette.background1,
-                shape = 8.dp.roundedShape
+                shape = dialogShape
             )
-            .padding(vertical = 16.dp),
+            .padding(vertical = if (isExpressive) 24.dp else 16.dp),
         valueText = valueText
     )
 }
@@ -298,7 +308,16 @@ fun <T> ValueSelectorDialogBody(
                     .padding(vertical = 12.dp, horizontal = 24.dp)
                     .fillMaxWidth()
             ) {
-                if (selectedValue == value) Canvas(
+                if (LocalIsExpressiveTheme.current) {
+                    RadioButton(
+                        selected = selectedValue == value,
+                        onClick = null,
+                        colors = RadioButtonDefaults.colors(
+                            selectedColor = colorPalette.accent,
+                            unselectedColor = colorPalette.textDisabled
+                        )
+                    )
+                } else if (selectedValue == value) Canvas(
                     modifier = Modifier
                         .size(18.dp)
                         .background(
@@ -396,11 +415,14 @@ fun SliderDialog(
 ) = Dialog(onDismissRequest = onDismiss) {
     val (colorPalette, typography) = LocalAppearance.current
 
+    val isExpressive = LocalIsExpressiveTheme.current
+    val dialogShape = if (isExpressive) RoundedCornerShape(28.dp) else 8.dp.roundedShape
+
     Column(
         modifier = modifier
-            .padding(all = 48.dp)
-            .background(color = colorPalette.background1, shape = 8.dp.roundedShape)
-            .padding(vertical = 16.dp)
+            .padding(all = if (isExpressive) 24.dp else 48.dp)
+            .background(color = colorPalette.background1, shape = dialogShape)
+            .padding(vertical = if (isExpressive) 24.dp else 16.dp)
     ) {
         BasicText(
             text = title,

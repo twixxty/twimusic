@@ -17,8 +17,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ripple
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -265,32 +270,52 @@ fun SettingsEntry(
     isEnabled: Boolean = true,
     usePadding: Boolean = true,
     trailingContent: @Composable (() -> Unit)? = null
-) = Row(
-    horizontalArrangement = Arrangement.spacedBy(16.dp),
-    verticalAlignment = Alignment.CenterVertically,
-    modifier = modifier
-        .clip(RoundedCornerShape(25))
-        .clickable(enabled = isEnabled, onClick = onClick)
-        .alpha(if (isEnabled) 1f else 0.5f)
-        .let { if (usePadding) it.padding(start = 32.dp, end = 16.dp) else it }
-        .padding(vertical = 16.dp)
-        .fillMaxWidth()
 ) {
+    val isExpressive = LocalIsExpressiveTheme.current
     val (colorPalette, typography) = LocalAppearance.current
 
-    Column(modifier = Modifier.weight(1f)) {
-        BasicText(
-            text = title,
-            style = typography.xs.semiBold.copy(color = colorPalette.text)
-        )
-
-        if (text != null) BasicText(
-            text = text,
-            style = typography.xs.semiBold.secondary
-        )
+    val entryModifier = if (isExpressive) {
+        modifier
+            .padding(horizontal = 8.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                enabled = isEnabled,
+                onClick = onClick
+            )
+            .alpha(if (isEnabled) 1f else 0.5f)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .fillMaxWidth()
+    } else {
+        modifier
+            .clip(RoundedCornerShape(25))
+            .clickable(enabled = isEnabled, onClick = onClick)
+            .alpha(if (isEnabled) 1f else 0.5f)
+            .let { if (usePadding) it.padding(start = 32.dp, end = 16.dp) else it }
+            .padding(vertical = 16.dp)
+            .fillMaxWidth()
     }
 
-    trailingContent?.invoke()
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = entryModifier
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            BasicText(
+                text = title,
+                style = typography.xs.semiBold.copy(color = colorPalette.text)
+            )
+
+            if (text != null) BasicText(
+                text = text,
+                style = typography.xs.semiBold.secondary
+            )
+        }
+
+        trailingContent?.invoke()
+    }
 }
 
 @Composable
@@ -374,26 +399,82 @@ fun SettingsGroup(
     important: Boolean = false,
     trailingContent: @Composable (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
-) = Column(modifier = modifier.fillMaxWidth()) {
-    Row {
-        Column {
-            SettingsEntryGroupText(title = title)
+) {
+    val isExpressive = LocalIsExpressiveTheme.current
+    val (colorPalette) = LocalAppearance.current
 
-            description?.let { description ->
-                SettingsDescription(
-                    text = description,
-                    important = important
-                )
+    if (isExpressive) {
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    SettingsEntryGroupText(title = title, modifier = Modifier.padding(0.dp))
+
+                    description?.let { description ->
+                        SettingsDescription(
+                            text = description,
+                            important = important,
+                            modifier = Modifier.padding(0.dp)
+                        )
+                    }
+                }
+
+                trailingContent?.let {
+                    it()
+                }
+            }
+
+            Spacer(Modifier.height(6.dp))
+
+            Card(
+                shape = RoundedCornerShape(24.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = colorPalette.background1
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp)
+                ) {
+                    content()
+                }
+            }
+
+            SettingsGroupSpacer()
+        }
+        return
+    }
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row {
+            Column {
+                SettingsEntryGroupText(title = title)
+
+                description?.let { description ->
+                    SettingsDescription(
+                        text = description,
+                        important = important
+                    )
+                }
+            }
+
+            trailingContent?.let {
+                Spacer(Modifier.weight(1f))
+                it()
             }
         }
 
-        trailingContent?.let {
-            Spacer(Modifier.weight(1f))
-            it()
-        }
+        content()
+
+        SettingsGroupSpacer()
     }
-
-    content()
-
-    SettingsGroupSpacer()
 }

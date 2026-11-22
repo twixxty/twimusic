@@ -261,22 +261,28 @@ private fun ClassicControls(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                val isExpressiveTheme = app.vitune.android.ui.theme.LocalIsExpressiveTheme.current
+
                 Box(
                     modifier = Modifier
                         .clip(playButtonRadius.roundedShape)
-                        .clickable {
-                            if (shouldBePlaying) binder.player.pause()
-                            else {
-                                if (binder.player.playbackState == Player.STATE_IDLE) binder.player.prepare()
-                                binder.player.play()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = true),
+                            onClick = {
+                                if (shouldBePlaying) binder.player.pause()
+                                else {
+                                    if (binder.player.playbackState == Player.STATE_IDLE) binder.player.prepare()
+                                    binder.player.play()
+                                }
                             }
-                        }
-                        .background(colorPalette.background2)
+                        )
+                        .background(if (isExpressiveTheme) colorPalette.accent else colorPalette.background2)
                         .size(64.dp)
                 ) {
                     AnimatedPlayPauseButton(
                         playing = shouldBePlaying,
-                        color = Color(0xff16171d),
+                        color = if (isExpressiveTheme) colorPalette.onAccent else Color(0xff16171d),
                         modifier = Modifier
                             .align(Alignment.Center)
                             .size(32.dp)

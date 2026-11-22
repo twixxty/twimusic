@@ -29,6 +29,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
@@ -242,6 +244,8 @@ inline fun NavigationRail(
             .verticalScroll(rememberScrollState())
             .padding(paddingValues)
     ) {
+        val isExpressive = LocalIsExpressiveTheme.current
+
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
@@ -260,6 +264,10 @@ inline fun NavigationRail(
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                 modifier = Modifier
+                    .let {
+                        if (isExpressive) it.background(colorPalette.background1, CircleShape)
+                        else it
+                    }
                     .clip(CircleShape)
                     .clickable(onClick = onTopIconButtonClick)
                     .padding(all = 12.dp)
@@ -273,6 +281,10 @@ inline fun NavigationRail(
                         contentDescription = stringResource(R.string.listen_together),
                         colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                         modifier = Modifier
+                            .let {
+                                if (isExpressive) it.background(colorPalette.background1, CircleShape)
+                                else it
+                            }
                             .clip(CircleShape)
                             .clickable { listenTogetherRoute.global() }
                             .padding(all = 12.dp)
@@ -289,6 +301,10 @@ inline fun NavigationRail(
                             else colorPalette.textDisabled
                         ),
                         modifier = Modifier
+                            .let {
+                                if (isExpressive) it.background(colorPalette.background1, CircleShape)
+                                else it
+                            }
                             .clip(CircleShape)
                             .clickable {
                                 DiscordPreferences.enabled = !DiscordPreferences.enabled
@@ -320,14 +336,18 @@ inline fun NavigationRail(
                     }
 
                     val textColor by transition.animateColor(label = "") {
-                        if (it == index) colorPalette.text else colorPalette.textDisabled
+                        if (it == index) {
+                            if (isExpressive) colorPalette.accent else colorPalette.text
+                        } else colorPalette.textDisabled
                     }
 
                     val iconContent: @Composable () -> Unit = {
                         Image(
                             painter = painterResource(tab.icon),
                             contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.text),
+                            colorFilter = ColorFilter.tint(
+                                if (isExpressive && tabIndex == index) colorPalette.accent else colorPalette.text
+                            ),
                             modifier = Modifier
                                 .vertical(enabled = !isLandscape)
                                 .graphicsLayer {
@@ -354,6 +374,11 @@ inline fun NavigationRail(
 
                     val contentModifier = Modifier
                         .clip(24.dp.roundedShape)
+                        .let {
+                            if (isExpressive && tabIndex == index) {
+                                it.background(colorPalette.accent.copy(alpha = 0.20f), RoundedCornerShape(20.dp))
+                            } else it
+                        }
                         .combinedClickable(
                             onClick = { onTabIndexChange(index) },
                             onLongClick = { editing = true }

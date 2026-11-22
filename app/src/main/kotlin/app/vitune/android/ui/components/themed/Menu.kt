@@ -24,7 +24,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.remember
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.core.ui.LocalAppearance
@@ -32,19 +37,38 @@ import app.vitune.core.ui.LocalAppearance
 @Composable
 inline fun Menu(
     modifier: Modifier = Modifier,
-    shape: Shape = RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp),
+    shape: Shape? = null,
     content: @Composable ColumnScope.() -> Unit
-) = Column(
-    modifier = modifier
-        .fillMaxWidth()
-        .clip(shape)
-        .verticalScroll(rememberScrollState())
-        .background(LocalAppearance.current.colorPalette.background1)
-        .padding(top = 2.dp)
-        .padding(vertical = 8.dp)
-        .navigationBarsPadding(),
-    content = content
-)
+) {
+    val isExpressive = LocalIsExpressiveTheme.current
+    val effectiveShape = shape ?: if (isExpressive) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                                 else RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp)
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(effectiveShape)
+            .verticalScroll(rememberScrollState())
+            .background(LocalAppearance.current.colorPalette.background1)
+            .padding(top = 2.dp)
+            .padding(vertical = 8.dp)
+            .navigationBarsPadding()
+    ) {
+        if (isExpressive) {
+            Box(
+                modifier = Modifier
+                    .padding(top = 4.dp, bottom = 8.dp)
+                    .align(Alignment.CenterHorizontally)
+                    .size(width = 36.dp, height = 4.dp)
+                    .background(
+                        color = LocalAppearance.current.colorPalette.textDisabled.copy(alpha = 0.4f),
+                        shape = CircleShape
+                    )
+            )
+        }
+        content()
+    }
+}
 
 @Composable
 fun MenuEntry(
@@ -58,11 +82,24 @@ fun MenuEntry(
     trailingContent: (@Composable () -> Unit)? = null
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
-        modifier = modifier
+    val entryModifier = if (isExpressive) {
+        modifier
+            .padding(horizontal = 12.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                enabled = enabled,
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else 0.4f)
+            .padding(horizontal = 16.dp)
+    } else {
+        modifier
             .combinedClickable(
                 enabled = enabled,
                 onClick = onClick,
@@ -71,6 +108,12 @@ fun MenuEntry(
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.4f)
             .padding(horizontal = 24.dp)
+    }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        modifier = entryModifier
     ) {
         Image(
             painter = painterResource(icon),

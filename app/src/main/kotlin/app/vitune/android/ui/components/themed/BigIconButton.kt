@@ -16,6 +16,11 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.remember
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
 
@@ -27,20 +32,32 @@ fun BigIconButton(
     backgroundColor: Color = LocalAppearance.current.colorPalette.background2,
     contentColor: Color = LocalAppearance.current.colorPalette.text,
     shape: Shape = 32.dp.roundedShape
-) = Box(
-    modifier
-        .clip(shape)
-        .let {
-            if (onClick == null) it else it.clickable(onClick = onClick)
-        }
-        .background(backgroundColor)
-        .height(64.dp),
-    contentAlignment = Alignment.Center
 ) {
-    Image(
-        painter = painterResource(iconId),
-        contentDescription = null,
-        modifier = Modifier.size(24.dp),
-        colorFilter = ColorFilter.tint(contentColor)
-    )
+    val isExpressive = LocalIsExpressiveTheme.current
+    val effectiveShape = if (isExpressive) RoundedCornerShape(24.dp) else shape
+    val effectiveBg = if (isExpressive) LocalAppearance.current.colorPalette.background1 else backgroundColor
+
+    Box(
+        modifier
+            .clip(effectiveShape)
+            .let {
+                if (onClick == null) it
+                else if (isExpressive) it.clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    onClick = onClick
+                )
+                else it.clickable(onClick = onClick)
+            }
+            .background(effectiveBg)
+            .height(64.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(iconId),
+            contentDescription = null,
+            modifier = Modifier.size(24.dp),
+            colorFilter = ColorFilter.tint(contentColor)
+        )
+    }
 }

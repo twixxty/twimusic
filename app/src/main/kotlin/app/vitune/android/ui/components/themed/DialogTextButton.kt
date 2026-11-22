@@ -8,7 +8,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.TextButton
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.disabled
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.primary
@@ -24,6 +28,42 @@ fun DialogTextButton(
     primary: Boolean = false
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+
+    if (LocalIsExpressiveTheme.current) {
+        if (primary) {
+            Button(
+                onClick = onClick,
+                enabled = enabled,
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorPalette.accent,
+                    contentColor = colorPalette.onAccent
+                ),
+                modifier = modifier
+            ) {
+                BasicText(
+                    text = text,
+                    style = typography.xs.semiBold.copy(color = colorPalette.onAccent)
+                )
+            }
+        } else {
+            TextButton(
+                onClick = onClick,
+                enabled = enabled,
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = colorPalette.accent
+                ),
+                modifier = modifier
+            ) {
+                BasicText(
+                    text = text,
+                    style = typography.xs.medium.copy(color = colorPalette.accent)
+                )
+            }
+        }
+        return
+    }
 
     BasicText(
         text = text,
