@@ -27,6 +27,8 @@ import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -186,6 +188,8 @@ fun SwitchSettingsEntry(
     Switch(isChecked = isChecked)
 }
 
+val LocalInSettingsGroup = compositionLocalOf { false }
+
 @Composable
 fun SliderSettingsEntry(
     title: String,
@@ -202,17 +206,26 @@ fun SliderSettingsEntry(
     showTicks: Boolean = steps != 0
 ) {
     val isExpressive = LocalIsExpressiveTheme.current
+    val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
 
     if (isExpressive) {
-        Column(
-            modifier = modifier
+        val sliderModifier = if (inSettingsGroup) {
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(4.dp))
+                .background(colorPalette.background1)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        } else {
+            modifier
                 .padding(horizontal = 16.dp, vertical = 3.dp)
-                .clip(RoundedCornerShape(16.dp))
-                .background(colorPalette.background1, RoundedCornerShape(16.dp))
+                .clip(RoundedCornerShape(24.dp))
+                .background(colorPalette.background1)
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .fillMaxWidth()
-        ) {
+        }
+
+        Column(modifier = sliderModifier) {
             BasicText(
                 text = title,
                 style = typography.xs.semiBold.copy(color = colorPalette.text)
@@ -311,22 +324,38 @@ fun SettingsEntry(
     trailingContent: @Composable (() -> Unit)? = null
 ) {
     val isExpressive = LocalIsExpressiveTheme.current
+    val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
 
     val entryModifier = if (isExpressive) {
-        modifier
-            .padding(horizontal = 16.dp, vertical = 3.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(colorPalette.background1, RoundedCornerShape(16.dp))
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(),
-                enabled = isEnabled,
-                onClick = onClick
-            )
-            .alpha(if (isEnabled) 1f else 0.5f)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
-            .fillMaxWidth()
+        if (inSettingsGroup) {
+            modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(4.dp))
+                .background(colorPalette.background1)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    enabled = isEnabled,
+                    onClick = onClick
+                )
+                .alpha(if (isEnabled) 1f else 0.5f)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+        } else {
+            modifier
+                .padding(horizontal = 16.dp, vertical = 3.dp)
+                .clip(RoundedCornerShape(24.dp))
+                .background(colorPalette.background1)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = ripple(),
+                    enabled = isEnabled,
+                    onClick = onClick
+                )
+                .alpha(if (isEnabled) 1f else 0.5f)
+                .padding(horizontal = 16.dp, vertical = 14.dp)
+                .fillMaxWidth()
+        }
     } else {
         modifier
             .clip(RoundedCornerShape(25))
@@ -372,7 +401,7 @@ fun SettingsDescription(
         style = if (important) typography.xxs.semiBold.color(colorPalette.red)
         else typography.xxs.secondary,
         modifier = modifier
-            .padding(start = if (isExpressive) 20.dp else 32.dp, end = 16.dp)
+            .padding(start = if (isExpressive) 16.dp else 32.dp, end = 16.dp)
             .padding(vertical = 4.dp)
     )
 }
@@ -389,7 +418,7 @@ fun SettingsEntryGroupText(
         text = title,
         style = typography.xs.semiBold.copy(colorPalette.accent),
         modifier = modifier
-            .padding(start = if (isExpressive) 20.dp else 32.dp, end = 16.dp)
+            .padding(start = if (isExpressive) 16.dp else 32.dp, end = 16.dp)
             .padding(vertical = 4.dp)
             .semantics { text = AnnotatedString(text = title) }
     )
@@ -455,7 +484,7 @@ fun SettingsGroup(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 6.dp)
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     BasicText(
@@ -481,7 +510,17 @@ fun SettingsGroup(
 
             Spacer(Modifier.height(4.dp))
 
-            content()
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .clip(RoundedCornerShape(24.dp))
+            ) {
+                CompositionLocalProvider(LocalInSettingsGroup provides true) {
+                    content()
+                }
+            }
 
             SettingsGroupSpacer()
         }

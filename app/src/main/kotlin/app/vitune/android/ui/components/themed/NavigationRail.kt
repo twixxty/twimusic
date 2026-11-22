@@ -27,6 +27,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -257,8 +258,8 @@ inline fun NavigationRail(
                     else Dimensions.navigationRail.width
                 )
                 .padding(
-                    top = 48.dp,
-                    bottom = 16.dp
+                    top = 16.dp,
+                    bottom = 24.dp
                 )
         ) {
             Image(
@@ -350,10 +351,11 @@ inline fun NavigationRail(
                     }
 
                     val contentModifier = Modifier
-                        .clip(24.dp.roundedShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                        .clip(RoundedCornerShape(24.dp))
                         .let {
-                            if (isExpressive && isSelected) {
-                                it.background(colorPalette.accent.copy(alpha = 0.20f), RoundedCornerShape(24.dp))
+                            if (isExpressive && dothAlpha > 0f) {
+                                it.background(colorPalette.accent.copy(alpha = 0.20f * dothAlpha), RoundedCornerShape(24.dp))
                             } else it
                         }
                         .combinedClickable(
@@ -394,9 +396,10 @@ inline fun NavigationRail(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = contentModifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 6.dp)
-                                .height(88.dp)
+                                .width(48.dp)
+                                .wrapContentHeight()
+                                .heightIn(min = 68.dp)
+                                .padding(vertical = 14.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -404,9 +407,6 @@ inline fun NavigationRail(
                                 modifier = Modifier
                                     .vertical()
                                     .rotate(-90f)
-                                    .graphicsLayer {
-                                        translationX = -12.dp.toPx() * (1f - dothAlpha)
-                                    }
                             ) {
                                 Image(
                                     painter = painterResource(tab.icon),
@@ -415,7 +415,7 @@ inline fun NavigationRail(
                                         if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
                                     ),
                                     modifier = Modifier
-                                        .size(18.dp)
+                                        .size(16.dp)
                                         .graphicsLayer {
                                             alpha = dothAlpha
                                         }
@@ -427,7 +427,10 @@ inline fun NavigationRail(
                                     text = tab.title(),
                                     style = typography.xs.semiBold.center.color(textColor),
                                     overflow = TextOverflow.Ellipsis,
-                                    maxLines = 1
+                                    maxLines = 1,
+                                    modifier = Modifier.graphicsLayer {
+                                        translationX = -11.dp.toPx() * (1f - dothAlpha)
+                                    }
                                 )
                             }
                         }
