@@ -13,6 +13,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.surface
 import app.vitune.core.ui.utils.roundedShape
@@ -25,6 +29,25 @@ fun PrimaryButton(
     enabled: Boolean = true
 ) {
     val (colorPalette) = LocalAppearance.current
+
+    if (LocalIsExpressiveTheme.current) {
+        FloatingActionButton(
+            onClick = onClick,
+            modifier = modifier.size(56.dp),
+            shape = RoundedCornerShape(20.dp),
+            containerColor = colorPalette.accent,
+            contentColor = colorPalette.onAccent,
+            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
+        ) {
+            Image(
+                painter = painterResource(icon),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colorPalette.onAccent),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        return
+    }
 
     Box(
         modifier = modifier

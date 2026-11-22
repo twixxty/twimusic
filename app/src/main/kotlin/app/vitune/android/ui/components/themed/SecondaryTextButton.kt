@@ -7,7 +7,10 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.FilledTonalButton
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.center
 import app.vitune.android.utils.disabled
 import app.vitune.android.utils.medium
@@ -24,6 +27,25 @@ fun SecondaryTextButton(
     alternative: Boolean = false
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+
+    if (LocalIsExpressiveTheme.current) {
+        FilledTonalButton(
+            onClick = onClick,
+            enabled = enabled,
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.filledTonalButtonColors(
+                containerColor = if (alternative) colorPalette.background0 else colorPalette.background2,
+                contentColor = colorPalette.text
+            ),
+            modifier = modifier
+        ) {
+            BasicText(
+                text = text,
+                style = typography.xxs.medium.center.copy(color = colorPalette.text)
+            )
+        }
+        return
+    }
 
     BasicText(
         text = text,
