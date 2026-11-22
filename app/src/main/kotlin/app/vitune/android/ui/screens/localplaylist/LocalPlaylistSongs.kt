@@ -50,6 +50,7 @@ import app.vitune.android.ui.components.themed.InPlaylistMediaItemMenu
 import app.vitune.android.ui.components.themed.LayoutWithAdaptiveThumbnail
 import app.vitune.android.ui.components.themed.Menu
 import app.vitune.android.ui.components.themed.MenuEntry
+import app.vitune.android.ui.components.themed.MenuSection
 import app.vitune.android.ui.components.themed.ReorderHandle
 import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.TextFieldDialog
@@ -194,75 +195,79 @@ fun LocalPlaylistSongs(
                                     menuState.display {
                                         Menu {
                                             playlist.browseId?.let { browseId ->
-                                                MenuEntry(
-                                                    icon = R.drawable.sync,
-                                                    text = stringResource(R.string.sync),
-                                                    enabled = !loading,
-                                                    onClick = {
-                                                        menuState.hide()
-                                                        coroutineScope.launch {
-                                                            loading = true
-                                                            sync(playlist, browseId)
-                                                            loading = false
-                                                        }
-                                                    }
-                                                )
-
-                                                songs.firstOrNull()?.id?.let { firstSongId ->
-                                                    MenuEntry(
-                                                        icon = R.drawable.play,
-                                                        text = stringResource(R.string.watch_playlist_on_youtube),
+                                                MenuSection {
+                                                    entry(
+                                                        icon = R.drawable.sync,
+                                                        text = stringResource(R.string.sync),
+                                                        enabled = !loading,
                                                         onClick = {
                                                             menuState.hide()
-                                                            binder?.player?.pause()
-                                                            uriHandler.openUri(
-                                                                "https://youtube.com/watch?v=$firstSongId&list=${
-                                                                    playlist.browseId.drop(2)
-                                                                }"
-                                                            )
-                                                        }
-                                                    )
-
-                                                    val errorMessage =
-                                                        stringResource(R.string.youtube_music_not_installed)
-                                                    MenuEntry(
-                                                        icon = R.drawable.musical_notes,
-                                                        text = stringResource(R.string.open_in_youtube_music),
-                                                        onClick = {
-                                                            menuState.hide()
-                                                            binder?.player?.pause()
-                                                            if (
-                                                                !launchYouTubeMusic(
-                                                                    context = context,
-                                                                    endpoint = "watch?v=$firstSongId&list=${
-                                                                        playlist.browseId.drop(2)
-                                                                    }"
-                                                                )
-                                                            ) {
-                                                                context.toast(errorMessage)
+                                                            coroutineScope.launch {
+                                                                loading = true
+                                                                sync(playlist, browseId)
+                                                                loading = false
                                                             }
                                                         }
                                                     )
+
+                                                    songs.firstOrNull()?.id?.let { firstSongId ->
+                                                        entry(
+                                                            icon = R.drawable.play,
+                                                            text = stringResource(R.string.watch_playlist_on_youtube),
+                                                            onClick = {
+                                                                menuState.hide()
+                                                                binder?.player?.pause()
+                                                                uriHandler.openUri(
+                                                                    "https://youtube.com/watch?v=$firstSongId&list=${
+                                                                        playlist.browseId.drop(2)
+                                                                    }"
+                                                                )
+                                                            }
+                                                        )
+
+                                                        val errorMessage =
+                                                            stringResource(R.string.youtube_music_not_installed)
+                                                        entry(
+                                                            icon = R.drawable.musical_notes,
+                                                            text = stringResource(R.string.open_in_youtube_music),
+                                                            onClick = {
+                                                                menuState.hide()
+                                                                binder?.player?.pause()
+                                                                if (
+                                                                    !launchYouTubeMusic(
+                                                                        context = context,
+                                                                        endpoint = "watch?v=$firstSongId&list=${
+                                                                            playlist.browseId.drop(2)
+                                                                        }"
+                                                                    )
+                                                                ) {
+                                                                    context.toast(errorMessage)
+                                                                }
+                                                            }
+                                                        )
+                                                    }
                                                 }
                                             }
 
-                                            MenuEntry(
-                                                icon = R.drawable.pencil,
-                                                text = stringResource(R.string.rename),
-                                                onClick = {
-                                                    menuState.hide()
-                                                    isRenaming = true
-                                                }
-                                            )
+                                            MenuSection {
+                                                entry(
+                                                    icon = R.drawable.pencil,
+                                                    text = stringResource(R.string.rename),
+                                                    onClick = {
+                                                        menuState.hide()
+                                                        isRenaming = true
+                                                    }
+                                                )
 
-                                            MenuEntry(
-                                                icon = R.drawable.trash,
-                                                text = stringResource(R.string.delete),
-                                                onClick = {
-                                                    menuState.hide()
-                                                    isDeleting = true
-                                                }
-                                            )
+                                                entry(
+                                                    icon = R.drawable.trash,
+                                                    text = stringResource(R.string.delete),
+                                                    onClick = {
+                                                        menuState.hide()
+                                                        isDeleting = true
+                                                    }
+                                                )
+                                            }
                                         }
                                     }
                                 }

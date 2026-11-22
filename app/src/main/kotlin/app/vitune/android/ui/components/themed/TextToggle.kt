@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -17,6 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import app.vitune.android.R
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.color
 import app.vitune.android.utils.medium
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
@@ -31,18 +34,22 @@ fun TextToggle(
     offLabel: String = stringResource(R.string.off_label)
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
+    val effectiveShape = if (isExpressive) CircleShape else 16.dp.roundedShape
+    val effectiveBackground = if (isExpressive && state) colorPalette.accent.copy(alpha = 0.20f) else colorPalette.background1
+    val effectiveTextColor = if (isExpressive && state) colorPalette.accent else colorPalette.text
 
     Row(
         modifier = modifier
-            .clip(16.dp.roundedShape)
+            .clip(effectiveShape)
             .clickable(onClick = toggleState)
-            .background(colorPalette.background1)
+            .background(effectiveBackground)
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .animateContentSize()
     ) {
         BasicText(
             text = "$name ",
-            style = typography.xxs.medium
+            style = typography.xxs.medium.color(effectiveTextColor)
         )
 
         AnimatedContent(
@@ -61,7 +68,7 @@ fun TextToggle(
         ) {
             BasicText(
                 text = if (it) onLabel else offLabel,
-                style = typography.xxs.medium
+                style = typography.xxs.medium.color(effectiveTextColor)
             )
         }
     }

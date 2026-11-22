@@ -5,7 +5,6 @@ import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
-import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.updateTransition
@@ -342,20 +341,6 @@ inline fun NavigationRail(
                         if (it == index) 1f else 0f
                     }
 
-                    val iconWidth by transition.animateDp(
-                        transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 380f) },
-                        label = "tabIconWidth"
-                    ) {
-                        if (it == index) 16.dp else 0.dp
-                    }
-
-                    val iconGap by transition.animateDp(
-                        transitionSpec = { spring(dampingRatio = 0.8f, stiffness = 380f) },
-                        label = "tabIconGap"
-                    ) {
-                        if (it == index) 6.dp else 0.dp
-                    }
-
                     val textColor by transition.animateColor(
                         label = "tabColor"
                     ) {
@@ -368,7 +353,7 @@ inline fun NavigationRail(
                         .clip(24.dp.roundedShape)
                         .let {
                             if (isExpressive && isSelected) {
-                                it.background(colorPalette.accent.copy(alpha = 0.20f), RoundedCornerShape(20.dp))
+                                it.background(colorPalette.accent.copy(alpha = 0.20f), RoundedCornerShape(24.dp))
                             } else it
                         }
                         .combinedClickable(
@@ -409,8 +394,9 @@ inline fun NavigationRail(
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = contentModifier
-                                .padding(vertical = 4.dp)
-                                .heightIn(min = 88.dp)
+                                .fillMaxWidth()
+                                .padding(horizontal = 6.dp)
+                                .height(88.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
@@ -418,25 +404,24 @@ inline fun NavigationRail(
                                 modifier = Modifier
                                     .vertical()
                                     .rotate(-90f)
-                                    .padding(horizontal = 8.dp)
+                                    .graphicsLayer {
+                                        translationX = -12.dp.toPx() * (1f - dothAlpha)
+                                    }
                             ) {
-                                if (iconWidth > 0.dp) {
-                                    Image(
-                                        painter = painterResource(tab.icon),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(
-                                            if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
-                                        ),
-                                        modifier = Modifier
-                                            .size(16.dp)
-                                            .width(iconWidth)
-                                            .graphicsLayer {
-                                                alpha = dothAlpha
-                                                translationX = (1f - dothAlpha) * -8.dp.toPx()
-                                            }
-                                    )
-                                    Spacer(Modifier.width(iconGap))
-                                }
+                                Image(
+                                    painter = painterResource(tab.icon),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(
+                                        if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
+                                    ),
+                                    modifier = Modifier
+                                        .size(18.dp)
+                                        .graphicsLayer {
+                                            alpha = dothAlpha
+                                        }
+                                )
+
+                                Spacer(Modifier.width(6.dp))
 
                                 BasicText(
                                     text = tab.title(),

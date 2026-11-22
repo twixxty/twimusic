@@ -30,7 +30,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.ui.components.themed.MenuEntryPosition
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,6 +91,7 @@ import app.vitune.android.ui.modifiers.swipeToClose
 import app.vitune.android.utils.DisposableListener
 import app.vitune.android.utils.addNext
 import app.vitune.android.utils.asMediaItem
+import app.vitune.android.utils.color
 import app.vitune.android.utils.enqueue
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.onFirst
@@ -130,6 +134,8 @@ fun Queue(
     windowInsets: WindowInsets = WindowInsets.systemBars
 ) {
     val [colorPalette, typography, _, thumbnailShape] = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
+    val effectiveShape = if (isExpressive) RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp) else shape
     val menuState = LocalMenuState.current
 
     val horizontalBottomPaddingValues = windowInsets
@@ -222,7 +228,7 @@ fun Queue(
         collapsedContent = { innerModifier ->
             Row(
                 modifier = Modifier
-                    .clip(shape)
+                    .clip(effectiveShape)
                     .background(colorPalette.background2)
                     .fillMaxSize()
                     .then(innerModifier)
@@ -257,10 +263,20 @@ fun Queue(
         Column {
             Box(
                 modifier = Modifier
-                    .clip(shape)
+                    .clip(effectiveShape)
                     .background(colorPalette.background1)
                     .weight(1f)
             ) {
+                if (isExpressive) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .align(Alignment.TopCenter)
+                            .size(width = 36.dp, height = 4.dp)
+                            .background(colorPalette.textDisabled.copy(alpha = 0.4f), CircleShape)
+                    )
+                }
+
                 LookaheadScope {
                     LazyColumn(
                         state = lazyListState,
@@ -270,6 +286,12 @@ fun Queue(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         modifier = Modifier.nestedScroll(scrollConnection)
                     ) {
+                        if (isExpressive) {
+                            item(key = "drag_handle_spacer") {
+                                Spacer(Modifier.height(14.dp))
+                            }
+                        }
+
                         itemsIndexed(
                             items = windows,
                             key = { _, window -> window.uid.hashCode() },
@@ -339,7 +361,19 @@ fun Queue(
                                         reorderingState = reorderingState,
                                         index = i
                                     )
-                                    .background(colorPalette.background1)
+                                    .then(
+                                        if (isExpressive) {
+                                            Modifier
+                                                .padding(horizontal = 8.dp, vertical = 2.dp)
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(
+                                                    if (isPlayingThisMediaItem) colorPalette.accent.copy(alpha = 0.15f)
+                                                    else colorPalette.background1
+                                                )
+                                        } else {
+                                            Modifier.background(colorPalette.background1)
+                                        }
+                                    )
                                     .let {
                                         if (PlayerPreferences.horizontalSwipeToRemoveItem && !isPlayingThisMediaItem)
                                             it.swipeToClose(
@@ -478,9 +512,9 @@ fun Queue(
                         count = windows.size,
                         windows.size
                     ),
-                    style = typography.xxs.medium,
+                    style = typography.xxs.medium.color(if (isExpressive) colorPalette.accent else colorPalette.text),
                     modifier = Modifier
-                        .clip(16.dp.roundedShape)
+                        .clip(if (isExpressive) CircleShape else 16.dp.roundedShape)
                         .clickable {
                             fun addToPlaylist(playlist: Playlist, index: Int) = transaction {
                                 val playlistId = Database
@@ -551,7 +585,13 @@ fun Queue(
                                     if (playlistPreviews?.isEmpty() == true)
                                         Spacer(modifier = Modifier.height(160.dp))
 
-                                    playlistPreviews?.forEach { playlistPreview ->
+                                    playlistPreviews?.forEachIndexed { index, playlistPreview ->
+                                        val position = when {
+                                            playlistPreviews?.size == 1 -> MenuEntryPosition.Single
+                                            index == 0 -> MenuEntryPosition.Top
+                                            index == playlistPreviews?.lastIndex -> MenuEntryPosition.Bottom
+                                            else -> MenuEntryPosition.Middle
+                                        }
                                         MenuEntry(
                                             icon = R.drawable.playlist,
                                             text = playlistPreview.playlist.name,
@@ -560,6 +600,7 @@ fun Queue(
                                                 count = playlistPreview.songCount,
                                                 playlistPreview.songCount
                                             ),
+                                            position = position,
                                             onClick = {
                                                 menuState.hide()
                                                 addToPlaylist(
@@ -572,7 +613,7 @@ fun Queue(
                                 }
                             }
                         }
-                        .background(colorPalette.background1)
+                        .background(if (isExpressive) colorPalette.accent.copy(alpha = 0.15f) else colorPalette.background1)
                         .padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }

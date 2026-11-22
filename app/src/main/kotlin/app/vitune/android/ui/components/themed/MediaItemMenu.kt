@@ -25,6 +25,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -394,7 +396,13 @@ fun MediaItemMenu(
                 }
 
                 onAddToPlaylist?.let { onAddToPlaylist ->
-                    playlistPreviews.forEach { playlistPreview ->
+                    playlistPreviews.forEachIndexed { index, playlistPreview ->
+                        val position = when {
+                            playlistPreviews.size == 1 -> MenuEntryPosition.Single
+                            index == 0 -> MenuEntryPosition.Top
+                            index == playlistPreviews.size - 1 -> MenuEntryPosition.Bottom
+                            else -> MenuEntryPosition.Middle
+                        }
                         MenuEntry(
                             icon = R.drawable.playlist,
                             text = playlistPreview.playlist.name,
@@ -406,7 +414,8 @@ fun MediaItemMenu(
                             onClick = {
                                 onDismiss()
                                 onAddToPlaylist(playlistPreview.playlist, playlistPreview.songCount)
-                            }
+                            },
+                            position = position
                         )
                     }
                 }
@@ -416,9 +425,19 @@ fun MediaItemMenu(
                 height = it.size.height.px.dp(density)
             }
         ) {
+            val isExpressive = LocalIsExpressiveTheme.current
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(end = 12.dp)
+                modifier = Modifier
+                    .let {
+                        if (isExpressive) it
+                            .padding(horizontal = 12.dp, vertical = 4.dp)
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colorPalette.background2)
+                            .padding(vertical = 4.dp, end = 12.dp)
+                        else it.padding(end = 12.dp)
+                    }
             ) {
                 SongItem(
                     song = mediaItem,
@@ -464,16 +483,142 @@ fun MediaItemMenu(
                 }
             }
 
-            HorizontalDivider(
-                modifier = Modifier
-                    .alpha(0.5f)
-                    .padding(vertical = 8.dp)
-            )
+            if (!isExpressive) {
+                HorizontalDivider(
+                    modifier = Modifier
+                        .alpha(0.5f)
+                        .padding(vertical = 8.dp)
+                )
+            } else {
+                Spacer(Modifier.height(4.dp))
+            }
 
             val isGuest = binder?.listenTogether?.isGuestPlaybackLocked == true
 
-            if (isGuest && !isLocal) {
-                MenuEntry(
+            var isShowingSleepTimerDialog by remember { mutableStateOf(false) }
+            var sleepTimerMillisLeft by remember { mutableLongStateOf(0L) }
+
+            if (onShowSleepTimer != null) {
+                LaunchedEffect(binder, binder?.sleepTimerMillisLeft) {
+                    binder?.sleepTimerMillisLeft?.collectLatest {
+                        sleepTimerMillisLeft = it ?: 0L
+                    } ?: run { sleepTimerMillisLeft = 0L }
+                }
+            }
+
+            val stopAfterSong = {
+                runCatching {
+                    binder?.startSleepTimer(
+                        binder.player.duration - binder.player.contentPosition
+                    )
+                }
+                isShowingSleepTimerDialog = false
+            }
+
+            if (isShowingSleepTimerDialog) {
+                if (sleepTimerMillisLeft == 0L) DefaultDialog(
+                    onDismiss = { isShowingSleepTimerDialog = false }
+                ) {
+                    var amount by remember { mutableIntStateOf(1) }
+
+                    BasicText(
+                        text = stringResource(R.string.set_sleep_timer),
+                        style = typography.s.semiBold,
+                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 24.dp)
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(
+                            space = 16.dp,
+                            alignment = Alignment.CenterHorizontally
+                        ),
+                        modifier = Modifier.padding(vertical = 8.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .alpha(if (amount <= 1) 0.5f else 1f)
+                                .clip(CircleShape)
+                                .clickable(enabled = amount > 1) { amount-- }
+                                .size(48.dp)
+                                .background(colorPalette.background0)
+                        ) {
+                            BasicText(
+                                text = "-",
+                                style = typography.xs.semiBold
+                            )
+                        }
+
+                        Box(contentAlignment = Alignment.Center) {
+                            BasicText(
+                                text = "88h 88m",
+                                style = typography.s.semiBold,
+                                modifier = Modifier.alpha(0f)
+                            )
+                            BasicText(
+                                text = "${stringResource(R.string.format_hours, amount / 6)} ${
+                                    stringResource(
+                                        R.string.format_minutes,
+                                        (amount % 6) * 10
+                                    )
+                                }",
+                                style = typography.s.semiBold
+                            )
+                        }
+
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .alpha(if (amount >= 60) 0.5f else 1f)
+                                .clip(CircleShape)
+                                .clickable(enabled = amount < 60) { amount++ }
+                                .size(48.dp)
+                                .background(colorPalette.background0)
+                        ) {
+                            BasicText(
+                                text = "+",
+                                style = typography.xs.semiBold
+                            )
+                        }
+                    }
+
+                    SecondaryTextButton(
+                        text = stringResource(R.string.sleep_timer_until_song_end),
+                        onClick = stopAfterSong,
+                        modifier = Modifier.padding(vertical = 12.dp)
+                    )
+
+                    Row(
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        DialogTextButton(
+                            text = stringResource(R.string.cancel),
+                            onClick = { isShowingSleepTimerDialog = false }
+                        )
+
+                        DialogTextButton(
+                            text = stringResource(R.string.set),
+                            enabled = amount > 0,
+                            primary = true,
+                            onClick = {
+                                binder?.startSleepTimer(amount * 10 * 60 * 1000L)
+                                isShowingSleepTimerDialog = false
+                            }
+                        )
+                    }
+                } else ConfirmationDialog(
+                    text = stringResource(R.string.stop_sleep_timer_prompt),
+                    cancelText = stringResource(R.string.no),
+                    confirmText = stringResource(R.string.stop),
+                    onDismiss = { isShowingSleepTimerDialog = false },
+                    onConfirm = { binder?.cancelSleepTimer() }
+                )
+            }
+
+            MenuSection {
+                if (isGuest && !isLocal) entry(
                     icon = R.drawable.enqueue,
                     text = stringResource(R.string.lt_suggest_to_host),
                     onClick = {
@@ -484,375 +629,257 @@ fun MediaItemMenu(
                         }
                     }
                 )
-            }
 
-            onPlayNext?.let {
-                MenuEntry(
-                    icon = R.drawable.play_skip_forward,
-                    text = stringResource(R.string.play_next),
-                    onClick = {
-                        onDismiss()
-                        onPlayNext()
-                    }
-                )
-            }
-
-            onEnqueue?.let {
-                MenuEntry(
-                    icon = R.drawable.enqueue,
-                    text = stringResource(R.string.enqueue),
-                    onClick = {
-                        onDismiss()
-                        onEnqueue()
-                    }
-                )
-            }
-
-            if (!isLocal) onStartRadio?.let {
-                MenuEntry(
-                    icon = R.drawable.radio,
-                    text = stringResource(R.string.start_radio),
-                    onClick = {
-                        onDismiss()
-                        onStartRadio()
-                    }
-                )
-            }
-
-            onAddToPlaylist?.let {
-                MenuEntry(
-                    icon = R.drawable.playlist,
-                    text = stringResource(R.string.add_to_playlist),
-                    onClick = { isViewingPlaylists = true },
-                    trailingContent = {
-                        Image(
-                            painter = painterResource(R.drawable.chevron_forward),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                )
-            }
-
-            onGoToEqualizer?.let {
-                MenuEntry(
-                    icon = R.drawable.equalizer,
-                    text = stringResource(R.string.equalizer),
-                    onClick = {
-                        onDismiss()
-                        onGoToEqualizer()
-                    }
-                )
-            }
-
-            onShowSpeedDialog?.let {
-                MenuEntry(
-                    icon = R.drawable.speed,
-                    text = stringResource(R.string.playback_settings),
-                    onClick = {
-                        onDismiss()
-                        onShowSpeedDialog()
-                    }
-                )
-            }
-
-            onShowNormalizationDialog?.let {
-                MenuEntry(
-                    icon = R.drawable.volume_up,
-                    text = stringResource(R.string.volume_boost),
-                    onClick = {
-                        onDismiss()
-                        onShowNormalizationDialog()
-                    }
-                )
-            }
-
-            if (onShowSpeedDialog != null) {
-                MenuEntry(
-                    icon = R.drawable.film,
-                    text = if (PlayerPreferences.enableCanvas) "Disable Canvas" else "Enable Canvas",
-                    onClick = {
-                        PlayerPreferences.enableCanvas = !PlayerPreferences.enableCanvas
-                        onDismiss()
-                    }
-                )
-            }
-
-            onShowSleepTimer?.let {
-                var isShowingSleepTimerDialog by remember { mutableStateOf(false) }
-                var sleepTimerMillisLeft by remember { mutableLongStateOf(0L) }
-
-                LaunchedEffect(binder, binder?.sleepTimerMillisLeft) {
-                    binder?.sleepTimerMillisLeft?.collectLatest {
-                        sleepTimerMillisLeft = it ?: 0L
-                    } ?: run { sleepTimerMillisLeft = 0L }
+                onPlayNext?.let {
+                    entry(
+                        icon = R.drawable.play_skip_forward,
+                        text = stringResource(R.string.play_next),
+                        onClick = {
+                            onDismiss()
+                            onPlayNext()
+                        }
+                    )
                 }
 
-                val stopAfterSong = {
-                    runCatching {
-                        binder?.startSleepTimer(
-                            binder.player.duration - binder.player.contentPosition
-                        )
-                    }
-                    isShowingSleepTimerDialog = false
+                onEnqueue?.let {
+                    entry(
+                        icon = R.drawable.enqueue,
+                        text = stringResource(R.string.enqueue),
+                        onClick = {
+                            onDismiss()
+                            onEnqueue()
+                        }
+                    )
                 }
 
-                if (isShowingSleepTimerDialog) {
-                    if (sleepTimerMillisLeft == 0L) DefaultDialog(
-                        onDismiss = { isShowingSleepTimerDialog = false }
-                    ) {
-                        var amount by remember { mutableIntStateOf(1) }
+                if (!isLocal) onStartRadio?.let {
+                    entry(
+                        icon = R.drawable.radio,
+                        text = stringResource(R.string.start_radio),
+                        onClick = {
+                            onDismiss()
+                            onStartRadio()
+                        }
+                    )
+                }
 
-                        BasicText(
-                            text = stringResource(R.string.set_sleep_timer),
-                            style = typography.s.semiBold,
-                            modifier = Modifier.padding(vertical = 8.dp, horizontal = 24.dp)
-                        )
+                onAddToPlaylist?.let {
+                    entry(
+                        icon = R.drawable.playlist,
+                        text = stringResource(R.string.add_to_playlist),
+                        onClick = { isViewingPlaylists = true },
+                        trailingContent = {
+                            Image(
+                                painter = painterResource(R.drawable.chevron_forward),
+                                contentDescription = null,
+                                colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    )
+                }
+            }
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(
-                                space = 16.dp,
-                                alignment = Alignment.CenterHorizontally
-                            ),
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .alpha(if (amount <= 1) 0.5f else 1f)
-                                    .clip(CircleShape)
-                                    .clickable(enabled = amount > 1) { amount-- }
-                                    .size(48.dp)
-                                    .background(colorPalette.background0)
+            MenuSection {
+                onGoToEqualizer?.let {
+                    entry(
+                        icon = R.drawable.equalizer,
+                        text = stringResource(R.string.equalizer),
+                        onClick = {
+                            onDismiss()
+                            onGoToEqualizer()
+                        }
+                    )
+                }
+
+                onShowSpeedDialog?.let {
+                    entry(
+                        icon = R.drawable.speed,
+                        text = stringResource(R.string.playback_settings),
+                        onClick = {
+                            onDismiss()
+                            onShowSpeedDialog()
+                        }
+                    )
+                }
+
+                onShowNormalizationDialog?.let {
+                    entry(
+                        icon = R.drawable.volume_up,
+                        text = stringResource(R.string.volume_boost),
+                        onClick = {
+                            onDismiss()
+                            onShowNormalizationDialog()
+                        }
+                    )
+                }
+
+                if (onShowSpeedDialog != null) {
+                    entry(
+                        icon = R.drawable.film,
+                        text = if (PlayerPreferences.enableCanvas) "Disable Canvas" else "Enable Canvas",
+                        onClick = {
+                            PlayerPreferences.enableCanvas = !PlayerPreferences.enableCanvas
+                            onDismiss()
+                        }
+                    )
+                }
+            }
+
+            MenuSection {
+                onShowSleepTimer?.let {
+                    entry(
+                        icon = R.drawable.alarm,
+                        text = stringResource(R.string.sleep_timer),
+                        onClick = { isShowingSleepTimerDialog = true },
+                        onLongClick = stopAfterSong,
+                        trailingContent = {
+                            AnimatedVisibility(
+                                visible = sleepTimerMillisLeft != 0L,
+                                label = "",
+                                enter = fadeIn() + expandIn(),
+                                exit = fadeOut() + shrinkOut()
                             ) {
                                 BasicText(
-                                    text = "-",
-                                    style = typography.xs.semiBold
-                                )
-                            }
-
-                            Box(contentAlignment = Alignment.Center) {
-                                BasicText(
-                                    text = "88h 88m", // invisible placeholder, no need to localize
-                                    style = typography.s.semiBold,
-                                    modifier = Modifier.alpha(0f)
-                                )
-                                BasicText(
-                                    text = "${stringResource(R.string.format_hours, amount / 6)} ${
-                                        stringResource(
-                                            R.string.format_minutes,
-                                            (amount % 6) * 10
+                                    text = stringResource(
+                                        R.string.format_time_left,
+                                        formatAsDuration(sleepTimerMillisLeft)
+                                    ),
+                                    style = typography.xxs.medium,
+                                    modifier = Modifier
+                                        .background(
+                                            color = colorPalette.background0,
+                                            shape = 16.dp.roundedShape
                                         )
-                                    }",
-                                    style = typography.s.semiBold
-                                )
-                            }
-
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .alpha(if (amount >= 60) 0.5f else 1f)
-                                    .clip(CircleShape)
-                                    .clickable(enabled = amount < 60) { amount++ }
-                                    .size(48.dp)
-                                    .background(colorPalette.background0)
-                            ) {
-                                BasicText(
-                                    text = "+",
-                                    style = typography.xs.semiBold
+                                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                                        .animateContentSize()
                                 )
                             }
                         }
+                    )
+                }
 
-                        SecondaryTextButton(
-                            text = stringResource(R.string.sleep_timer_until_song_end),
-                            onClick = stopAfterSong,
-                            modifier = Modifier.padding(vertical = 12.dp)
+                if (!isLocal) onGoToAlbum?.let {
+                    albumInfo?.let { [id] ->
+                        entry(
+                            icon = R.drawable.disc,
+                            text = stringResource(R.string.go_to_album),
+                            onClick = {
+                                onDismiss()
+                                onGoToAlbum(id)
+                            }
                         )
+                    }
+                }
 
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            DialogTextButton(
-                                text = stringResource(R.string.cancel),
-                                onClick = { isShowingSleepTimerDialog = false }
-                            )
-
-                            DialogTextButton(
-                                text = stringResource(R.string.set),
-                                enabled = amount > 0,
-                                primary = true,
+                if (!isLocal) onGoToArtist?.let {
+                    artistsInfo?.forEach { (id, name) ->
+                        name?.let {
+                            entry(
+                                icon = R.drawable.person,
+                                text = stringResource(R.string.format_go_to_artist, name),
                                 onClick = {
-                                    binder?.startSleepTimer(amount * 10 * 60 * 1000L)
-                                    isShowingSleepTimerDialog = false
+                                    onDismiss()
+                                    onGoToArtist(id)
                                 }
                             )
                         }
-                    } else ConfirmationDialog(
-                        text = stringResource(R.string.stop_sleep_timer_prompt),
-                        cancelText = stringResource(R.string.no),
-                        confirmText = stringResource(R.string.stop),
-                        onDismiss = { isShowingSleepTimerDialog = false },
-                        onConfirm = { binder?.cancelSleepTimer() }
-                    )
+                    }
                 }
 
-                MenuEntry(
-                    icon = R.drawable.alarm,
-                    text = stringResource(R.string.sleep_timer),
-                    onClick = { isShowingSleepTimerDialog = true },
-                    onLongClick = stopAfterSong,
-                    trailingContent = {
-                        AnimatedVisibility(
-                            visible = sleepTimerMillisLeft != 0L,
-                            label = "",
-                            enter = fadeIn() + expandIn(),
-                            exit = fadeOut() + shrinkOut()
-                        ) {
-                            BasicText(
-                                text = stringResource(
-                                    R.string.format_time_left,
-                                    formatAsDuration(sleepTimerMillisLeft)
-                                ),
-                                style = typography.xxs.medium,
-                                modifier = Modifier
-                                    .background(
-                                        color = colorPalette.background0,
-                                        shape = 16.dp.roundedShape
-                                    )
-                                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                                    .animateContentSize()
-                            )
+                if (!isLocal) entry(
+                    icon = R.drawable.play,
+                    text = stringResource(R.string.watch_on_youtube),
+                    onClick = {
+                        onDismiss()
+                        binder?.player?.pause()
+                        uriHandler.openUri("https://youtube.com/watch?v=${mediaItem.mediaId}")
+                    }
+                )
+
+                val errorMsg = stringResource(R.string.youtube_music_not_installed)
+                if (!isLocal) entry(
+                    icon = R.drawable.musical_notes,
+                    text = stringResource(R.string.open_in_youtube_music),
+                    onClick = {
+                        onDismiss()
+                        binder?.player?.pause()
+                        if (!launchYouTubeMusic(context, "watch?v=${mediaItem.mediaId}")) {
+                            context.toast(errorMsg)
                         }
+                    }
+                )
+
+                if (!isLocal && !isCached(mediaItem.mediaId)) entry(
+                    icon = R.drawable.download,
+                    text = stringResource(R.string.pre_cache),
+                    onClick = {
+                        onDismiss()
+                        runCatching {
+                            PrecacheService.scheduleCache(
+                                context = context.applicationContext,
+                                mediaItem = mediaItem
+                            )
+                        }.exceptionOrNull()?.printStackTrace()
                     }
                 )
             }
 
-            if (!isLocal) onGoToAlbum?.let {
-                albumInfo?.let { [id] ->
-                    MenuEntry(
-                        icon = R.drawable.disc,
-                        text = stringResource(R.string.go_to_album),
+            MenuSection {
+                if (!mediaItem.isLocal) {
+                    entry(
+                        icon = R.drawable.remove_circle_outline,
+                        text = if (isBlacklisted) stringResource(R.string.remove_from_blacklist)
+                        else stringResource(R.string.add_to_blacklist),
+                        onClick = {
+                            transaction {
+                                Database.insert(mediaItem)
+                                Database.toggleBlacklist(mediaItem.mediaId)
+                            }
+                        }
+                    )
+                }
+
+                onRemoveFromQueue?.let {
+                    entry(
+                        icon = R.drawable.trash,
+                        text = stringResource(R.string.remove_from_queue),
                         onClick = {
                             onDismiss()
-                            onGoToAlbum(id)
+                            onRemoveFromQueue()
                         }
                     )
                 }
-            }
 
-            if (!isLocal) onGoToArtist?.let {
-                artistsInfo?.forEach { (id, name) ->
-                    name?.let {
-                        MenuEntry(
-                            icon = R.drawable.person,
-                            text = stringResource(R.string.format_go_to_artist, name),
-                            onClick = {
-                                onDismiss()
-                                onGoToArtist(id)
-                            }
-                        )
-                    }
-                }
-            }
-
-            if (!isLocal) MenuEntry(
-                icon = R.drawable.play,
-                text = stringResource(R.string.watch_on_youtube),
-                onClick = {
-                    onDismiss()
-                    binder?.player?.pause()
-                    uriHandler.openUri("https://youtube.com/watch?v=${mediaItem.mediaId}")
-                }
-            )
-
-            val errorMsg = stringResource(R.string.youtube_music_not_installed)
-            if (!isLocal) MenuEntry(
-                icon = R.drawable.musical_notes,
-                text = stringResource(R.string.open_in_youtube_music),
-                onClick = {
-                    onDismiss()
-                    binder?.player?.pause()
-                    if (!launchYouTubeMusic(context, "watch?v=${mediaItem.mediaId}")) {
-                        context.toast(errorMsg)
-                    }
-                }
-            )
-
-            if (!isLocal && !isCached(mediaItem.mediaId)) MenuEntry(
-                icon = R.drawable.download,
-                text = stringResource(R.string.pre_cache),
-                onClick = {
-                    onDismiss()
-                    runCatching {
-                        PrecacheService.scheduleCache(
-                            context = context.applicationContext,
-                            mediaItem = mediaItem
-                        )
-                    }.exceptionOrNull()?.printStackTrace()
-                }
-            )
-
-            if (!mediaItem.isLocal) AnimatedContent(
-                targetState = isBlacklisted,
-                transitionSpec = { fadeIn() togetherWith fadeOut() },
-                label = ""
-            ) { blacklisted ->
-                MenuEntry(
-                    icon = R.drawable.remove_circle_outline,
-                    text = if (blacklisted) stringResource(R.string.remove_from_blacklist)
-                    else stringResource(R.string.add_to_blacklist),
-                    onClick = {
-                        transaction {
-                            Database.insert(mediaItem)
-                            Database.toggleBlacklist(mediaItem.mediaId)
+                onRemoveFromPlaylist?.let {
+                    entry(
+                        icon = R.drawable.trash,
+                        text = stringResource(R.string.remove_from_playlist),
+                        onClick = {
+                            onDismiss()
+                            onRemoveFromPlaylist()
                         }
-                    }
-                )
-            }
+                    )
+                }
 
-            onRemoveFromQueue?.let {
-                MenuEntry(
-                    icon = R.drawable.trash,
-                    text = stringResource(R.string.remove_from_queue),
-                    onClick = {
-                        onDismiss()
-                        onRemoveFromQueue()
-                    }
-                )
-            }
+                onHideFromDatabase?.let {
+                    entry(
+                        icon = R.drawable.trash,
+                        text = stringResource(R.string.hide),
+                        onClick = onHideFromDatabase
+                    )
+                }
 
-            onRemoveFromPlaylist?.let {
-                MenuEntry(
-                    icon = R.drawable.trash,
-                    text = stringResource(R.string.remove_from_playlist),
-                    onClick = {
-                        onDismiss()
-                        onRemoveFromPlaylist()
-                    }
-                )
-            }
-
-            onHideFromDatabase?.let {
-                MenuEntry(
-                    icon = R.drawable.trash,
-                    text = stringResource(R.string.hide),
-                    onClick = onHideFromDatabase
-                )
-            }
-
-            if (!isLocal) onRemoveFromQuickPicks?.let {
-                MenuEntry(
-                    icon = R.drawable.trash,
-                    text = stringResource(R.string.hide_from_quick_picks),
-                    onClick = {
-                        onDismiss()
-                        onRemoveFromQuickPicks()
-                    }
-                )
+                if (!isLocal) onRemoveFromQuickPicks?.let {
+                    entry(
+                        icon = R.drawable.trash,
+                        text = stringResource(R.string.hide_from_quick_picks),
+                        onClick = {
+                            onDismiss()
+                            onRemoveFromQuickPicks()
+                        }
+                    )
+                }
             }
         }
     }

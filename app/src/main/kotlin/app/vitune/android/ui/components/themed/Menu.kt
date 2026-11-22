@@ -71,6 +71,95 @@ inline fun Menu(
     }
 }
 
+enum class MenuEntryPosition {
+    Top,
+    Middle,
+    Bottom,
+    Single,
+    Auto
+}
+
+fun getMenuEntryShape(position: MenuEntryPosition, isExpressive: Boolean): Shape {
+    if (!isExpressive) return RoundedCornerShape(0.dp)
+    return when (position) {
+        MenuEntryPosition.Top -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+        MenuEntryPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
+        MenuEntryPosition.Single -> RoundedCornerShape(20.dp)
+        MenuEntryPosition.Middle -> RoundedCornerShape(4.dp)
+        MenuEntryPosition.Auto -> RoundedCornerShape(12.dp)
+    }
+}
+
+data class MenuEntryData(
+    @DrawableRes val icon: Int,
+    val text: String,
+    val onClick: () -> Unit,
+    val secondaryText: String? = null,
+    val enabled: Boolean = true,
+    val onLongClick: (() -> Unit)? = null,
+    val trailingContent: (@Composable () -> Unit)? = null
+)
+
+class MenuSectionBuilder {
+    internal val items = mutableListOf<MenuEntryData>()
+
+    fun entry(
+        @DrawableRes icon: Int,
+        text: String,
+        onClick: () -> Unit,
+        secondaryText: String? = null,
+        enabled: Boolean = true,
+        onLongClick: (() -> Unit)? = null,
+        trailingContent: (@Composable () -> Unit)? = null
+    ) {
+        items.add(
+            MenuEntryData(
+                icon = icon,
+                text = text,
+                onClick = onClick,
+                secondaryText = secondaryText,
+                enabled = enabled,
+                onLongClick = onLongClick,
+                trailingContent = trailingContent
+            )
+        )
+    }
+}
+
+@Composable
+fun MenuSection(
+    modifier: Modifier = Modifier,
+    builder: MenuSectionBuilder.() -> Unit
+) {
+    val section = MenuSectionBuilder().apply(builder)
+    if (section.items.isEmpty()) return
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp)
+    ) {
+        section.items.forEachIndexed { index, item ->
+            val position = when {
+                section.items.size == 1 -> MenuEntryPosition.Single
+                index == 0 -> MenuEntryPosition.Top
+                index == section.items.lastIndex -> MenuEntryPosition.Bottom
+                else -> MenuEntryPosition.Middle
+            }
+            MenuEntry(
+                icon = item.icon,
+                text = item.text,
+                onClick = item.onClick,
+                secondaryText = item.secondaryText,
+                enabled = item.enabled,
+                onLongClick = item.onLongClick,
+                trailingContent = item.trailingContent,
+                position = position
+            )
+        }
+    }
+}
+
 @Composable
 fun MenuEntry(
     @DrawableRes icon: Int,
@@ -80,15 +169,19 @@ fun MenuEntry(
     secondaryText: String? = null,
     enabled: Boolean = true,
     onLongClick: (() -> Unit)? = null,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    position: MenuEntryPosition = MenuEntryPosition.Auto,
+    shape: Shape? = null
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val isExpressive = LocalIsExpressiveTheme.current
+    val entryShape = shape ?: getMenuEntryShape(position, isExpressive)
 
     val entryModifier = if (isExpressive) {
         modifier
-            .padding(horizontal = 12.dp, vertical = 2.dp)
-            .clip(RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 1.dp)
+            .clip(entryShape)
+            .background(colorPalette.background2, entryShape)
             .combinedClickable(
                 interactionSource = remember { MutableInteractionSource() },
                 indication = ripple(),
@@ -113,24 +206,24 @@ fun MenuEntry(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
         modifier = entryModifier
     ) {
         Image(
             painter = painterResource(icon),
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorPalette.text),
-            modifier = Modifier.size(15.dp)
+            modifier = Modifier.size(20.dp)
         )
 
         Column(
             modifier = Modifier
-                .padding(vertical = 16.dp)
+                .padding(vertical = 12.dp)
                 .weight(1f)
         ) {
             BasicText(
                 text = text,
-                style = typography.xs.medium
+                style = typography.xs.medium.copy(color = colorPalette.text)
             )
 
             secondaryText?.let { secondaryText ->
