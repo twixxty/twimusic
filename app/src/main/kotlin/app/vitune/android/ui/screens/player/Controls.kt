@@ -66,6 +66,7 @@ import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
 import app.vitune.android.models.Info
 import app.vitune.android.models.ui.UiMedia
+import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.service.PlayerService
 import app.vitune.android.utils.getAppIcon
@@ -312,7 +313,7 @@ private fun ClassicControls(
 
                 if (onToggleLyrics != null) {
                     IconButton(
-                        icon = R.drawable.musical_notes,
+                        icon = R.drawable.lyrics,
                         color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
                         onClick = onToggleLyrics,
                         modifier = Modifier
@@ -387,13 +388,14 @@ private fun ModernControls(
         )
 
         val hasTopPrev = PlayerPreferences.showLike
-        val basePlayWeight = if (hasTopPrev) 3f else 4f
+        val useMaterial = AppearancePreferences.useMaterialSymbols
+        val basePlayWeight = if (useMaterial) (if (hasTopPrev) 1.6f else 2.0f) else (if (hasTopPrev) 3f else 4f)
         val baseNextWeight = 1f
         val basePrevWeight = 1f
 
         val targetPlayWeight = when {
-            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.5f else 0.45f)
-            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.35f).coerceAtLeast(1.5f)
+            isPlayPressed -> basePlayWeight + (if (hasTopPrev) 0.35f else 0.3f)
+            isNextPressed || isTopPrevPressed -> (basePlayWeight - 0.25f).coerceAtLeast(1.2f)
             else -> basePlayWeight
         }
 
@@ -449,7 +451,7 @@ private fun ModernControls(
         )
 
         val isExpressiveTheme = app.vitune.android.ui.theme.LocalIsExpressiveTheme.current
-        val basePlayRadius = if (isExpressiveTheme) 32.dp else playButtonRadius
+        val basePlayRadius = if (useMaterial || isExpressiveTheme) 32.dp else playButtonRadius
         val currentPlayRadius by animateDpAsState(
             targetValue = if (isPlayPressed) (basePlayRadius - 2.dp).coerceAtLeast(14.dp) else basePlayRadius,
             animationSpec = expressiveSpringDp,

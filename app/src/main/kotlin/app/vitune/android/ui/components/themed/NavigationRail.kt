@@ -385,7 +385,7 @@ inline fun NavigationRail(
                                     painter = painterResource(getAppIcon(tab.icon)),
                                     contentDescription = null,
                                     colorFilter = ColorFilter.tint(
-                                        if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
+                                        if (isExpressive) colorPalette.accent else (if (isSelected) colorPalette.accent else colorPalette.text)
                                     ),
                                     modifier = Modifier
                                         .graphicsLayer { alpha = dothAlpha }
@@ -421,9 +421,7 @@ inline fun NavigationRail(
                                 Image(
                                     painter = painterResource(getAppIcon(tab.icon)),
                                     contentDescription = null,
-                                    colorFilter = ColorFilter.tint(
-                                        if (isSelected) colorPalette.accent else colorPalette.text
-                                    ),
+                                    colorFilter = ColorFilter.tint(colorPalette.accent),
                                     modifier = Modifier
                                         .size(16.dp)
                                         .graphicsLayer {

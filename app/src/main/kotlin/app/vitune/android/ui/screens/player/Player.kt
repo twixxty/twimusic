@@ -604,8 +604,6 @@ fun Player(
                         },
                         onError = {
                             isVideoReady = false
-                            canvasArtwork = null
-                            spotifyCanvasUrl = null
                         },
                         modifier = Modifier.fillMaxSize()
                     )

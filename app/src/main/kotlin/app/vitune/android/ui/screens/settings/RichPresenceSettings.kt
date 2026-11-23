@@ -124,158 +124,6 @@ fun RichPresenceSettings() {
                 }
             )
 
-            // Rich Presence Live Preview Card matching Screenshot 4
-            val currentMediaItem = binder?.player?.currentMediaItem
-            val player = binder?.player
-            val songTitle = currentMediaItem?.mediaMetadata?.title?.toString() ?: "Counting Stars"
-            val artistName = currentMediaItem?.mediaMetadata?.artist?.toString() ?: "OneRepublic"
-            val albumTitle = currentMediaItem?.mediaMetadata?.albumTitle?.toString() ?: "Native"
-            val artworkUri = currentMediaItem?.mediaMetadata?.artworkUri?.toString()
-            val durationMs = player?.duration?.takeIf { it > 0 } ?: (4 * 60 + 17) * 1000L
-            val positionMs = player?.currentPosition?.coerceAtLeast(0L) ?: (28 * 1000L)
-
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                shape = RoundedCornerShape(20.dp),
-                color = colorPalette.background1
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Artwork with Discord logo badge in bottom-right corner
-                        Box(modifier = Modifier.size(96.dp)) {
-                            if (!artworkUri.isNullOrBlank()) {
-                                AsyncImage(
-                                    model = artworkUri,
-                                    contentDescription = null,
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(12.dp)),
-                                    contentScale = ContentScale.Crop
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .background(colorPalette.background2),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        painter = painterResource(R.drawable.musical_notes),
-                                        contentDescription = null,
-                                        tint = colorPalette.textSecondary,
-                                        modifier = Modifier.size(36.dp)
-                                    )
-                                }
-                            }
-
-                            // Discord Badge
-                            Box(
-                                modifier = Modifier
-                                    .align(Alignment.BottomEnd)
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(0xFF5865F2))
-                                    .padding(5.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    painter = painterResource(R.drawable.discord),
-                                    contentDescription = null,
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                            }
-                        }
-
-                        // Song Details
-                        Column(
-                            modifier = Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(3.dp)
-                        ) {
-                            BasicText(
-                                text = songTitle,
-                                style = typography.m.bold.copy(color = colorPalette.text),
-                                maxLines = 1
-                            )
-                            BasicText(
-                                text = albumTitle,
-                                style = typography.s.secondary,
-                                maxLines = 1
-                            )
-                            BasicText(
-                                text = artistName,
-                                style = typography.s.secondary,
-                                maxLines = 1
-                            )
-                            BasicText(
-                                text = "${formatAsDuration(positionMs)} / ${formatAsDuration(durationMs)}",
-                                style = typography.xs.secondary
-                            )
-                        }
-                    }
-
-                    // Action buttons inside card matching Screenshot 4
-                    val btn1Text = DiscordPreferences.button1Text.ifBlank { stringResource(R.string.discord_button1_text_default) }
-                    Button(
-                        onClick = {
-                            val url = "https://music.youtube.com/watch?v=${currentMediaItem?.mediaId.orEmpty()}"
-                            runCatching { uriHandler.openUri(url) }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = colorPalette.background2,
-                            contentColor = colorPalette.text
-                        )
-                    ) {
-                        BasicText(
-                            text = btn1Text,
-                            style = typography.xs.semiBold.copy(color = colorPalette.text)
-                        )
-                    }
-
-                    if (DiscordPreferences.button2Enabled) {
-                        val btn2Text = DiscordPreferences.button2Text.ifBlank { stringResource(R.string.discord_button2_text_default) }
-                        Button(
-                            onClick = {
-                                runCatching { uriHandler.openUri(DiscordPreferences.button2Url) }
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = colorPalette.background2,
-                                contentColor = colorPalette.text
-                            )
-                        ) {
-                            BasicText(
-                                text = btn2Text,
-                                style = typography.xs.semiBold.copy(color = colorPalette.text)
-                            )
-                        }
-                    }
-                }
-            }
-
-            // Refresh RPC card
-            SettingsEntry(
-                title = stringResource(R.string.discord_refresh_rpc),
-                text = stringResource(R.string.discord_refresh_rpc_description),
-                onClick = {
-                    DiscordRpcManager.notifySettingsChanged()
-                    Toast.makeText(context, R.string.discord_refresh_rpc_description, Toast.LENGTH_SHORT).show()
-                },
-                isEnabled = enabled
-            )
-
             // Quick toggle button toggle matching user requirement
             SwitchSettingsEntry(
                 title = stringResource(R.string.discord_quick_toggle),
@@ -283,36 +131,198 @@ fun RichPresenceSettings() {
                 isChecked = DiscordPreferences.showQuickToggle,
                 onCheckedChange = { DiscordPreferences.showQuickToggle = it }
             )
+        }
 
-            SwitchSettingsEntry(
-                title = stringResource(R.string.discord_show_artist_icon),
-                text = stringResource(R.string.discord_show_artist_icon_description),
-                isChecked = DiscordPreferences.showArtistIcon,
-                onCheckedChange = {
-                    DiscordPreferences.showArtistIcon = it
-                    DiscordRpcManager.notifySettingsChanged()
-                },
-                isEnabled = enabled
-            )
+        AnimatedVisibility(visible = enabled) {
+            Column {
+                SettingsGroupSpacer()
 
-            ValueSelectorSettingsEntry(
-                title = stringResource(R.string.discord_activity_type),
-                selectedValue = DiscordPreferences.activityType,
-                values = persistentListOf("0", "2", "3", "5"),
-                onValueSelect = {
-                    DiscordPreferences.activityType = it
-                    DiscordRpcManager.notifySettingsChanged()
-                },
-                valueText = {
-                    when (it) {
-                        "0" -> stringResource(R.string.discord_type_playing)
-                        "3" -> stringResource(R.string.discord_type_watching)
-                        "5" -> stringResource(R.string.discord_type_competing)
-                        else -> stringResource(R.string.discord_type_listening)
+                // Rich Presence Live Preview Card matching Screenshot 4
+                val currentMediaItem = binder?.player?.currentMediaItem
+                val player = binder?.player
+                val songTitle = currentMediaItem?.mediaMetadata?.title?.toString() ?: "Counting Stars"
+                val artistName = currentMediaItem?.mediaMetadata?.artist?.toString() ?: "OneRepublic"
+                val albumTitle = currentMediaItem?.mediaMetadata?.albumTitle?.toString() ?: "Native"
+                val artworkUri = currentMediaItem?.mediaMetadata?.artworkUri?.toString()
+                val durationMs = player?.duration?.takeIf { it > 0 } ?: (4 * 60 + 17) * 1000L
+                val positionMs = player?.currentPosition?.coerceAtLeast(0L) ?: (28 * 1000L)
+
+                SettingsGroup(title = stringResource(R.string.discord_presence_preview)) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        shape = RoundedCornerShape(20.dp),
+                        color = colorPalette.background1
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                // Artwork with Discord logo badge in bottom-right corner
+                                Box(modifier = Modifier.size(96.dp)) {
+                                    if (!artworkUri.isNullOrBlank()) {
+                                        AsyncImage(
+                                            model = artworkUri,
+                                            contentDescription = null,
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(12.dp)),
+                                            contentScale = ContentScale.Crop
+                                        )
+                                    } else {
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxSize()
+                                                .clip(RoundedCornerShape(12.dp))
+                                                .background(colorPalette.background2),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                painter = painterResource(R.drawable.musical_notes),
+                                                contentDescription = null,
+                                                tint = colorPalette.textSecondary,
+                                                modifier = Modifier.size(36.dp)
+                                            )
+                                        }
+                                    }
+
+                                    // Discord Badge
+                                    Box(
+                                        modifier = Modifier
+                                            .align(Alignment.BottomEnd)
+                                            .size(28.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFF5865F2))
+                                            .padding(5.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            painter = painterResource(R.drawable.discord),
+                                            contentDescription = null,
+                                            tint = Color.White,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                // Song Details
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    BasicText(
+                                        text = songTitle,
+                                        style = typography.m.bold.copy(color = colorPalette.text),
+                                        maxLines = 1
+                                    )
+                                    BasicText(
+                                        text = albumTitle,
+                                        style = typography.s.secondary,
+                                        maxLines = 1
+                                    )
+                                    BasicText(
+                                        text = artistName,
+                                        style = typography.s.secondary,
+                                        maxLines = 1
+                                    )
+                                    BasicText(
+                                        text = "${formatAsDuration(positionMs)} / ${formatAsDuration(durationMs)}",
+                                        style = typography.xs.secondary
+                                    )
+                                }
+                            }
+
+                            // Action buttons inside card matching Screenshot 4
+                            val btn1Text = DiscordPreferences.button1Text.ifBlank { stringResource(R.string.discord_button1_text_default) }
+                            Button(
+                                onClick = {
+                                    val url = "https://music.youtube.com/watch?v=${currentMediaItem?.mediaId.orEmpty()}"
+                                    runCatching { uriHandler.openUri(url) }
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = colorPalette.background2,
+                                    contentColor = colorPalette.text
+                                )
+                            ) {
+                                BasicText(
+                                    text = btn1Text,
+                                    style = typography.xs.semiBold.copy(color = colorPalette.text)
+                                )
+                            }
+
+                            if (DiscordPreferences.button2Enabled) {
+                                val btn2Text = DiscordPreferences.button2Text.ifBlank { stringResource(R.string.discord_button2_text_default) }
+                                Button(
+                                    onClick = {
+                                        runCatching { uriHandler.openUri(DiscordPreferences.button2Url) }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(12.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = colorPalette.background2,
+                                        contentColor = colorPalette.text
+                                    )
+                                ) {
+                                    BasicText(
+                                        text = btn2Text,
+                                        style = typography.xs.semiBold.copy(color = colorPalette.text)
+                                    )
+                                }
+                            }
+                        }
                     }
-                },
-                isEnabled = enabled
-            )
+                }
+
+                SettingsGroupSpacer()
+
+                // Presence Settings Group
+                SettingsGroup(title = stringResource(R.string.discord_rich_presence)) {
+                    // Refresh RPC card
+                    SettingsEntry(
+                        title = stringResource(R.string.discord_refresh_rpc),
+                        text = stringResource(R.string.discord_refresh_rpc_description),
+                        onClick = {
+                            DiscordRpcManager.notifySettingsChanged()
+                            Toast.makeText(context, R.string.discord_refresh_rpc_description, Toast.LENGTH_SHORT).show()
+                        }
+                    )
+
+                    SwitchSettingsEntry(
+                        title = stringResource(R.string.discord_show_artist_icon),
+                        text = stringResource(R.string.discord_show_artist_icon_description),
+                        isChecked = DiscordPreferences.showArtistIcon,
+                        onCheckedChange = {
+                            DiscordPreferences.showArtistIcon = it
+                            DiscordRpcManager.notifySettingsChanged()
+                        }
+                    )
+
+                    ValueSelectorSettingsEntry(
+                        title = stringResource(R.string.discord_activity_type),
+                        selectedValue = DiscordPreferences.activityType,
+                        values = persistentListOf("0", "2", "3", "5"),
+                        onValueSelect = {
+                            DiscordPreferences.activityType = it
+                            DiscordRpcManager.notifySettingsChanged()
+                        },
+                        valueText = {
+                            when (it) {
+                                "0" -> stringResource(R.string.discord_type_playing)
+                                "3" -> stringResource(R.string.discord_type_watching)
+                                "5" -> stringResource(R.string.discord_type_competing)
+                                else -> stringResource(R.string.discord_type_listening)
+                            }
+                        }
+                    )
+                }
+            }
         }
 
         SettingsGroupSpacer()

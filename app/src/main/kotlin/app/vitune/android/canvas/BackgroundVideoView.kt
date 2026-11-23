@@ -1,5 +1,6 @@
 package app.vitune.android.canvas
 
+import android.graphics.SurfaceTexture
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -22,8 +23,11 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
+import app.vitune.android.preferences.PlayerPreferences
+import kotlinx.coroutines.delay
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -78,7 +82,7 @@ fun BackgroundVideoView(
                 repeatMode = Player.REPEAT_MODE_ONE
                 volume = 0f
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                playWhenReady = isPlaying
+                playWhenReady = !PlayerPreferences.pauseCanvasWithSong || isPlaying
             }
     }
 
@@ -110,7 +114,6 @@ fun BackgroundVideoView(
         exoPlayer.addListener(listener)
         onDispose {
             exoPlayer.removeListener(listener)
-            onVideoReady(false)
         }
     }
 
@@ -125,8 +128,28 @@ fun BackgroundVideoView(
         exoPlayer.prepare()
     }
 
-    LaunchedEffect(isPlaying) {
-        exoPlayer.playWhenReady = isPlaying
+    val pauseWithSong = PlayerPreferences.pauseCanvasWithSong
+    LaunchedEffect(isPlaying, pauseWithSong) {
+        if (!pauseWithSong) {
+            exoPlayer.playbackParameters = PlaybackParameters(1f)
+            exoPlayer.playWhenReady = true
+        } else if (isPlaying) {
+            exoPlayer.playbackParameters = PlaybackParameters(1f)
+            exoPlayer.playWhenReady = true
+        } else {
+            val steps = 10
+            val durationMs = 500L
+            val stepDelay = durationMs / steps
+            for (i in 1..steps) {
+                delay(stepDelay)
+                val factor = 1f - (i.toFloat() / steps)
+                if (factor > 0.05f) {
+                    exoPlayer.playbackParameters = PlaybackParameters(factor)
+                }
+            }
+            exoPlayer.playWhenReady = false
+            exoPlayer.playbackParameters = PlaybackParameters(1f)
+        }
     }
 
     LaunchedEffect(resizeMode) {
@@ -159,6 +182,17 @@ fun BackgroundVideoView(
                 if (childCount == 0) {
                     val textureView = TextureView(context).apply {
                         layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                                exoPlayer.setVideoTextureView(this@apply)
+                            }
+                            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+                            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                                exoPlayer.clearVideoTextureView(this@apply)
+                                return true
+                            }
+                            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                        }
                     }
                     addView(textureView)
                     exoPlayer.setVideoTextureView(textureView)

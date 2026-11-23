@@ -612,4 +612,6 @@
     <string name="canvas_style">Canvas display style</string>
     <string name="canvas_style_wide">Wide / Fullscreen</string>
     <string name="canvas_style_cover">Cover Art</string>
+    <string name="pause_canvas_with_song">Pause canvas with song</string>
+    <string name="pause_canvas_with_song_description">Slow down and pause video canvas when playback is paused</string>
 </resources>

@@ -321,14 +321,20 @@ fun TaperedWaveSlider(
 
                 val step = 2f
                 var x = 0f
+                val taperLen = (waveLength * 0.75f).coerceAtMost(totalProgressPx * 0.5f).coerceAtLeast(1f)
+                val widthFactor = (totalProgressPx / (waveLength * 1.5f)).coerceIn(0f, 1f)
+                val smoothWidth = widthFactor * widthFactor * (3f - 2f * widthFactor)
                 val activeReach = (totalWidth * 0.40f).coerceAtLeast(100f)
 
                 while (x <= totalProgressPx) {
                     val distFromScrubber = (totalProgressPx - x).coerceAtLeast(0f)
-                    // Amplitude decreases with distance from the scrubber
-                    val taper = (1f - (distFromScrubber / activeReach)).coerceIn(0f, 1f)
-                    val smoothTaper = taper * taper
-                    val amp = maxAmpPx * smoothTaper * heightFraction
+                    val reachTaper = (1f - (distFromScrubber / activeReach)).coerceIn(0f, 1f)
+
+                    val startT = (x / taperLen).coerceIn(0f, 1f)
+                    val endT = (distFromScrubber / taperLen).coerceIn(0f, 1f)
+                    val env = (startT * startT * (3f - 2f * startT)) * (endT * endT * (3f - 2f * endT))
+
+                    val amp = maxAmpPx * reachTaper * env * smoothWidth * heightFraction
                     val angle = ((x - phaseOffset.value) / waveLength) * (2f * Math.PI.toFloat())
                     val y = centerY + kotlin.math.sin(angle) * amp
                     cachedPath.lineTo(x, y)

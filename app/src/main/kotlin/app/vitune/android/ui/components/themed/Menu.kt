@@ -82,13 +82,7 @@ enum class MenuEntryPosition {
 
 fun getMenuEntryShape(position: MenuEntryPosition, isExpressive: Boolean): Shape {
     if (!isExpressive) return RoundedCornerShape(0.dp)
-    return when (position) {
-        MenuEntryPosition.Top -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-        MenuEntryPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
-        MenuEntryPosition.Single -> RoundedCornerShape(24.dp)
-        MenuEntryPosition.Middle -> RoundedCornerShape(4.dp)
-        MenuEntryPosition.Auto -> RoundedCornerShape(16.dp)
-    }
+    return RoundedCornerShape(16.dp)
 }
 
 data class MenuEntryData(

@@ -82,12 +82,20 @@ fun PlayerSettings() = with(PlayerPreferences) {
             )
 
             AnimatedVisibility(visible = enableCanvas) {
-                EnumValueSelectorSettingsEntry(
-                    title = stringResource(R.string.canvas_style),
-                    selectedValue = canvasStyle,
-                    onValueSelect = { canvasStyle = it },
-                    valueText = { it.displayName() }
-                )
+                Column {
+                    EnumValueSelectorSettingsEntry(
+                        title = stringResource(R.string.canvas_style),
+                        selectedValue = canvasStyle,
+                        onValueSelect = { canvasStyle = it },
+                        valueText = { it.displayName() }
+                    )
+                    SwitchSettingsEntry(
+                        title = stringResource(R.string.pause_canvas_with_song),
+                        text = stringResource(R.string.pause_canvas_with_song_description),
+                        isChecked = pauseCanvasWithSong,
+                        onCheckedChange = { pauseCanvasWithSong = it }
+                    )
+                }
             }
 
         }

@@ -75,6 +75,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         Wide(displayName = { stringResource(R.string.canvas_style_wide) })
     }
     var canvasStyle by enum(CanvasStyle.Cover)
+    var pauseCanvasWithSong by boolean(true)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)

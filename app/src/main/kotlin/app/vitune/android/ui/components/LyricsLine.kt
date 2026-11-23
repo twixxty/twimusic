@@ -125,30 +125,26 @@ fun MetrolistLyricsLine(
     val lyricsTextSize = if (item.isBackground) 17f else 25f
     val lyricsLineSpacing = 1.35f
 
-    val defaultAlignment = when (PlayerPreferences.lyricsTextPosition) {
-        PlayerPreferences.LyricsTextPosition.Left -> Alignment.Start
+    val prefPosition = PlayerPreferences.lyricsTextPosition
+
+    val agentAlignment = when (prefPosition) {
         PlayerPreferences.LyricsTextPosition.Center -> Alignment.CenterHorizontally
         PlayerPreferences.LyricsTextPosition.Right -> Alignment.End
+        PlayerPreferences.LyricsTextPosition.Left -> when {
+            item.agent == "v2" -> Alignment.End
+            item.isBackground -> Alignment.CenterHorizontally
+            else -> Alignment.Start
+        }
     }
 
-    val defaultTextAlign = when (PlayerPreferences.lyricsTextPosition) {
-        PlayerPreferences.LyricsTextPosition.Left -> TextAlign.Left
+    val agentTextAlign = when (prefPosition) {
         PlayerPreferences.LyricsTextPosition.Center -> TextAlign.Center
         PlayerPreferences.LyricsTextPosition.Right -> TextAlign.Right
-    }
-
-    val agentAlignment = when {
-        item.agent == "v1" -> Alignment.Start
-        item.agent == "v2" -> Alignment.End
-        item.isBackground -> Alignment.CenterHorizontally
-        else -> defaultAlignment
-    }
-
-    val agentTextAlign = when {
-        item.agent == "v1" -> TextAlign.Left
-        item.agent == "v2" -> TextAlign.Right
-        item.isBackground -> TextAlign.Center
-        else -> defaultTextAlign
+        PlayerPreferences.LyricsTextPosition.Left -> when {
+            item.agent == "v2" -> TextAlign.Right
+            item.isBackground -> TextAlign.Center
+            else -> TextAlign.Left
+        }
     }
 
     val inactiveAlpha = if (item.isBackground) 0.15f else 0.38f
@@ -227,13 +223,12 @@ fun MetrolistLyricsLine(
                 horizontal = 16.dp,
                 vertical = if (item.isBackground) 4.dp else 8.dp
             ),
-        contentAlignment = when {
-            item.agent == "v1" -> Alignment.CenterStart
-            item.agent == "v2" -> Alignment.CenterEnd
-            else -> when (PlayerPreferences.lyricsTextPosition) {
-                PlayerPreferences.LyricsTextPosition.Left -> Alignment.CenterStart
-                PlayerPreferences.LyricsTextPosition.Center -> Alignment.Center
-                PlayerPreferences.LyricsTextPosition.Right -> Alignment.CenterEnd
+        contentAlignment = when (prefPosition) {
+            PlayerPreferences.LyricsTextPosition.Center -> Alignment.Center
+            PlayerPreferences.LyricsTextPosition.Right -> Alignment.CenterEnd
+            PlayerPreferences.LyricsTextPosition.Left -> when {
+                item.agent == "v2" -> Alignment.CenterEnd
+                else -> Alignment.CenterStart
             }
         }
     ) {
