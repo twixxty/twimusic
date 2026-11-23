@@ -336,6 +336,24 @@ fun Queue(
                                     )
                                 },
                                 modifier = Modifier
+                                    .animateItemPlacement(reorderingState)
+                                    .draggedItem(
+                                        reorderingState = reorderingState,
+                                        index = i
+                                    )
+                                    .then(
+                                        if (isExpressive) {
+                                            Modifier
+                                                .padding(horizontal = 12.dp, vertical = 2.dp)
+                                                .clip(RoundedCornerShape(18.dp))
+                                                .background(
+                                                    if (isPlayingThisMediaItem) colorPalette.accent.copy(alpha = 0.20f)
+                                                    else colorPalette.background2.copy(alpha = 0.40f)
+                                                )
+                                        } else {
+                                            Modifier.background(colorPalette.background1)
+                                        }
+                                    )
                                     .combinedClickable(
                                         onLongClick = {
                                             menuState.display {
@@ -354,24 +372,6 @@ fun Queue(
                                                 binder.player.seekToDefaultPosition(window.firstPeriodIndex)
                                                 binder.player.playWhenReady = true
                                             }
-                                        }
-                                    )
-                                    .animateItemPlacement(reorderingState)
-                                    .draggedItem(
-                                        reorderingState = reorderingState,
-                                        index = i
-                                    )
-                                    .then(
-                                        if (isExpressive) {
-                                            Modifier
-                                                .padding(horizontal = 8.dp, vertical = 2.dp)
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(
-                                                    if (isPlayingThisMediaItem) colorPalette.accent.copy(alpha = 0.15f)
-                                                    else colorPalette.background1
-                                                )
-                                        } else {
-                                            Modifier.background(colorPalette.background1)
                                         }
                                     )
                                     .let {

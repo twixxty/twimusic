@@ -562,13 +562,26 @@ private fun Density.wavePath(
     progress: Float,
     quality: Float = PlayerPreferences.wavySeekBarQuality.quality
 ) = Path().apply {
-    val [width, height] = size
+    val (width, height) = size
+    if (width <= 0f || height <= 0f) return@apply
+
     val progressTau = progress * 2 * PI.toFloat()
     val scale = 7.dp.toPx()
+    val taperDistance = 24.dp.toPx()
+    val midY = height / 2f
+    val maxAmplitude = (height - 3.dp.toPx()).coerceAtLeast(0f) / 2f
 
-    fun f(x: Float) = (sin(x / scale + progressTau) + 0.5f) * height
+    // When the whole bar is narrow (relative left), scale the entire wave amplitude proportionally
+    val globalScale = (width / (taperDistance * 1.5f)).coerceIn(0f, 1f)
 
-    moveTo(0f, f(0f))
+    fun f(x: Float): Float {
+        val leftTaper = (x / taperDistance).coerceIn(0f, 1f)
+        val smoothTaper = leftTaper * leftTaper * (3f - 2f * leftTaper) // Smoothstep
+        val wave = sin(x / scale + progressTau) * maxAmplitude * smoothTaper * globalScale
+        return midY + wave
+    }
+
+    moveTo(0f, midY)
 
     var x = 0f
     while (x < width) {

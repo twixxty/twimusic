@@ -47,6 +47,12 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 onValueSelect = { themeMode = it },
                 valueText = { stringResource(it.displayNameRes) }
             )
+            SwitchSettingsEntry(
+                title = stringResource(R.string.use_material_symbols),
+                text = stringResource(R.string.use_material_symbols_desc),
+                isChecked = useMaterialSymbols,
+                onCheckedChange = { useMaterialSymbols = it }
+            )
         }
         SettingsGroup(title = stringResource(R.string.app_icon)) {
             EnumValueSelectorSettingsEntry(

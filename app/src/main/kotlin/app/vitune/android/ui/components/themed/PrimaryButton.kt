@@ -30,25 +30,6 @@ fun PrimaryButton(
 ) {
     val (colorPalette) = LocalAppearance.current
 
-    if (LocalIsExpressiveTheme.current) {
-        FloatingActionButton(
-            onClick = onClick,
-            modifier = modifier.size(56.dp),
-            shape = RoundedCornerShape(20.dp),
-            containerColor = colorPalette.accent,
-            contentColor = colorPalette.onAccent,
-            elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp)
-        ) {
-            Image(
-                painter = painterResource(icon),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(colorPalette.onAccent),
-                modifier = Modifier.size(24.dp)
-            )
-        }
-        return
-    }
-
     Box(
         modifier = modifier
             .clip(16.dp.roundedShape)

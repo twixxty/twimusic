@@ -259,7 +259,7 @@ inline fun NavigationRail(
                 )
                 .padding(
                     top = 16.dp,
-                    bottom = 24.dp
+                    bottom = 8.dp
                 )
         ) {
             Image(
@@ -321,7 +321,7 @@ inline fun NavigationRail(
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = if (isExpressive) Arrangement.spacedBy(6.dp) else Arrangement.SpaceBetween,
             modifier = Modifier.width(
                 if (isLandscape) Dimensions.navigationRail.widthLandscape
                 else Dimensions.navigationRail.width
@@ -350,18 +350,27 @@ inline fun NavigationRail(
                         } else colorPalette.textDisabled
                     }
 
-                    val contentModifier = Modifier
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                        .clip(RoundedCornerShape(24.dp))
-                        .let {
-                            if (isExpressive && dothAlpha > 0f) {
-                                it.background(colorPalette.accent.copy(alpha = 0.20f * dothAlpha), RoundedCornerShape(24.dp))
-                            } else it
-                        }
-                        .combinedClickable(
-                            onClick = { onTabIndexChange(index) },
-                            onLongClick = { editing = true }
-                        )
+                    val contentModifier = if (isExpressive) {
+                        Modifier
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .let {
+                                if (dothAlpha > 0f) {
+                                    it.background(colorPalette.accent.copy(alpha = 0.20f * dothAlpha), RoundedCornerShape(24.dp))
+                                } else it
+                            }
+                            .combinedClickable(
+                                onClick = { onTabIndexChange(index) },
+                                onLongClick = { editing = true }
+                            )
+                    } else {
+                        Modifier
+                            .clip(24.dp.roundedShape)
+                            .combinedClickable(
+                                onClick = { onTabIndexChange(index) },
+                                onLongClick = { editing = true }
+                            )
+                    }
 
                     if (isLandscape) {
                         Column(
@@ -392,7 +401,7 @@ inline fun NavigationRail(
                                 maxLines = 2
                             )
                         }
-                    } else {
+                    } else if (isExpressive) {
                         Box(
                             contentAlignment = Alignment.Center,
                             modifier = contentModifier
@@ -412,7 +421,7 @@ inline fun NavigationRail(
                                     painter = painterResource(tab.icon),
                                     contentDescription = null,
                                     colorFilter = ColorFilter.tint(
-                                        if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
+                                        if (isSelected) colorPalette.accent else colorPalette.text
                                     ),
                                     modifier = Modifier
                                         .size(16.dp)
@@ -433,6 +442,38 @@ inline fun NavigationRail(
                                     }
                                 )
                             }
+                        }
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = contentModifier.padding(horizontal = 8.dp)
+                        ) {
+                            Image(
+                                painter = painterResource(tab.icon),
+                                contentDescription = null,
+                                colorFilter = ColorFilter.tint(
+                                    if (tabIndex == index) colorPalette.text else colorPalette.textDisabled
+                                ),
+                                modifier = Modifier
+                                    .vertical(enabled = true)
+                                    .graphicsLayer {
+                                        alpha = dothAlpha
+                                        translationX = (1f - dothAlpha) * -48.dp.toPx()
+                                        rotationZ = -90f
+                                    }
+                                    .size(Dimensions.navigationRail.iconOffset * 2)
+                            )
+
+                            BasicText(
+                                text = tab.title(),
+                                style = typography.xs.semiBold.center.color(textColor),
+                                modifier = Modifier
+                                    .vertical(enabled = true)
+                                    .rotate(-90f)
+                                    .padding(horizontal = 16.dp),
+                                overflow = TextOverflow.Ellipsis,
+                                maxLines = 2
+                            )
                         }
                     }
                 }

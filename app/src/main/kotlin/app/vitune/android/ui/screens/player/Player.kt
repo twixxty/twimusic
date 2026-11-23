@@ -771,7 +771,7 @@ fun Player(
                     )
                 }
 
-                // Fading gradient background behind controls to protect contrast when canvas is active
+                // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
                 val gradientAlpha by animateFloatAsState(
                     targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isVideoReady) 1f else 0f,
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
@@ -780,15 +780,16 @@ fun Player(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .fillMaxHeight(0.50f)
+                        .fillMaxHeight(0.65f)
                         .align(Alignment.BottomCenter)
                         .graphicsLayer { alpha = gradientAlpha }
                         .background(
                             Brush.verticalGradient(
                                 0.0f to Color.Transparent,
-                                0.30f to colorPalette.background0.copy(alpha = 0.35f),
-                                0.70f to colorPalette.background0.copy(alpha = 0.70f),
-                                1.0f to colorPalette.background0.copy(alpha = 0.85f)
+                                0.25f to colorPalette.background0.copy(alpha = 0.50f),
+                                0.50f to colorPalette.background0.copy(alpha = 0.95f),
+                                0.65f to colorPalette.background0,
+                                1.0f to colorPalette.background0
                             )
                         )
                 )

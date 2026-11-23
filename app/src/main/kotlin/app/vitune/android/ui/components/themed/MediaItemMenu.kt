@@ -21,14 +21,21 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.style.TextOverflow
+import coil3.compose.AsyncImage
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.secondary
+import app.vitune.android.utils.thumbnail
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -429,60 +436,135 @@ fun MediaItemMenu(
         ) {
             val isExpressive = LocalIsExpressiveTheme.current
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .let {
-                        if (isExpressive) it
-                            .padding(horizontal = 12.dp, vertical = 4.dp)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(colorPalette.background2)
-                            .padding(vertical = 4.dp)
-                            .padding(end = 12.dp)
-                        else it.padding(end = 12.dp)
+            if (isExpressive) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(colorPalette.background2)
+                        .padding(all = 12.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                    ) {
+                        AsyncImage(
+                            model = mediaItem.mediaMetadata.artworkUri?.thumbnail(Dimensions.thumbnails.song.px),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
                     }
-            ) {
-                SongItem(
-                    song = mediaItem,
-                    thumbnailSize = Dimensions.thumbnails.song,
-                    modifier = Modifier.weight(1f),
-                    showDuration = false
-                )
 
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(
-                        icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
-                        color = colorPalette.favoritesIcon,
-                        onClick = {
-                            val shouldBeLiked = likedAt == null
-                            query {
-                                if (
-                                    Database.like(
-                                        songId = mediaItem.mediaId,
-                                        likedAt = if (shouldBeLiked) System.currentTimeMillis() else null
-                                    ) != 0
-                                ) return@query
+                    Spacer(Modifier.width(16.dp))
 
-                                Database.insert(mediaItem, Song::toggleLike)
-                            }
-                            YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
-                        },
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(18.dp)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        BasicText(
+                            text = mediaItem.mediaMetadata.title?.toString().orEmpty(),
+                            style = typography.xs.semiBold.copy(color = colorPalette.text),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        BasicText(
+                            text = mediaItem.mediaMetadata.artist?.toString().orEmpty(),
+                            style = typography.xs.secondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        IconButton(
+                            icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                            color = colorPalette.favoritesIcon,
+                            onClick = {
+                                val shouldBeLiked = likedAt == null
+                                query {
+                                    if (
+                                        Database.like(
+                                            songId = mediaItem.mediaId,
+                                            likedAt = if (shouldBeLiked) System.currentTimeMillis() else null
+                                        ) != 0
+                                    ) return@query
+
+                                    Database.insert(mediaItem, Song::toggleLike)
+                                }
+                                YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
+                            },
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(22.dp)
+                        )
+
+                        if (!isLocal) IconButton(
+                            icon = R.drawable.share_social,
+                            color = colorPalette.text,
+                            onClick = {
+                                onDismiss()
+                                onShare()
+                            },
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(22.dp)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 12.dp)
+                ) {
+                    SongItem(
+                        song = mediaItem,
+                        thumbnailSize = Dimensions.thumbnails.song,
+                        modifier = Modifier.weight(1f),
+                        showDuration = false
                     )
 
-                    if (!isLocal) IconButton(
-                        icon = R.drawable.share_social,
-                        color = colorPalette.text,
-                        onClick = {
-                            onDismiss()
-                            onShare()
-                        },
-                        modifier = Modifier
-                            .padding(all = 4.dp)
-                            .size(17.dp)
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        IconButton(
+                            icon = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
+                            color = colorPalette.favoritesIcon,
+                            onClick = {
+                                val shouldBeLiked = likedAt == null
+                                query {
+                                    if (
+                                        Database.like(
+                                            songId = mediaItem.mediaId,
+                                            likedAt = if (shouldBeLiked) System.currentTimeMillis() else null
+                                        ) != 0
+                                    ) return@query
+
+                                    Database.insert(mediaItem, Song::toggleLike)
+                                }
+                                YouTubeSync.pushLikeToYouTube(mediaItem.mediaId, shouldBeLiked)
+                            },
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(18.dp)
+                        )
+
+                        if (!isLocal) IconButton(
+                            icon = R.drawable.share_social,
+                            color = colorPalette.text,
+                            onClick = {
+                                onDismiss()
+                                onShare()
+                            },
+                            modifier = Modifier
+                                .padding(all = 4.dp)
+                                .size(17.dp)
+                        )
+                    }
                 }
             }
 

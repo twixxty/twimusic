@@ -79,4 +79,5 @@ object AppearancePreferences : GlobalPreferencesHolder() {
     var hideExplicit by boolean(false)
     var autoPip by boolean(false)
     var openPlayer by boolean(true)
+    var useMaterialSymbols by boolean(false)
 }

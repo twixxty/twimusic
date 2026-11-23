@@ -50,13 +50,13 @@ val defaultLightPalette = ColorPalette(
 )
 
 val defaultDarkPalette = ColorPalette(
-    background0 = Color(0xff16171d),
-    background1 = Color(0xff1f2029),
-    background2 = Color(0xff2b2d3b),
-    text = Color(0xffe1e1e2),
-    textSecondary = Color(0xffa3a4a6),
-    textDisabled = Color(0xff6f6f73),
-    accent = defaultAccentColor.color,
+    background0 = Color(0xff0e131d),
+    background1 = Color(0xff161c28),
+    background2 = Color(0xff20293a),
+    text = Color(0xfff0f2f8),
+    textSecondary = Color(0xffa5adc0),
+    textDisabled = Color(0xff6a7387),
+    accent = Color(0xff545df6),
     onAccent = Color.White,
     isDefault = true,
     isDark = true
@@ -70,38 +70,38 @@ private fun lightColorPalette(accent: Hsl) = lightColorPalette(
 private fun lightColorPalette(hue: Float, saturation: Float) = ColorPalette(
     background0 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.925f
+        saturation = saturation.coerceIn(0.12f, 0.30f),
+        lightness = 0.96f
     ),
     background1 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.3f),
-        lightness = 0.90f
+        saturation = saturation.coerceIn(0.18f, 0.38f),
+        lightness = 0.92f
     ),
     background2 = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.4f),
-        lightness = 0.85f
+        saturation = saturation.coerceIn(0.24f, 0.48f),
+        lightness = 0.86f
     ),
     text = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.02f),
+        saturation = saturation.coerceAtMost(0.10f),
         lightness = 0.12f
     ),
     textSecondary = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.40f
+        saturation = saturation.coerceAtMost(0.25f),
+        lightness = 0.38f
     ),
     textDisabled = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.2f),
+        saturation = saturation.coerceAtMost(0.30f),
         lightness = 0.65f
     ),
     accent = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.5f),
-        lightness = 0.5f
+        saturation = (saturation * 1.25f).coerceIn(0.70f, 0.95f),
+        lightness = 0.48f
     ),
     onAccent = Color.White,
     isDefault = false,
@@ -121,38 +121,38 @@ private fun darkColorPalette(
 ) = ColorPalette(
     background0 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.10f
+        saturation = saturation.coerceIn(0.18f, 0.38f),
+        lightness = 0.08f
     ) else Color.Black,
     background1 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.3f),
-        lightness = 0.15f
+        saturation = saturation.coerceIn(0.24f, 0.46f),
+        lightness = 0.13f
     ) else Color.Black,
     background2 = if (darkness == Darkness.Normal) Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.4f),
-        lightness = 0.2f
+        saturation = saturation.coerceIn(0.30f, 0.54f),
+        lightness = 0.18f
     ) else Color.Black,
     text = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.02f),
-        lightness = 0.88f
+        saturation = saturation.coerceAtMost(0.08f),
+        lightness = 0.92f
     ),
     textSecondary = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.1f),
-        lightness = 0.65f
+        saturation = saturation.coerceAtMost(0.20f),
+        lightness = 0.68f
     ),
     textDisabled = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(0.2f),
-        lightness = 0.40f
+        saturation = saturation.coerceAtMost(0.25f),
+        lightness = 0.44f
     ),
     accent = Color.hsl(
         hue = hue,
-        saturation = saturation.coerceAtMost(if (darkness == Darkness.AMOLED) 0.4f else 0.5f),
-        lightness = 0.5f
+        saturation = (saturation * 1.3f).coerceIn(0.75f, 0.95f),
+        lightness = if (darkness == Darkness.AMOLED) 0.65f else 0.62f
     ),
     onAccent = Color.White,
     isDefault = false,

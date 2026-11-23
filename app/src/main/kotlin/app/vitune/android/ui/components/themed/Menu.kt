@@ -82,11 +82,11 @@ enum class MenuEntryPosition {
 fun getMenuEntryShape(position: MenuEntryPosition, isExpressive: Boolean): Shape {
     if (!isExpressive) return RoundedCornerShape(0.dp)
     return when (position) {
-        MenuEntryPosition.Top -> RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
-        MenuEntryPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
-        MenuEntryPosition.Single -> RoundedCornerShape(20.dp)
+        MenuEntryPosition.Top -> RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp, bottomStart = 4.dp, bottomEnd = 4.dp)
+        MenuEntryPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 24.dp, bottomEnd = 24.dp)
+        MenuEntryPosition.Single -> RoundedCornerShape(24.dp)
         MenuEntryPosition.Middle -> RoundedCornerShape(4.dp)
-        MenuEntryPosition.Auto -> RoundedCornerShape(12.dp)
+        MenuEntryPosition.Auto -> RoundedCornerShape(16.dp)
     }
 }
 
@@ -143,7 +143,7 @@ fun MenuSection(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 3.dp)
+            .padding(vertical = 2.dp)
     ) {
         section.items.forEachIndexed { index, item ->
             val position = when {
@@ -189,7 +189,7 @@ fun MenuEntry(
 
     val entryModifier = if (isExpressive) {
         modifier
-            .padding(horizontal = 12.dp, vertical = 1.dp)
+            .padding(horizontal = 16.dp, vertical = 1.dp)
             .clip(entryShape)
             .background(colorPalette.background2, entryShape)
             .combinedClickable(
@@ -228,7 +228,7 @@ fun MenuEntry(
 
         Column(
             modifier = Modifier
-                .padding(vertical = 12.dp)
+                .padding(vertical = 14.dp)
                 .weight(1f)
         ) {
             BasicText(

@@ -14,6 +14,8 @@ import androidx.compose.ui.geometry.center
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import androidx.compose.material3.SwitchDefaults
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.drawCircle
@@ -22,7 +24,8 @@ import app.vitune.core.ui.LocalAppearance
 @Composable
 fun Switch(
     isChecked: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    interactionSource: MutableInteractionSource? = null
 ) {
     val (colorPalette) = LocalAppearance.current
 
@@ -31,6 +34,7 @@ fun Switch(
             checked = isChecked,
             onCheckedChange = null,
             modifier = modifier,
+            interactionSource = interactionSource ?: remember { MutableInteractionSource() },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = colorPalette.onAccent,
                 checkedTrackColor = colorPalette.accent,

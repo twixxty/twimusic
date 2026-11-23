@@ -2,10 +2,12 @@
 
 package app.vitune.android.ui.screens.settings
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -17,14 +19,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ripple
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import androidx.compose.foundation.text.BasicText
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -55,6 +65,7 @@ import app.vitune.android.ui.components.themed.ValueSelectorDialog
 import app.vitune.android.ui.screens.GlobalRoutes
 import app.vitune.android.ui.screens.Route
 import app.vitune.android.utils.color
+import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
 import app.vitune.compose.persist.PersistMapCleanup
@@ -168,6 +179,8 @@ fun <T> ValueSelectorSettingsEntry(
     )
 }
 
+val LocalSettingsSearchQuery = compositionLocalOf { "" }
+
 @Composable
 fun SwitchSettingsEntry(
     title: String,
@@ -177,15 +190,22 @@ fun SwitchSettingsEntry(
     modifier: Modifier = Modifier,
     isEnabled: Boolean = true,
     usePadding: Boolean = true
-) = SettingsEntry(
-    modifier = modifier,
-    title = title,
-    text = text,
-    onClick = { onCheckedChange(!isChecked) },
-    isEnabled = isEnabled,
-    usePadding = usePadding
 ) {
-    Switch(isChecked = isChecked)
+    val interactionSource = remember { MutableInteractionSource() }
+    SettingsEntry(
+        modifier = modifier,
+        title = title,
+        text = text,
+        onClick = { onCheckedChange(!isChecked) },
+        isEnabled = isEnabled,
+        usePadding = usePadding,
+        interactionSource = interactionSource
+    ) {
+        Switch(
+            isChecked = isChecked,
+            interactionSource = interactionSource
+        )
+    }
 }
 
 val LocalInSettingsGroup = compositionLocalOf { false }
@@ -205,6 +225,11 @@ fun SliderSettingsEntry(
     usePadding: Boolean = true,
     showTicks: Boolean = steps != 0
 ) {
+    val searchQuery = LocalSettingsSearchQuery.current
+    if (searchQuery.isNotBlank() && !title.contains(searchQuery, ignoreCase = true) && !text.contains(searchQuery, ignoreCase = true)) {
+        return
+    }
+
     val isExpressive = LocalIsExpressiveTheme.current
     val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
@@ -321,11 +346,20 @@ fun SettingsEntry(
     text: String? = null,
     isEnabled: Boolean = true,
     usePadding: Boolean = true,
+    interactionSource: MutableInteractionSource? = null,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
+    val searchQuery = LocalSettingsSearchQuery.current
+    if (searchQuery.isNotBlank()) {
+        val matchesTitle = title.contains(searchQuery, ignoreCase = true)
+        val matchesText = text?.contains(searchQuery, ignoreCase = true) == true
+        if (!matchesTitle && !matchesText) return
+    }
+
     val isExpressive = LocalIsExpressiveTheme.current
     val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
+    val interaction = interactionSource ?: remember { MutableInteractionSource() }
 
     val entryModifier = if (isExpressive) {
         if (inSettingsGroup) {
@@ -334,7 +368,7 @@ fun SettingsEntry(
                 .clip(RoundedCornerShape(4.dp))
                 .background(colorPalette.background1)
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interaction,
                     indication = ripple(),
                     enabled = isEnabled,
                     onClick = onClick
@@ -347,7 +381,7 @@ fun SettingsEntry(
                 .clip(RoundedCornerShape(24.dp))
                 .background(colorPalette.background1)
                 .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
+                    interactionSource = interaction,
                     indication = ripple(),
                     enabled = isEnabled,
                     onClick = onClick
@@ -359,9 +393,14 @@ fun SettingsEntry(
     } else {
         modifier
             .clip(RoundedCornerShape(25))
-            .clickable(enabled = isEnabled, onClick = onClick)
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(),
+                enabled = isEnabled,
+                onClick = onClick
+            )
             .alpha(if (isEnabled) 1f else 0.5f)
-            .let { if (usePadding) it.padding(start = 32.dp, end = 16.dp) else it }
+            .let { if (usePadding) it.padding(start = 16.dp, end = 16.dp) else it }
             .padding(vertical = 16.dp)
             .fillMaxWidth()
     }
@@ -394,14 +433,13 @@ fun SettingsDescription(
     important: Boolean = false
 ) {
     val (colorPalette, typography) = LocalAppearance.current
-    val isExpressive = LocalIsExpressiveTheme.current
 
     BasicText(
         text = text,
         style = if (important) typography.xxs.semiBold.color(colorPalette.red)
         else typography.xxs.secondary,
         modifier = modifier
-            .padding(start = if (isExpressive) 16.dp else 32.dp, end = 16.dp)
+            .padding(start = 16.dp, end = 16.dp)
             .padding(vertical = 4.dp)
     )
 }
@@ -412,13 +450,12 @@ fun SettingsEntryGroupText(
     modifier: Modifier = Modifier
 ) {
     val (colorPalette, typography) = LocalAppearance.current
-    val isExpressive = LocalIsExpressiveTheme.current
 
     BasicText(
         text = title,
         style = typography.xs.semiBold.copy(colorPalette.accent),
         modifier = modifier
-            .padding(start = if (isExpressive) 16.dp else 32.dp, end = 16.dp)
+            .padding(start = 16.dp, end = 16.dp)
             .padding(vertical = 4.dp)
             .semantics { text = AnnotatedString(text = title) }
     )
@@ -436,6 +473,8 @@ fun SettingsCategoryScreen(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val (colorPalette, typography) = LocalAppearance.current
+    val isExpressive = LocalIsExpressiveTheme.current
+    var searchQuery by rememberSaveable { mutableStateOf("") }
 
     Column(
         modifier = modifier
@@ -458,7 +497,59 @@ fun SettingsCategoryScreen(
             }
         }
 
-        content()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 6.dp)
+                .clip(RoundedCornerShape(if (isExpressive) 20.dp else 12.dp))
+                .background(colorPalette.background1)
+                .padding(horizontal = 14.dp, vertical = 10.dp)
+        ) {
+            Image(
+                painter = painterResource(R.drawable.search),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            BasicTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                textStyle = typography.xs.medium.copy(color = colorPalette.text),
+                singleLine = true,
+                cursorBrush = SolidColor(colorPalette.accent),
+                decorationBox = { innerTextField ->
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (searchQuery.isEmpty()) {
+                            BasicText(
+                                text = stringResource(R.string.search),
+                                style = typography.xs.medium.copy(color = colorPalette.textDisabled)
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                modifier = Modifier.weight(1f)
+            )
+            if (searchQuery.isNotEmpty()) {
+                Image(
+                    painter = painterResource(R.drawable.close),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .clickable { searchQuery = "" }
+                )
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+
+        CompositionLocalProvider(LocalSettingsSearchQuery provides searchQuery) {
+            content()
+        }
     }
 }
 
