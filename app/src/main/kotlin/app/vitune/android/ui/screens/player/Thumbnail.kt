@@ -52,6 +52,7 @@ import androidx.media3.common.C
 import app.vitune.android.Database
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.service.LoginRequiredException
 import app.vitune.android.service.PlayableFormatNotFoundException
@@ -232,7 +233,7 @@ fun Thumbnail(
             )
 
             Image(
-                painter = painterResource(R.drawable.heart),
+                painter = painterResource(getAppIcon(R.drawable.heart)),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.accent),
                 modifier = Modifier

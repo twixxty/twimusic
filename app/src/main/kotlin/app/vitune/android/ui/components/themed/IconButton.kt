@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
+import app.vitune.android.utils.getAppIcon
 import app.vitune.core.ui.LocalAppearance
 
 @Composable
@@ -85,7 +86,7 @@ fun IconButton(
     enabled: Boolean = true,
     indication: Indication? = ripple(bounded = false)
 ) = Image(
-    painter = painterResource(icon),
+    painter = painterResource(getAppIcon(icon)),
     contentDescription = null,
     colorFilter = ColorFilter.tint(color),
     modifier = Modifier

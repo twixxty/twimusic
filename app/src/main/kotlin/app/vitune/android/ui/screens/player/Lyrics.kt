@@ -127,6 +127,7 @@ import androidx.media3.common.Player
 import app.vitune.android.utils.shouldBePlaying
 import app.vitune.android.Database
 import app.vitune.android.LocalPlayerServiceBinder
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.R
 import app.vitune.android.models.Lyrics
 import app.vitune.android.preferences.PlayerPreferences
@@ -838,7 +839,7 @@ fun Lyrics(
                                 .padding(horizontal = 14.dp, vertical = 6.dp)
                         ) {
                             Image(
-                                painter = painterResource(R.drawable.sync),
+                                painter = painterResource(getAppIcon(R.drawable.sync)),
                                 contentDescription = null,
                                 colorFilter = ColorFilter.tint(colorPalette.onAccent),
                                 modifier = Modifier.size(16.dp)
@@ -902,7 +903,7 @@ fun Lyrics(
                         modifier = Modifier.align(Alignment.BottomStart)
                     ) { fullscreen ->
                         Image(
-                            painter = painterResource(if (fullscreen) R.drawable.contract else R.drawable.expand),
+                            painter = painterResource(getAppIcon(if (fullscreen) R.drawable.contract else R.drawable.expand)),
                             contentDescription = if (fullscreen) "Exit fullscreen" else "Fullscreen lyrics",
                             colorFilter = ColorFilter.tint(colorPalette.onOverlay),
                             modifier = Modifier
@@ -921,7 +922,7 @@ fun Lyrics(
                 }
 
             Image(
-                painter = painterResource(R.drawable.ellipsis_horizontal),
+                painter = painterResource(getAppIcon(R.drawable.ellipsis_horizontal)),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.onOverlay),
                 modifier = Modifier

@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.getAppIcon
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.surface
 import app.vitune.core.ui.utils.roundedShape
@@ -38,7 +39,7 @@ fun PrimaryButton(
             .size(62.dp)
     ) {
         Image(
-            painter = painterResource(icon),
+            painter = painterResource(getAppIcon(icon)),
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorPalette.text),
             modifier = Modifier

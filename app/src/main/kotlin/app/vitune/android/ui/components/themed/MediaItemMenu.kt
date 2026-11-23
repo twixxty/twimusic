@@ -72,6 +72,7 @@ import app.vitune.android.models.Song
 import app.vitune.android.models.SongPlaylistMap
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.query
+import app.vitune.android.utils.getAppIcon
 import android.widget.Toast
 import app.vitune.android.service.PrecacheService
 import app.vitune.android.service.isLocal
@@ -444,7 +445,7 @@ fun MediaItemMenu(
                         .padding(horizontal = 16.dp, vertical = 6.dp)
                         .clip(RoundedCornerShape(24.dp))
                         .background(colorPalette.background2)
-                        .padding(all = 12.dp)
+                        .padding(horizontal = 18.dp, vertical = 14.dp)
                 ) {
                     Box(
                         modifier = Modifier
@@ -755,7 +756,7 @@ fun MediaItemMenu(
                         onClick = { isViewingPlaylists = true },
                         trailingContent = {
                             Image(
-                                painter = painterResource(R.drawable.chevron_forward),
+                                painter = painterResource(getAppIcon(R.drawable.chevron_forward)),
                                 contentDescription = null,
                                 colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                                 modifier = Modifier.size(16.dp)

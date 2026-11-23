@@ -33,6 +33,7 @@ import app.vitune.android.models.PlaylistPreview
 import app.vitune.android.ui.components.themed.TextPlaceholder
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
@@ -63,7 +64,7 @@ fun PlaylistItem(
 ) = PlaylistItem(
     thumbnailContent = {
         Image(
-            painter = painterResource(icon),
+            painter = painterResource(getAppIcon(icon)),
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorTint),
             modifier = Modifier

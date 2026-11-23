@@ -595,7 +595,7 @@ fun Player(
                 ) {
                     BackgroundVideoView(
                         videoUrl = videoUrl,
-                        isPlaying = isPlayingState && !isShowingLyrics,
+                        isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -628,7 +628,7 @@ fun Player(
                     likedAt = likedAt,
                     setLikedAt = { likedAt = it },
                     squareCanvasUrl = if (isCanvasActive && isSquareCanvas) canvasVideoUrl else null,
-                    isPlaying = isPlayingState && !isShowingLyrics,
+                    isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
                     modifier = Modifier
                         .nestedScroll(layoutState.preUpPostDownNestedScrollConnection)
                         .pinchToToggle(

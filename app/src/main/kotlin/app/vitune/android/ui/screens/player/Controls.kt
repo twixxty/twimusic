@@ -68,6 +68,7 @@ import app.vitune.android.models.Info
 import app.vitune.android.models.ui.UiMedia
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.service.PlayerService
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.ui.components.FadingRow
 import app.vitune.android.ui.components.SeekBar
 import app.vitune.android.ui.components.themed.BigIconButton
@@ -626,7 +627,7 @@ private fun SkipButton(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(iconId),
+            painter = painterResource(getAppIcon(iconId)),
             contentDescription = null,
             modifier = Modifier.size(24.dp),
             colorFilter = ColorFilter.tint(colorPalette.text)

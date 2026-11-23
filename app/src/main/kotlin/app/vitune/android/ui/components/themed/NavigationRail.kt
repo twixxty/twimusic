@@ -63,6 +63,7 @@ import app.vitune.android.ui.screens.listenTogetherRoute
 import app.vitune.android.ui.screens.settings.SwitchSettingsEntry
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.semiBold
 import app.vitune.core.ui.Dimensions
 import app.vitune.core.ui.LocalAppearance
@@ -263,7 +264,7 @@ inline fun NavigationRail(
                 )
         ) {
             Image(
-                painter = painterResource(topIconButtonId),
+                painter = painterResource(getAppIcon(topIconButtonId)),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                 modifier = Modifier
@@ -280,7 +281,7 @@ inline fun NavigationRail(
             if (topIconButtonId == R.drawable.settings) {
                 if (ListenTogetherPreferences.showQuickAccess) {
                     Image(
-                        painter = painterResource(R.drawable.group),
+                        painter = painterResource(getAppIcon(R.drawable.group)),
                         contentDescription = stringResource(R.string.listen_together),
                         colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                         modifier = Modifier
@@ -381,7 +382,7 @@ inline fun NavigationRail(
                         ) {
                             if (dothAlpha > 0f) {
                                 Image(
-                                    painter = painterResource(tab.icon),
+                                    painter = painterResource(getAppIcon(tab.icon)),
                                     contentDescription = null,
                                     colorFilter = ColorFilter.tint(
                                         if (isExpressive && isSelected) colorPalette.accent else colorPalette.text
@@ -418,7 +419,7 @@ inline fun NavigationRail(
                                     .rotate(-90f)
                             ) {
                                 Image(
-                                    painter = painterResource(tab.icon),
+                                    painter = painterResource(getAppIcon(tab.icon)),
                                     contentDescription = null,
                                     colorFilter = ColorFilter.tint(
                                         if (isSelected) colorPalette.accent else colorPalette.text
@@ -449,7 +450,7 @@ inline fun NavigationRail(
                             modifier = contentModifier.padding(horizontal = 8.dp)
                         ) {
                             Image(
-                                painter = painterResource(tab.icon),
+                                painter = painterResource(getAppIcon(tab.icon)),
                                 contentDescription = null,
                                 colorFilter = ColorFilter.tint(
                                     if (tabIndex == index) colorPalette.text else colorPalette.textDisabled

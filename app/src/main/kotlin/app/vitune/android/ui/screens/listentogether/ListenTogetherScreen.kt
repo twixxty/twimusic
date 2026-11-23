@@ -82,6 +82,7 @@ import androidx.compose.ui.unit.sp
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.listentogether.ListenTogetherConnectionState
 import app.vitune.android.ui.screens.searchRoute
 import app.vitune.android.listentogether.ListenTogetherEvent
@@ -267,7 +268,7 @@ fun ListenTogetherScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.group),
+                    painter = painterResource(getAppIcon(R.drawable.group)),
                     contentDescription = null,
                     tint = colorPalette.accent,
                     modifier = Modifier.size(36.dp)
@@ -451,7 +452,7 @@ private fun UserProfileCard(
                 )
             ) {
                 Icon(
-                    painter = painterResource(R.drawable.pencil),
+                    painter = painterResource(getAppIcon(R.drawable.pencil)),
                     contentDescription = null,
                     modifier = Modifier.size(16.dp),
                     tint = colorPalette.text
@@ -488,7 +489,7 @@ private fun SettingsCardButton(
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Icon(
-                painter = painterResource(R.drawable.settings),
+                painter = painterResource(getAppIcon(R.drawable.settings)),
                 contentDescription = null,
                 tint = colorPalette.textSecondary,
                 modifier = Modifier.size(24.dp)
@@ -506,7 +507,7 @@ private fun SettingsCardButton(
             }
 
             Icon(
-                painter = painterResource(R.drawable.chevron_forward),
+                painter = painterResource(getAppIcon(R.drawable.chevron_forward)),
                 contentDescription = null,
                 tint = colorPalette.textDisabled,
                 modifier = Modifier.size(18.dp)

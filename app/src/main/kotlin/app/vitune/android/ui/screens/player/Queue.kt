@@ -70,6 +70,7 @@ import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.service.PlayerService
 import app.vitune.android.transaction
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.ui.components.BottomSheet
 import app.vitune.android.ui.components.BottomSheetState
 import app.vitune.android.ui.components.LocalMenuState
@@ -321,7 +322,7 @@ fun Queue(
                                                 color = colorPalette.onOverlay,
                                                 modifier = Modifier.height(24.dp)
                                             ) else Image(
-                                                painter = painterResource(R.drawable.play),
+                                                painter = painterResource(getAppIcon(R.drawable.play)),
                                                 contentDescription = null,
                                                 colorFilter = ColorFilter.tint(colorPalette.onOverlay),
                                                 modifier = Modifier.size(24.dp)
@@ -499,7 +500,7 @@ fun Queue(
 
                 Spacer(modifier = Modifier.weight(1f))
                 Image(
-                    painter = painterResource(R.drawable.chevron_down),
+                    painter = painterResource(getAppIcon(R.drawable.chevron_down)),
                     contentDescription = null,
                     colorFilter = ColorFilter.tint(colorPalette.text),
                     modifier = Modifier.size(18.dp)

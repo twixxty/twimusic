@@ -44,6 +44,7 @@ import app.vitune.android.Database
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.models.Song
 import app.vitune.android.preferences.AccountPreferences
 import app.vitune.android.preferences.DataPreferences
@@ -472,7 +473,7 @@ fun QuickPicks(
                                             thumbnailSize = Dimensions.thumbnails.song,
                                             trailingContent = {
                                                 Image(
-                                                    painter = painterResource(R.drawable.star),
+                                                    painter = painterResource(getAppIcon(R.drawable.star)),
                                                     contentDescription = null,
                                                     colorFilter = ColorFilter.tint(colorPalette.accent),
                                                     modifier = Modifier.size(16.dp)

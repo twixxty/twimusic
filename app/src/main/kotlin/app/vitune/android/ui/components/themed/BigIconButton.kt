@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.remember
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.getAppIcon
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.roundedShape
 
@@ -54,7 +55,7 @@ fun BigIconButton(
         contentAlignment = Alignment.Center
     ) {
         Image(
-            painter = painterResource(iconId),
+            painter = painterResource(getAppIcon(iconId)),
             contentDescription = null,
             modifier = Modifier.size(24.dp),
             colorFilter = ColorFilter.tint(contentColor)

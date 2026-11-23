@@ -31,6 +31,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.remember
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.core.ui.LocalAppearance
@@ -189,7 +190,7 @@ fun MenuEntry(
 
     val entryModifier = if (isExpressive) {
         modifier
-            .padding(horizontal = 16.dp, vertical = 1.dp)
+            .padding(horizontal = 16.dp, vertical = 2.dp)
             .clip(entryShape)
             .background(colorPalette.background2, entryShape)
             .combinedClickable(
@@ -201,7 +202,7 @@ fun MenuEntry(
             )
             .fillMaxWidth()
             .alpha(if (enabled) 1f else 0.4f)
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 20.dp, vertical = 2.dp)
     } else {
         modifier
             .combinedClickable(
@@ -216,19 +217,19 @@ fun MenuEntry(
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(18.dp),
         modifier = entryModifier
     ) {
         Image(
-            painter = painterResource(icon),
+            painter = painterResource(getAppIcon(icon)),
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorPalette.text),
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(22.dp)
         )
 
         Column(
             modifier = Modifier
-                .padding(vertical = 14.dp)
+                .padding(vertical = 16.dp)
                 .weight(1f)
         ) {
             BasicText(

@@ -48,6 +48,7 @@ import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
 import app.vitune.android.models.SearchQuery
 import app.vitune.android.preferences.DataPreferences
+import app.vitune.android.utils.getAppIcon
 import app.vitune.android.query
 import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrollToTop
 import app.vitune.android.ui.components.themed.Header
@@ -198,7 +199,7 @@ fun OnlineSearch(
                         .padding(horizontal = 8.dp)
                         .size(20.dp)
                         .paint(
-                            painter = painterResource(R.drawable.time),
+                            painter = painterResource(getAppIcon(R.drawable.time)),
                             colorFilter = ColorFilter.disabled
                         )
                 )
@@ -212,7 +213,7 @@ fun OnlineSearch(
                 )
 
                 Image(
-                    painter = painterResource(R.drawable.close),
+                    painter = painterResource(getAppIcon(R.drawable.close)),
                     contentDescription = null,
                     colorFilter = ColorFilter.disabled,
                     modifier = Modifier
@@ -230,7 +231,7 @@ fun OnlineSearch(
                 )
 
                 Image(
-                    painter = painterResource(R.drawable.arrow_forward),
+                    painter = painterResource(getAppIcon(R.drawable.arrow_forward)),
                     contentDescription = null,
                     colorFilter = ColorFilter.disabled,
                     modifier = Modifier
@@ -267,7 +268,7 @@ fun OnlineSearch(
                             .padding(horizontal = 8.dp)
                             .size(20.dp)
                             .paint(
-                                painter = painterResource(R.drawable.search),
+                                painter = painterResource(getAppIcon(R.drawable.search)),
                                 colorFilter = ColorFilter.disabled
                             )
                     )
@@ -281,7 +282,7 @@ fun OnlineSearch(
                     )
 
                     Image(
-                        painter = painterResource(R.drawable.arrow_forward),
+                        painter = painterResource(getAppIcon(R.drawable.arrow_forward)),
                         contentDescription = null,
                         colorFilter = ColorFilter.disabled,
                         modifier = Modifier

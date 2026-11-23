@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.getAppIcon
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.surface
 
@@ -40,7 +41,7 @@ fun SecondaryButton(
             elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 2.dp)
         ) {
             Image(
-                painter = painterResource(iconId),
+                painter = painterResource(getAppIcon(iconId)),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.text),
                 modifier = Modifier.size(20.dp)
@@ -57,7 +58,7 @@ fun SecondaryButton(
             .size(48.dp)
     ) {
         Image(
-            painter = painterResource(iconId),
+            painter = painterResource(getAppIcon(iconId)),
             contentDescription = null,
             colorFilter = ColorFilter.tint(colorPalette.text),
             modifier = Modifier

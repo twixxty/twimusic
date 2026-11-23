@@ -15,6 +15,7 @@ import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -89,7 +90,17 @@ fun BottomSheet(
             onCancel = { state.expandSoft() }
         )
     }
-    if (!state.dismissed && !state.collapsed) content()
+    if (!state.dismissed) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    alpha = if (state.collapsed) 0f else 1f
+                }
+        ) {
+            content()
+        }
+    }
 
     if (!state.expanded && (onDismiss == null || !state.dismissed)) {
         Box(

@@ -29,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ripple
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.getAppIcon
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.ColorFilter
@@ -507,7 +508,7 @@ fun SettingsCategoryScreen(
                 .padding(horizontal = 14.dp, vertical = 10.dp)
         ) {
             Image(
-                painter = painterResource(R.drawable.search),
+                painter = painterResource(getAppIcon(R.drawable.search)),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                 modifier = Modifier.size(18.dp)
@@ -534,7 +535,7 @@ fun SettingsCategoryScreen(
             )
             if (searchQuery.isNotEmpty()) {
                 Image(
-                    painter = painterResource(R.drawable.close),
+                    painter = painterResource(getAppIcon(R.drawable.close)),
                     contentDescription = null,
                     colorFilter = ColorFilter.tint(colorPalette.textSecondary),
                     modifier = Modifier
