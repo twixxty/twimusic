@@ -55,6 +55,9 @@ import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
+import app.vitune.core.ui.BuiltInFontFamily
+import app.vitune.core.ui.ColorSource
+import app.vitune.core.ui.Darkness
 import app.vitune.core.ui.LocalAppearance
 
 private data class SearchSettingEntry(
@@ -82,11 +85,11 @@ fun SettingsSearchScreen(
 
     // Build the searchable registry using current preference values
     val allSettings = remember(
-        AppearancePreferences.useExpressiveTheme,
+        AppearancePreferences.themeMode,
         AppearancePreferences.useMaterialSymbols,
-        AppearancePreferences.isPureBlack,
-        AppearancePreferences.useAppFont,
-        AppearancePreferences.useDynamicColor,
+        AppearancePreferences.darkness,
+        AppearancePreferences.fontFamily,
+        AppearancePreferences.colorSource,
         AppearancePreferences.autoPip,
         AppearancePreferences.openPlayer,
         PlayerPreferences.enableCanvas,
@@ -127,8 +130,14 @@ fun SettingsSearchScreen(
                 description = "Modern Google Material 3 Expressive design tokens, pill rail, and animations",
                 categoryName = "Appearance",
                 tabIndex = 0,
-                onInteract = { AppearancePreferences.useExpressiveTheme = !AppearancePreferences.useExpressiveTheme },
-                trailingContent = { Switch(isChecked = AppearancePreferences.useExpressiveTheme) }
+                onInteract = {
+                    AppearancePreferences.themeMode = if (AppearancePreferences.themeMode == AppearancePreferences.ThemeMode.Material3Expressive) {
+                        AppearancePreferences.ThemeMode.Classic
+                    } else {
+                        AppearancePreferences.ThemeMode.Material3Expressive
+                    }
+                },
+                trailingContent = { Switch(isChecked = AppearancePreferences.themeMode == AppearancePreferences.ThemeMode.Material3Expressive) }
             ),
             SearchSettingEntry(
                 title = "Material Symbols & Icons",
@@ -143,24 +152,42 @@ fun SettingsSearchScreen(
                 description = "Pitch black background for OLED screens in dark mode",
                 categoryName = "Appearance",
                 tabIndex = 0,
-                onInteract = { AppearancePreferences.isPureBlack = !AppearancePreferences.isPureBlack },
-                trailingContent = { Switch(isChecked = AppearancePreferences.isPureBlack) }
+                onInteract = {
+                    AppearancePreferences.darkness = if (AppearancePreferences.darkness == Darkness.PureBlack) {
+                        Darkness.Normal
+                    } else {
+                        Darkness.PureBlack
+                    }
+                },
+                trailingContent = { Switch(isChecked = AppearancePreferences.darkness == Darkness.PureBlack) }
             ),
             SearchSettingEntry(
                 title = "Dynamic Colors (Material You)",
                 description = "Derive theme accent colors dynamically from wallpaper",
                 categoryName = "Appearance",
                 tabIndex = 0,
-                onInteract = { AppearancePreferences.useDynamicColor = !AppearancePreferences.useDynamicColor },
-                trailingContent = { Switch(isChecked = AppearancePreferences.useDynamicColor) }
+                onInteract = {
+                    AppearancePreferences.colorSource = if (AppearancePreferences.colorSource == ColorSource.Default) {
+                        ColorSource.MaterialYou
+                    } else {
+                        ColorSource.Default
+                    }
+                },
+                trailingContent = { Switch(isChecked = AppearancePreferences.colorSource == ColorSource.MaterialYou || AppearancePreferences.colorSource == ColorSource.Dynamic) }
             ),
             SearchSettingEntry(
-                title = "App Custom Font",
-                description = "Use chosen custom typography across the application",
+                title = "Use System Font",
+                description = "Use device default system typography instead of custom font",
                 categoryName = "Appearance",
                 tabIndex = 0,
-                onInteract = { AppearancePreferences.useAppFont = !AppearancePreferences.useAppFont },
-                trailingContent = { Switch(isChecked = AppearancePreferences.useAppFont) }
+                onInteract = {
+                    AppearancePreferences.fontFamily = if (AppearancePreferences.fontFamily == BuiltInFontFamily.System) {
+                        BuiltInFontFamily.Poppins
+                    } else {
+                        BuiltInFontFamily.System
+                    }
+                },
+                trailingContent = { Switch(isChecked = AppearancePreferences.fontFamily == BuiltInFontFamily.System) }
             ),
             SearchSettingEntry(
                 title = "Picture-in-Picture (PiP)",
