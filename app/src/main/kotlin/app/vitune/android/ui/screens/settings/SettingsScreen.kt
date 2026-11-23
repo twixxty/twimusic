@@ -523,7 +523,7 @@ fun SettingsCategoryScreen(
                     Box(modifier = Modifier.weight(1f)) {
                         if (searchQuery.isEmpty()) {
                             BasicText(
-                                text = stringResource(R.string.search),
+                                text = stringResource(R.string.search_settings),
                                 style = typography.xs.medium.copy(color = colorPalette.textDisabled)
                             )
                         }

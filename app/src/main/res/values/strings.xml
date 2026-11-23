@@ -41,6 +41,8 @@
     <string name="theme_mode_m3_expressive">Material 3 Expressive</string>
     <string name="use_material_symbols">Use Material Symbols &amp; icons</string>
     <string name="use_material_symbols_desc">Display Material Design symbols throughout the app</string>
+    <string name="search">Search</string>
+    <string name="search_settings">Search settings…</string>
     <string name="colors">Colors</string>
     <string name="shapes">Shapes</string>
     <string name="skip_back">Skip back</string>
