@@ -17,6 +17,12 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
 import androidx.core.graphics.BlendModeColorFilterCompat
 import androidx.core.graphics.BlendModeCompat
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.R
 import app.vitune.core.ui.LocalAppearance
 import com.airbnb.lottie.LottieComposition
@@ -35,6 +41,22 @@ fun AnimatedPlayPauseButton(
     modifier: Modifier = Modifier,
     color: Color = Color(0xff16171d)
 ) {
+    if (AppearancePreferences.useMaterialSymbols) {
+        AnimatedContent(
+            targetState = playing,
+            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
+            label = "playPauseIcon"
+        ) { isPlaying ->
+            Image(
+                painter = painterResource(if (isPlaying) R.drawable.ms_pause else R.drawable.ms_play),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(color),
+                modifier = modifier
+            )
+        }
+        return
+    }
+
     val (colorPalette) = LocalAppearance.current
 
     val result = rememberLottieComposition(

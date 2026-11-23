@@ -33,27 +33,33 @@ fun Switch(
     val actualInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val isPressed by actualInteractionSource.collectIsPressedAsState()
 
+    // Google Material 3 Expressive motion tokens (crisp, precise, subtle cushion)
     val springDpSpec = spring<Dp>(
-        dampingRatio = 0.75f,
-        stiffness = 400f
+        dampingRatio = 0.9f,
+        stiffness = 800f
     )
     val springColorSpec = spring<Color>(
-        dampingRatio = 0.75f,
-        stiffness = 400f
+        dampingRatio = 0.9f,
+        stiffness = 800f
     )
 
     if (LocalIsExpressiveTheme.current) {
         // Material 3 Expressive Switch (52.dp x 32.dp track)
         val targetTrackColor = if (isChecked) colorPalette.accent else colorPalette.background2
-        val targetBorderColor = if (isChecked) colorPalette.accent else colorPalette.textDisabled.copy(alpha = 0.5f)
+        val targetBorderColor = if (isChecked) colorPalette.accent else colorPalette.textDisabled.copy(alpha = 0.45f)
         val targetThumbColor = if (isChecked) colorPalette.onAccent else {
             if (isPressed) colorPalette.text else colorPalette.textDisabled
         }
 
-        // Thumb target size: expands on hold/press
-        // Unchecked: 16.dp -> expands to 28.dp on hold
-        // Checked: 24.dp -> expands to 28.dp on hold
-        val targetThumbSize = if (isPressed) 28.dp else if (isChecked) 24.dp else 16.dp
+        // Thumb target size:
+        // Unchecked: 16.dp -> expands cleanly to 24.dp on press/hold
+        // Checked: 24.dp -> subtle 26.dp on press/hold
+        val targetThumbSize = when {
+            isPressed && !isChecked -> 24.dp
+            isPressed && isChecked -> 26.dp
+            isChecked -> 24.dp
+            else -> 16.dp
+        }
         val targetThumbOffset = if (isChecked) 36.dp else 16.dp
 
         val animatedTrackColor by animateColorAsState(targetTrackColor, springColorSpec, label = "m3TrackColor")
@@ -80,15 +86,15 @@ fun Switch(
                 )
             }
 
-            // Expanding thumb
+            // Expressive thumb
             val radius = animatedThumbSize.toPx() / 2f
             drawCircle(
                 color = animatedThumbColor,
                 radius = radius,
                 center = size.center.copy(x = animatedThumbOffset.toPx()),
                 shadow = Shadow(
-                    color = Color.Black.copy(alpha = if (isChecked) 0.35f else 0.15f),
-                    blurRadius = 6.dp.toPx(),
+                    color = Color.Black.copy(alpha = if (isChecked) 0.25f else 0.1f),
+                    blurRadius = 4.dp.toPx(),
                     offset = Offset(x = 0f, y = 1.dp.toPx())
                 )
             )
@@ -100,7 +106,7 @@ fun Switch(
     val targetBackgroundColor = if (isChecked) colorPalette.accent else colorPalette.background1
     val targetThumbColor = if (isChecked) colorPalette.onAccent else colorPalette.textDisabled
     val targetThumbOffset = if (isChecked) 36.dp else 12.dp
-    val targetThumbRadius = if (isPressed) 10.dp else 8.dp
+    val targetThumbRadius = if (isPressed) 9.dp else 8.dp
 
     val animatedBackgroundColor by animateColorAsState(targetBackgroundColor, springColorSpec, label = "classicBgColor")
     val animatedThumbColor by animateColorAsState(targetThumbColor, springColorSpec, label = "classicThumbColor")
@@ -118,8 +124,8 @@ fun Switch(
             radius = animatedThumbRadius.toPx(),
             center = size.center.copy(x = animatedThumbOffset.toPx()),
             shadow = Shadow(
-                color = Color.Black.copy(alpha = if (isChecked) 0.4f else 0.1f),
-                blurRadius = 8.dp.toPx(),
+                color = Color.Black.copy(alpha = if (isChecked) 0.3f else 0.08f),
+                blurRadius = 4.dp.toPx(),
                 offset = Offset(x = -1.dp.toPx(), y = 1.dp.toPx())
             )
         )

@@ -2,11 +2,6 @@
 
 package app.vitune.android.ui.screens.settings
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
@@ -28,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -36,9 +30,7 @@ import androidx.compose.material3.ripple
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.utils.getAppIcon
 import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.verticalScroll
@@ -63,7 +55,6 @@ import androidx.compose.ui.unit.dp
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
 import app.vitune.android.ui.components.themed.Header
-import app.vitune.android.ui.components.themed.IconButton
 import app.vitune.android.ui.components.themed.NumberFieldDialog
 import app.vitune.android.ui.components.themed.Scaffold
 import app.vitune.android.ui.components.themed.Slider
@@ -86,8 +77,7 @@ import kotlinx.collections.immutable.toImmutableList
 fun SettingsScreen() {
     val saveableStateHolder = rememberSaveableStateHolder()
     val [tabIndex, onTabChanged] = rememberSaveable { mutableIntStateOf(0) }
-    var searchQuery by rememberSaveable { mutableStateOf("") }
-    var isSearchOpen by rememberSaveable { mutableStateOf(false) }
+    var isSearchPageOpen by rememberSaveable { mutableStateOf(false) }
 
     PersistMapCleanup("settings/")
 
@@ -95,44 +85,74 @@ fun SettingsScreen() {
         GlobalRoutes()
 
         Content {
-            CompositionLocalProvider(
-                LocalSettingsSearchQuery provides searchQuery,
-                LocalSettingsSearchQuerySetter provides { searchQuery = it },
-                LocalSettingsSearchOpen provides isSearchOpen,
-                LocalSettingsSearchOpenSetter provides { isSearchOpen = it }
-            ) {
-                Scaffold(
-                    key = "settings",
-                    topIconButtonId = R.drawable.chevron_back,
-                    onTopIconButtonClick = pop,
-                    tabIndex = tabIndex,
-                    onTabChange = onTabChanged,
-                    tabColumnContent = {
-                        tab(0, R.string.appearance, R.drawable.color_palette, canHide = false)
-                        tab(1, R.string.player, R.drawable.play, canHide = false)
-                        tab(2, R.string.lyrics, R.drawable.lyrics, canHide = false)
-                        tab(3, R.string.cache, R.drawable.server, canHide = false)
-                        tab(4, R.string.database, R.drawable.server, canHide = false)
-                        tab(5, R.string.sync, R.drawable.sync, canHide = false)
-                        tab(6, R.string.other, R.drawable.shapes, canHide = false)
-                        tab(7, R.string.listen_together, R.drawable.group, canHide = false)
-                        tab(8, R.string.discord_rich_presence, R.drawable.discord, canHide = false)
-                        tab(9, R.string.about, R.drawable.information, canHide = false)
+            if (isSearchPageOpen) {
+                SettingsSearchScreen(
+                    onBack = { isSearchPageOpen = false },
+                    onNavigateToCategory = { targetTab ->
+                        onTabChanged(targetTab)
+                        isSearchPageOpen = false
                     }
-                ) { currentTabIndex ->
-                    saveableStateHolder.SaveableStateProvider(currentTabIndex) {
-                        when (currentTabIndex) {
-                            0 -> AppearanceSettings()
-                            1 -> PlayerSettings()
-                            2 -> LyricsSettings()
-                            3 -> CacheSettings()
-                            4 -> DatabaseSettings()
-                            5 -> SyncSettings()
-                            6 -> OtherSettings()
-                            7 -> app.vitune.android.ui.screens.listentogether.ListenTogetherScreen(onBack = pop)
-                            8 -> RichPresenceSettings()
-                            9 -> About()
+                )
+            } else {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    Scaffold(
+                        key = "settings",
+                        topIconButtonId = R.drawable.chevron_back,
+                        onTopIconButtonClick = pop,
+                        tabIndex = tabIndex,
+                        onTabChange = onTabChanged,
+                        tabColumnContent = {
+                            tab(0, R.string.appearance, R.drawable.color_palette, canHide = false)
+                            tab(1, R.string.player, R.drawable.play, canHide = false)
+                            tab(2, R.string.lyrics, R.drawable.lyrics, canHide = false)
+                            tab(3, R.string.cache, R.drawable.server, canHide = false)
+                            tab(4, R.string.database, R.drawable.server, canHide = false)
+                            tab(5, R.string.sync, R.drawable.sync, canHide = false)
+                            tab(6, R.string.other, R.drawable.shapes, canHide = false)
+                            tab(7, R.string.listen_together, R.drawable.group, canHide = false)
+                            tab(8, R.string.discord_rich_presence, R.drawable.discord, canHide = false)
+                            tab(9, R.string.about, R.drawable.information, canHide = false)
                         }
+                    ) { currentTabIndex ->
+                        saveableStateHolder.SaveableStateProvider(currentTabIndex) {
+                            when (currentTabIndex) {
+                                0 -> AppearanceSettings()
+                                1 -> PlayerSettings()
+                                2 -> LyricsSettings()
+                                3 -> CacheSettings()
+                                4 -> DatabaseSettings()
+                                5 -> SyncSettings()
+                                6 -> OtherSettings()
+                                7 -> app.vitune.android.ui.screens.listentogether.ListenTogetherScreen(onBack = pop)
+                                8 -> RichPresenceSettings()
+                                9 -> About()
+                            }
+                        }
+                    }
+
+                    // Floating Search Button on main settings page
+                    val (colorPalette) = LocalAppearance.current
+                    val isExpressive = LocalIsExpressiveTheme.current
+                    val insets = LocalPlayerAwareWindowInsets.current.asPaddingValues()
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(
+                                end = 20.dp,
+                                bottom = 20.dp + insets.calculateBottomPadding()
+                            )
+                            .size(56.dp)
+                            .clip(RoundedCornerShape(if (isExpressive) 20.dp else 16.dp))
+                            .background(colorPalette.accent)
+                            .clickable { isSearchPageOpen = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Image(
+                            painter = painterResource(getAppIcon(R.drawable.search)),
+                            contentDescription = stringResource(R.string.search_settings),
+                            colorFilter = ColorFilter.tint(colorPalette.onAccent),
+                            modifier = Modifier.size(24.dp)
+                        )
                     }
                 }
             }
@@ -195,11 +215,6 @@ fun <T> ValueSelectorSettingsEntry(
     )
 }
 
-val LocalSettingsSearchQuery = compositionLocalOf { "" }
-val LocalSettingsSearchQuerySetter = compositionLocalOf<(String) -> Unit> { {} }
-val LocalSettingsSearchOpen = compositionLocalOf { false }
-val LocalSettingsSearchOpenSetter = compositionLocalOf<(Boolean) -> Unit> { {} }
-
 @Composable
 fun SwitchSettingsEntry(
     title: String,
@@ -244,11 +259,6 @@ fun SliderSettingsEntry(
     usePadding: Boolean = true,
     showTicks: Boolean = steps != 0
 ) {
-    val searchQuery = LocalSettingsSearchQuery.current
-    if (searchQuery.isNotBlank() && !title.contains(searchQuery, ignoreCase = true) && !text.contains(searchQuery, ignoreCase = true)) {
-        return
-    }
-
     val isExpressive = LocalIsExpressiveTheme.current
     val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
@@ -368,13 +378,6 @@ fun SettingsEntry(
     interactionSource: MutableInteractionSource? = null,
     trailingContent: @Composable (() -> Unit)? = null
 ) {
-    val searchQuery = LocalSettingsSearchQuery.current
-    if (searchQuery.isNotBlank()) {
-        val matchesTitle = title.contains(searchQuery, ignoreCase = true)
-        val matchesText = text?.contains(searchQuery, ignoreCase = true) == true
-        if (!matchesTitle && !matchesText) return
-    }
-
     val isExpressive = LocalIsExpressiveTheme.current
     val inSettingsGroup = LocalInSettingsGroup.current
     val (colorPalette, typography) = LocalAppearance.current
@@ -492,11 +495,6 @@ fun SettingsCategoryScreen(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val (colorPalette, typography) = LocalAppearance.current
-    val isExpressive = LocalIsExpressiveTheme.current
-    val searchQuery = LocalSettingsSearchQuery.current
-    val onSearchQueryChange = LocalSettingsSearchQuerySetter.current
-    val isSearchOpen = LocalSettingsSearchOpen.current
-    val onSearchOpenChange = LocalSettingsSearchOpenSetter.current
 
     Column(
         modifier = modifier
@@ -509,23 +507,7 @@ fun SettingsCategoryScreen(
                     .asPaddingValues()
             )
     ) {
-        Header(
-            title = title,
-            actionsContent = {
-                IconButton(
-                    icon = if (isSearchOpen) R.drawable.close else R.drawable.search,
-                    color = if (isSearchOpen) colorPalette.accent else colorPalette.text,
-                    onClick = {
-                        if (isSearchOpen) {
-                            onSearchOpenChange(false)
-                            onSearchQueryChange("")
-                        } else {
-                            onSearchOpenChange(true)
-                        }
-                    }
-                )
-            }
-        )
+        Header(title = title)
 
         description?.let { desc ->
             BasicText(
@@ -534,63 +516,6 @@ fun SettingsCategoryScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
             )
             SettingsGroupSpacer()
-        }
-
-        AnimatedVisibility(
-            visible = isSearchOpen,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically()
-        ) {
-            Column {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 6.dp)
-                        .clip(RoundedCornerShape(if (isExpressive) 20.dp else 12.dp))
-                        .background(colorPalette.background1)
-                        .padding(horizontal = 14.dp, vertical = 10.dp)
-                ) {
-                    Image(
-                        painter = painterResource(getAppIcon(R.drawable.search)),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = onSearchQueryChange,
-                        textStyle = typography.xs.medium.copy(color = colorPalette.text),
-                        singleLine = true,
-                        cursorBrush = SolidColor(colorPalette.accent),
-                        decorationBox = { innerTextField ->
-                            Box(modifier = Modifier.weight(1f)) {
-                                if (searchQuery.isEmpty()) {
-                                    BasicText(
-                                        text = stringResource(R.string.search_settings),
-                                        style = typography.xs.medium.copy(color = colorPalette.textDisabled)
-                                    )
-                                }
-                                innerTextField()
-                            }
-                        },
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (searchQuery.isNotEmpty()) {
-                        Image(
-                            painter = painterResource(getAppIcon(R.drawable.close)),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                            modifier = Modifier
-                                .size(18.dp)
-                                .clip(CircleShape)
-                                .clickable { onSearchQueryChange("") }
-                        )
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-            }
         }
 
         content()
