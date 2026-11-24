@@ -91,7 +91,13 @@ fun Thumbnail(
     },
     showLyricsControls: Boolean = true,
     squareCanvasUrl: String? = null,
-    isPlaying: Boolean = true
+    isPlaying: Boolean = true,
+    // Read in the draw phase only; lets the player fade a square canvas back into the static art
+    // while the cover is flying to the lyrics header.
+    squareCanvasAlpha: () -> Float = { 1f },
+    // While a wide canvas is covering the screen this cover is only a hidden gesture surface:
+    // tapping still opens the lyrics but long press / double tap are left alone.
+    isCoverInteractive: Boolean = true
 ) {
     val binder = LocalPlayerServiceBinder.current
     val [colorPalette, _, _, thumbnailShape] = LocalAppearance.current
@@ -197,7 +203,9 @@ fun Thumbnail(
                                 videoUrl = squareCanvasUrl,
                                 isPlaying = isPlaying,
                                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
-                                modifier = Modifier.fillMaxSize()
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = squareCanvasAlpha() }
                             )
                         }
 
@@ -205,19 +213,23 @@ fun Thumbnail(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .pointerInput(Unit) {
+                                    .pointerInput(isCoverInteractive) {
                                         detectTapGestures(
                                             onTap = { onShowLyrics(true) },
-                                            onLongPress = { onShowStatsForNerds(true) },
-                                            onDoubleTap = {
-                                                if (likedAt == null) setLikedAt(System.currentTimeMillis())
+                                            onLongPress = if (isCoverInteractive) {
+                                                { onShowStatsForNerds(true) }
+                                            } else null,
+                                            onDoubleTap = if (isCoverInteractive) {
+                                                {
+                                                    if (likedAt == null) setLikedAt(System.currentTimeMillis())
 
-                                                coroutineScope.launch {
-                                                    val spec = tween<Float>(durationMillis = 500)
-                                                    transitionState.animateTo(true, spec)
-                                                    transitionState.animateTo(false, spec)
+                                                    coroutineScope.launch {
+                                                        val spec = tween<Float>(durationMillis = 500)
+                                                        transitionState.animateTo(true, spec)
+                                                        transitionState.animateTo(false, spec)
+                                                    }
                                                 }
-                                            }
+                                            } else null
                                         )
                                     }
                             )

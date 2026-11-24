@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +44,7 @@ fun BackgroundVideoView(
     isPlaying: Boolean,
     modifier: Modifier = Modifier,
     resizeMode: Int = AspectRatioFrameLayout.RESIZE_MODE_ZOOM,
+    fadeInDurationMillis: Int = 800,
     onVideoSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> },
     onVideoReady: (Boolean) -> Unit = {},
     onError: () -> Unit = {}
@@ -168,7 +170,7 @@ fun BackgroundVideoView(
 
     val alpha by animateFloatAsState(
         targetValue = if (isVideoReady) 1f else 0f,
-        animationSpec = tween(800),
+        animationSpec = if (fadeInDurationMillis > 0) tween(fadeInDurationMillis) else snap(),
         label = "canvasVideoAlpha"
     )
 

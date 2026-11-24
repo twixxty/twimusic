@@ -6,11 +6,13 @@ import android.net.NetworkCapabilities
 import androidx.activity.compose.BackHandler
 import androidx.annotation.OptIn
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -74,6 +76,8 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SnapshotMutationPolicy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -576,6 +580,28 @@ fun Player(
             mutableStateOf(shouldShowInCover)
         }
 
+        // Shared artwork morph: cover <-> wide canvas <-> lyrics header (see PlayerHero.kt). Both
+        // progress values are only ever read in the draw phase, so animating them is free of
+        // recomposition and layout work.
+        val hero = remember { CoverHeroState() }
+        val isWideCanvasPresent = !isLandscape && isCanvasActive && !isSquareCanvas
+        val lyricsProgress = animateFloatAsState(
+            targetValue = if (isShowingLyrics) 1f else 0f,
+            animationSpec = tween(HeroLyricsDurationMillis, easing = HeroEasing),
+            label = "heroLyricsProgress"
+        )
+        // Grows the cover into the canvas once its first frame is ready. If the canvas goes away
+        // (e.g. next track without one) there is nothing left to animate, so snap back.
+        val canvasProgress = animateFloatAsState(
+            targetValue = if (isWideCanvasPresent && isVideoReady) 1f else 0f,
+            animationSpec = if (isWideCanvasPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
+            label = "heroCanvasProgress"
+        )
+        SideEffect { hero.lyricsProgress = { lyricsProgress.value } }
+        val isCoverInteractive by remember { derivedStateOf { canvasProgress.value < 0.5f } }
+        val heroCoverRadius = with(LocalDensity.current) { thumbnailCornerSize.toPx() }
+        val heroHeaderRadius = with(LocalDensity.current) { 12.dp.toPx() }
+
         val containerModifier = Modifier
             .padding(
                 windowInsets
@@ -605,6 +631,8 @@ fun Player(
                     BackgroundVideoView(
                         videoUrl = videoUrl,
                         isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
+                        // In portrait the cover -> canvas crossfade is driven by the hero morph.
+                        fadeInDurationMillis = if (landscape) 800 else 0,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -636,6 +664,8 @@ fun Player(
                     setLikedAt = { likedAt = it },
                     squareCanvasUrl = if (isCanvasActive && isSquareCanvas) canvasVideoUrl else null,
                     isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
+                    squareCanvasAlpha = { hero.squareCanvasAlpha() },
+                    isCoverInteractive = isCoverInteractive,
                     modifier = Modifier
                         .nestedScroll(layoutState.preUpPostDownNestedScrollConnection)
                         .pinchToToggle(
@@ -674,6 +704,7 @@ fun Player(
                     if (isShowingLyrics) isLyricsFullscreen = false
                     isShowingLyrics = !isShowingLyrics
                 },
+                hero = hero,
                 modifier = innerModifier
             )
         }
@@ -707,6 +738,7 @@ fun Player(
             modifier = Modifier
                 .fillMaxSize()
                 .clip(shape)
+                .heroRoot(hero)
         ) {
             val darkOverlayAlpha by animateFloatAsState(
                 targetValue = if (isShowingLyrics) 0.55f else 0.35f,
@@ -760,23 +792,33 @@ fun Player(
                 }
             }
 
-            if (!isLandscape && isCanvasActive && !isSquareCanvas) {
-                val canvasAlpha by animateFloatAsState(
-                    targetValue = if (!isShowingLyrics) 1f else 0f,
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "playerCanvasAlpha"
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .graphicsLayer { alpha = canvasAlpha }
-                ) {
-                    canvasContent(
-                        Modifier
+            if (isWideCanvasPresent) {
+                Box(modifier = Modifier.fillMaxSize()) {
+                    // The slot itself never moves, only the layer inside it does: that keeps the
+                    // measured "natural" bounds stable while the video is morphing.
+                    Box(
+                        modifier = Modifier
                             .fillMaxWidth()
                             .fillMaxHeight(0.85f)
                             .align(Alignment.TopCenter)
-                    )
+                            .heroCanvasSlot(hero)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    hero.applyCanvasLayer(
+                                        scope = this,
+                                        lyricsProgress = lyricsProgress.value,
+                                        canvasProgress = canvasProgress.value,
+                                        coverRadius = heroCoverRadius,
+                                        headerRadius = heroHeaderRadius
+                                    )
+                                }
+                        ) {
+                            canvasContent(Modifier.fillMaxSize())
+                        }
+                    }
                 }
 
                 // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
@@ -933,40 +975,44 @@ fun Player(
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        val artworkAlpha by animateFloatAsState(
-                            targetValue = if (!isShowingLyrics) 1f else 0f,
-                            animationSpec = tween(350, easing = FastOutSlowInEasing),
-                            label = "ArtworkAlpha"
-                        )
+                        // Lyrics wait for the artwork to clear the way before fading in; they are
+                        // composed right away though, so the (heavy) first composition happens
+                        // before the morph starts to move instead of in the middle of it.
                         val lyricsAlpha by animateFloatAsState(
                             targetValue = if (isShowingLyrics) 1f else 0f,
-                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            animationSpec = if (isShowingLyrics) {
+                                tween(300, delayMillis = 140, easing = FastOutSlowInEasing)
+                            } else {
+                                tween(200, easing = FastOutSlowInEasing)
+                            },
                             label = "LyricsAlpha"
                         )
 
-                        if (isCanvasActive && !isSquareCanvas && isVideoReady) {
+                        // The cover is always composed (so its image, swipe handling and square
+                        // canvas stay alive) and is moved / faded purely in the graphics layer.
+                        // This slot is measured un-transformed, the layer inside it is the
+                        // thing that morphs towards the canvas or the lyrics header.
+                        Box(
+                            modifier = Modifier
+                                .padding(horizontal = 32.dp, vertical = 8.dp)
+                                .heroCoverSlot(hero)
+                        ) {
                             Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { alpha = artworkAlpha }
-                                    .clickable(
-                                        enabled = !isShowingLyrics,
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        if (isShowingLyrics) isLyricsFullscreen = false
-                                        isShowingLyrics = !isShowingLyrics
-                                    }
-                            )
-                        } else {
-                            Box(
-                                modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
+                                modifier = Modifier.graphicsLayer {
+                                    hero.applyCoverLayer(
+                                        scope = this,
+                                        lyricsProgress = lyricsProgress.value,
+                                        canvasProgress = canvasProgress.value,
+                                        coverRadius = heroCoverRadius,
+                                        headerRadius = heroHeaderRadius
+                                    )
+                                }
                             ) {
-                                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                                thumbnailContent(Modifier)
                             }
                         }
 
-                        if (lyricsAlpha > 0f) {
+                        if (isShowingLyrics || lyricsAlpha > 0f) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()

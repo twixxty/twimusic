@@ -48,6 +48,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -111,7 +112,8 @@ fun Controls(
     isShowingLyrics: Boolean = false,
     isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
-    layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout
+    layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout,
+    hero: CoverHeroState? = null
 ) {
     val shouldBePlayingTransition = updateTransition(
         targetState = shouldBePlaying,
@@ -162,6 +164,7 @@ fun Controls(
             isShowingLyrics = isShowingLyrics,
             isLyricsFullscreen = isLyricsFullscreen,
             onToggleLyrics = onToggleLyrics,
+            hero = hero,
             modifier = modifier
         )
     }
@@ -624,10 +627,16 @@ private fun ExpressiveControls(
     isShowingLyrics: Boolean = false,
     isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
-    controlHeight: Dp = 64.dp
+    controlHeight: Dp = 64.dp,
+    hero: CoverHeroState? = null
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    // The header slot is only meaningful for as long as this layout is on screen.
+    if (hero != null) DisposableEffect(hero) {
+        onDispose { hero.clearHeader() }
+    }
 
     Column(
         modifier = modifier
@@ -656,6 +665,7 @@ private fun ExpressiveControls(
                     Box(
                         modifier = Modifier
                             .size(52.dp)
+                            .let { if (hero != null) it.heroHeaderSlot(hero) else it }
                             .clip(RoundedCornerShape(12.dp))
                             .clickable(
                                 indication = ripple(),
@@ -672,7 +682,11 @@ private fun ExpressiveControls(
                             error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier
+                                .fillMaxSize()
+                                // While the player's cover is still flying in, it *is* this image.
+                                // Only show the real one once the flight has landed.
+                                .graphicsLayer { alpha = hero?.headerArtAlpha() ?: 1f }
                         )
                     }
                     Spacer(Modifier.width(14.dp))
