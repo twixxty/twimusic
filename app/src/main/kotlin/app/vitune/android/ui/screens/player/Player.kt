@@ -650,8 +650,9 @@ fun Player(
                     BackgroundVideoView(
                         videoUrl = videoUrl,
                         isPlaying = !layoutState.collapsed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
-                        // In portrait the cover -> canvas crossfade is driven by the hero morph.
-                        fadeInDurationMillis = if (landscape) 800 else 0,
+                        // In portrait the cover -> canvas crossfade is driven by the hero morph,
+                        // and in landscape it is driven by canvasLandscapeAlpha / coverLandscapeAlpha.
+                        fadeInDurationMillis = 0,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -870,7 +871,7 @@ fun Player(
                 )
             }
 
-            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && !isShowingLyrics && !layoutState.collapsed) {
+            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && (!isShowingLyrics || isLandscape) && !layoutState.collapsed) {
                 FullScreenState(
                     shown = false,
                     type = WindowInsetsCompat.Type.statusBars()
@@ -903,7 +904,6 @@ fun Player(
                         modifier = Modifier
                             .weight(1.35f)
                             .fillMaxHeight()
-                            .padding(bottom = if (isShowingLyrics && isLyricsFullscreen) 0.dp else 16.dp)
                     ) {
                         val artworkLandscapeAlpha by animateFloatAsState(
                             targetValue = if (!isShowingLyrics) 1f else 0f,
@@ -915,9 +915,19 @@ fun Player(
                             animationSpec = tween(350, easing = FastOutSlowInEasing),
                             label = "lyricsLandscapeAlpha"
                         )
+                        val canvasLandscapeAlpha by animateFloatAsState(
+                            targetValue = if (isCanvasActive && !isSquareCanvas && isVideoReady) 1f else 0f,
+                            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                            label = "canvasLandscapeAlpha"
+                        )
+                        val coverLandscapeAlpha by animateFloatAsState(
+                            targetValue = if (!isCanvasActive || isSquareCanvas || !isVideoReady) 1f else 0f,
+                            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+                            label = "coverLandscapeAlpha"
+                        )
 
                         Box(
-                            modifier = Modifier.graphicsLayer { alpha = artworkLandscapeAlpha }
+                            modifier = Modifier.graphicsLayer { alpha = artworkLandscapeAlpha * coverLandscapeAlpha }
                         ) {
                             thumbnailContent(Modifier.size(coverArtTargetSize))
                         }
@@ -926,9 +936,25 @@ fun Player(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .graphicsLayer { alpha = artworkLandscapeAlpha }
+                                    .graphicsLayer { alpha = artworkLandscapeAlpha * canvasLandscapeAlpha }
                             ) {
                                 canvasContent(Modifier.fillMaxSize())
+
+                                // Fading gradient towards the right to seamlessly blend canvas into the controls background
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxHeight()
+                                        .fillMaxWidth(0.50f)
+                                        .align(Alignment.CenterEnd)
+                                        .background(
+                                            Brush.horizontalGradient(
+                                                0.0f to Color.Transparent,
+                                                0.35f to colorPalette.background0.copy(alpha = 0.45f),
+                                                0.70f to colorPalette.background0.copy(alpha = 0.85f),
+                                                1.0f to colorPalette.background0
+                                            )
+                                        )
+                                )
                             }
                         }
 

@@ -800,7 +800,7 @@ private fun ExpressiveControls(
 
         // 2. Playback Controls & Seekbar (collapses when fullscreen lyrics, leaving song info visible)
         AnimatedVisibility(
-            visible = !isLyricsFullscreen || !isShowingLyrics,
+            visible = isLandscape || !isLyricsFullscreen || !isShowingLyrics,
             enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
             exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
         ) {
@@ -900,7 +900,7 @@ private fun ExpressiveControls(
 
                 val seekBarContent = @Composable {
                     AnimatedVisibility(
-                        visible = !isShowingLyrics,
+                        visible = isLandscape || !isShowingLyrics,
                         enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
                         exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
                     ) {
