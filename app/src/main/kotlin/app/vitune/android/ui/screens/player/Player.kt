@@ -804,7 +804,7 @@ fun Player(
                     // In Expressive layout: bottom gradient fades smoothly with lyrics transition without any delay
                     val gradientAlpha by animateFloatAsState(
                         targetValue = if (!isShowingLyrics && isVideoReady) 1f else 0f,
-                        animationSpec = tween(380, easing = FastOutSlowInEasing),
+                        animationSpec = tween(350, easing = FastOutSlowInEasing),
                         label = "playerExpressiveGradientAlpha"
                     )
                     if (gradientAlpha > 0f) {
@@ -926,9 +926,11 @@ fun Player(
                 val isExpressive = playerLayout == PlayerPreferences.PlayerLayout.Expressive
                 val controlsTargetHeight = remember(availableHeight, isShowingLyrics, isLyricsFullscreen, isExpressive) {
                     when {
-                        isLyricsFullscreen && isExpressive -> 76.dp
-                        isShowingLyrics && isExpressive -> 155.dp
+                        isLyricsFullscreen && isExpressive -> 68.dp
+                        isLyricsFullscreen -> 0.dp
+                        isShowingLyrics && isExpressive -> 150.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
+                        isExpressive -> 204.dp
                         else -> availableHeight * (1f / 2.5f)
                     }
                 }
@@ -940,11 +942,8 @@ fun Player(
 
                 if (isExpressive) {
                     val isCanvasReady = isCanvasActive && !isSquareCanvas && isVideoReady
-                    val upperAreaHeight = (availableHeight - animatedControlsHeight).coerceAtLeast(0.dp)
-                    val normalCoverSize = (minOf(totalWidth - 64.dp, upperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
-
-                    val controlsY = totalHeight - animatedControlsHeight
-                    val lyricsThumbnailY = controlsY + 8.dp + (if (isLyricsFullscreen) ((animatedControlsHeight - 16.dp - 52.dp) / 2).coerceAtLeast(0.dp) else 0.dp)
+                    val normalUpperAreaHeight = (availableHeight - 204.dp).coerceAtLeast(0.dp)
+                    val normalCoverSize = (minOf(totalWidth - 64.dp, normalUpperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
 
                     val targetWidth: Dp
                     val targetHeight: Dp
@@ -960,7 +959,7 @@ fun Player(
                             targetHeight = 52.dp
                             targetRadius = 12.dp
                             targetOffsetX = 24.dp
-                            targetOffsetY = lyricsThumbnailY
+                            targetOffsetY = totalHeight - (if (isLyricsFullscreen) 68.dp else 150.dp) + 8.dp
                             targetCanvasAlpha = 0f
                             targetCoverAlpha = 1f
                         }
@@ -978,14 +977,14 @@ fun Player(
                             targetHeight = normalCoverSize
                             targetRadius = thumbnailCornerSize
                             targetOffsetX = (totalWidth - normalCoverSize) / 2
-                            targetOffsetY = topPadding + ((upperAreaHeight - normalCoverSize) / 2).coerceAtLeast(0.dp)
+                            targetOffsetY = topPadding + ((normalUpperAreaHeight - normalCoverSize) / 2).coerceAtLeast(0.dp)
                             targetCanvasAlpha = 0f
                             targetCoverAlpha = 1f
                         }
                     }
 
-                    val animSpecDp = tween<Dp>(durationMillis = 380, easing = FastOutSlowInEasing)
-                    val animSpecFloat = tween<Float>(durationMillis = 380, easing = FastOutSlowInEasing)
+                    val animSpecDp = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
+                    val animSpecFloat = tween<Float>(durationMillis = 350, easing = FastOutSlowInEasing)
 
                     val animWidth by animateDpAsState(targetWidth, animSpecDp, label = "artworkWidth")
                     val animHeight by animateDpAsState(targetHeight, animSpecDp, label = "artworkHeight")
@@ -994,6 +993,11 @@ fun Player(
                     val animOffsetY by animateDpAsState(targetOffsetY, animSpecDp, label = "artworkOffsetY")
                     val animCanvasAlpha by animateFloatAsState(targetCanvasAlpha, animSpecFloat, label = "canvasAlpha")
                     val animCoverAlpha by animateFloatAsState(targetCoverAlpha, animSpecFloat, label = "coverAlpha")
+                    val animElevation by animateDpAsState(
+                        targetValue = if (isShowingLyrics || isCanvasReady) 0.dp else 8.dp,
+                        animationSpec = animSpecDp,
+                        label = "artworkElevation"
+                    )
 
                     val artworkUri = mediaItem?.mediaMetadata?.artworkUri ?: binder?.player?.mediaMetadata?.artworkUri
 
@@ -1004,7 +1008,7 @@ fun Player(
                             .clip(RoundedCornerShape(animRadius))
                             .background(colorPalette.background0)
                             .shadow(
-                                elevation = if (isShowingLyrics || isCanvasReady) 0.dp else 8.dp,
+                                elevation = animElevation,
                                 shape = RoundedCornerShape(animRadius),
                                 clip = false
                             )
@@ -1018,10 +1022,7 @@ fun Player(
                     ) {
                         if (animCoverAlpha > 0.01f) {
                             AsyncImage(
-                                model = artworkUri?.thumbnail(
-                                    if (isShowingLyrics) 140.dp.px
-                                    else (Dimensions.thumbnails.player.song - 64.dp).px
-                                ),
+                                model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
                                 placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                                 error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                                 contentDescription = null,
@@ -1032,7 +1033,7 @@ fun Player(
                             )
                         }
 
-                        if (isCanvasActive && !isSquareCanvas && animCanvasAlpha > 0.01f) {
+                        if (isCanvasActive && !isSquareCanvas) {
                             BackgroundVideoView(
                                 videoUrl = canvasVideoUrl,
                                 isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
@@ -1066,7 +1067,7 @@ fun Player(
                         if (isExpressive) {
                             val lyricsAlpha by animateFloatAsState(
                                 targetValue = if (isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(380, easing = FastOutSlowInEasing),
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
                                 label = "LyricsAlpha"
                             )
                             if (lyricsAlpha > 0f) {
@@ -1128,12 +1129,11 @@ fun Player(
                         visible = !isShowingLyrics || !isLyricsFullscreen || isExpressive,
                         enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
-                        exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                        exit = shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
+                               fadeOut(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
                     ) {
                         controlsContent(
                             Modifier
-                                .padding(vertical = 8.dp)
                                 .fillMaxWidth()
                                 .height(animatedControlsHeight)
                         )

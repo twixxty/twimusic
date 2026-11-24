@@ -632,17 +632,19 @@ private fun ExpressiveControls(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isLandscape) 16.dp else 24.dp),
-        verticalArrangement = Arrangement.Bottom
+            .padding(horizontal = if (isLandscape) 16.dp else 24.dp)
+            .padding(top = 8.dp, bottom = 8.dp)
     ) {
         // 1. Song Info Row: Left-aligned Title/Artist & Like Button, with cover art thumbnail sliding in during lyrics
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
         ) {
             val thumbnailSpacerWidth by animateDpAsState(
-                targetValue = if (isShowingLyrics && !isLandscape) 66.dp else 0.dp,
-                animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+                targetValue = if (isShowingLyrics && !isLandscape) 64.dp else 0.dp,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                 label = "thumbnailSpacerWidth"
             )
             if (thumbnailSpacerWidth > 0.dp) {
@@ -680,14 +682,32 @@ private fun ExpressiveControls(
             }
         }
 
-        // 2. Playback Controls & Seekbar (collapses when fullscreen lyrics, leaving song info visible)
+        // 2. Full-width Seek Bar (between Song Info and Primary Controls) - smoothly hidden when enabling lyrics
         AnimatedVisibility(
-            visible = !isLyricsFullscreen || !isShowingLyrics,
-            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
-            exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
+            visible = !isShowingLyrics,
+            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
+            exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(12.dp))
+                SeekBar(
+                    binder = binder,
+                    position = position,
+                    media = media,
+                    color = colorPalette.accent,
+                    alwaysShowDuration = true
+                )
+            }
+        }
+
+        // 3. Primary Playback Controls (collapses in fullscreen lyrics)
+        AnimatedVisibility(
+            visible = !isLyricsFullscreen || !isShowingLyrics,
+            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
+            exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(14.dp))
 
                 // Primary Controls Row (Skip Prev, Center Play/Pause with text, Skip Next)
                 val playInteractionSource = remember { MutableInteractionSource() }
@@ -813,29 +833,6 @@ private fun ExpressiveControls(
                         scale = nextScale,
                         shape = currentNextRadius.roundedShape
                     )
-                }
-
-                // Full-width Seek Bar (BELOW controls) - smoothly hidden when enabling lyrics
-                AnimatedVisibility(
-                    visible = !isShowingLyrics,
-                    enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
-                    exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SeekBar(
-                                binder = binder,
-                                position = position,
-                                media = media,
-                                color = colorPalette.accent,
-                                alwaysShowDuration = true
-                            )
-                        }
-                    }
                 }
             }
         }
