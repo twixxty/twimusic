@@ -179,7 +179,7 @@ fun AppearanceSettings() = with(AppearancePreferences) {
             )
 
             AnimatedVisibility(
-                visible = PlayerPreferences.playerLayout != PlayerPreferences.PlayerLayout.Classic,
+                visible = PlayerPreferences.playerLayout == PlayerPreferences.PlayerLayout.Modern,
                 label = ""
             ) {
                 SwitchSettingsEntry(

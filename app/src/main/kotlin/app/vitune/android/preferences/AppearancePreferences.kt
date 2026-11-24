@@ -45,7 +45,7 @@ object AppearancePreferences : GlobalPreferencesHolder() {
             }
     }
 
-    var themeMode by enum(ThemeMode.Classic)
+    var themeMode by enum(ThemeMode.Material3Expressive)
     var appLogo by enum(AppLogo.Headphones)
     var colorSource by enum(
         when (OldPreferences.oldColorPaletteName) {
@@ -79,5 +79,5 @@ object AppearancePreferences : GlobalPreferencesHolder() {
     var hideExplicit by boolean(false)
     var autoPip by boolean(false)
     var openPlayer by boolean(true)
-    var useMaterialSymbols by boolean(false)
+    var useMaterialSymbols by boolean(true)
 }

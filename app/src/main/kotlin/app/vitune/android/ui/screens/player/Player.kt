@@ -358,7 +358,13 @@ fun Player(
                     }
                     .fillMaxSize()
                     .clip(shape)
-                    .background(colorPalette.background1)
+                    .background(
+                        if (colorPalette.isDark) {
+                            androidx.compose.ui.graphics.lerp(colorPalette.background0, colorPalette.background1, 0.40f)
+                        } else {
+                            androidx.compose.ui.graphics.lerp(colorPalette.background0, colorPalette.background1, 0.60f)
+                        }
+                    )
                     .drawBehind {
                         drawRect(
                             color = colorPalette.collapsedPlayerProgressBar,
@@ -520,13 +526,11 @@ fun Player(
         var isShowingStatsForNerds by rememberSaveable { mutableStateOf(false) }
         var isShowingLyricsDialog by rememberSaveable { mutableStateOf(false) }
         var isLyricsFullscreen by rememberSaveable { mutableStateOf(false) }
+        var openLyricsMenu by remember { mutableStateOf<(() -> Unit)?>(null) }
 
         BackHandler(enabled = isShowingLyrics) {
-            if (isLyricsFullscreen) {
-                isLyricsFullscreen = false
-            } else {
-                isShowingLyrics = false
-            }
+            isLyricsFullscreen = false
+            isShowingLyrics = false
         }
 
         LaunchedEffect(isShowingLyrics) {
@@ -716,10 +720,15 @@ fun Player(
                 isShowingLyrics = isShowingLyrics,
                 isLyricsFullscreen = isLyricsFullscreen,
                 onToggleLyrics = {
-                    if (isShowingLyrics) isLyricsFullscreen = false
-                    isShowingLyrics = !isShowingLyrics
+                    if (isShowingLyrics) {
+                        isLyricsFullscreen = false
+                        isShowingLyrics = false
+                    } else {
+                        isShowingLyrics = true
+                    }
                 },
                 hero = hero,
+                onOpenLyricsMenu = openLyricsMenu,
                 modifier = innerModifier
             )
         }
@@ -744,7 +753,8 @@ fun Player(
                     showControls = true,
                     isFullscreen = isLyricsFullscreen,
                     onToggleFullscreen = { isLyricsFullscreen = !isLyricsFullscreen },
-                    onSetFullscreen = { isLyricsFullscreen = it }
+                    onSetFullscreen = { isLyricsFullscreen = it },
+                    onMenuActionReady = { openLyricsMenu = it }
                 )
             }
         }
@@ -1181,8 +1191,12 @@ fun Player(
                             icon = R.drawable.lyrics,
                             color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
                             onClick = {
-                                if (isShowingLyrics) isLyricsFullscreen = false
-                                isShowingLyrics = !isShowingLyrics
+                                if (isShowingLyrics) {
+                                    isLyricsFullscreen = false
+                                    isShowingLyrics = false
+                                } else {
+                                    isShowingLyrics = true
+                                }
                             },
                             modifier = Modifier
                                 .padding(vertical = 8.dp)

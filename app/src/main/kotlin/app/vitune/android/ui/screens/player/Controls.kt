@@ -115,7 +115,8 @@ fun Controls(
     isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout,
-    hero: CoverHeroState? = null
+    hero: CoverHeroState? = null,
+    onOpenLyricsMenu: (() -> Unit)? = null
 ) {
     if (BuildConfig.DEBUG) {
         TrackRecomposition("Controls")
@@ -171,6 +172,7 @@ fun Controls(
             isLyricsFullscreen = isLyricsFullscreen,
             onToggleLyrics = onToggleLyrics,
             hero = hero,
+            onOpenLyricsMenu = onOpenLyricsMenu,
             modifier = modifier
         )
     }
@@ -638,7 +640,8 @@ private fun ExpressiveControls(
     isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp,
-    hero: CoverHeroState? = null
+    hero: CoverHeroState? = null,
+    onOpenLyricsMenu: (() -> Unit)? = null
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -713,13 +716,27 @@ private fun ExpressiveControls(
                 horizontalAlignment = Alignment.Start
             )
 
-            if (PlayerPreferences.showLike) {
-                Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(12.dp))
+
+            val likeRightRadius by animateDpAsState(
+                targetValue = if (isShowingLyrics) 6.dp else 16.dp,
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+                label = "likeRightRadius"
+            )
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     contentAlignment = Alignment.Center,
                     modifier = Modifier
                         .size(46.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(
+                            RoundedCornerShape(
+                                topStart = 16.dp,
+                                bottomStart = 16.dp,
+                                topEnd = likeRightRadius,
+                                bottomEnd = likeRightRadius
+                            )
+                        )
                         .background(colorPalette.background2)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
@@ -735,12 +752,55 @@ private fun ExpressiveControls(
                         modifier = Modifier.size(22.dp)
                     )
                 }
+
+                AnimatedVisibility(
+                    visible = isShowingLyrics,
+                    enter = expandHorizontally(
+                        animationSpec = tween(300, easing = FastOutSlowInEasing),
+                        expandFrom = Alignment.Start
+                    ) + fadeIn(tween(250)),
+                    exit = shrinkHorizontally(
+                        animationSpec = tween(250, easing = FastOutSlowInEasing),
+                        shrinkTowards = Alignment.Start
+                    ) + fadeOut(tween(200))
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Spacer(Modifier.width(3.dp))
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(
+                                    RoundedCornerShape(
+                                        topStart = 6.dp,
+                                        bottomStart = 6.dp,
+                                        topEnd = 16.dp,
+                                        bottomEnd = 16.dp
+                                    )
+                                )
+                                .background(colorPalette.background2)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = ripple()
+                                ) {
+                                    onOpenLyricsMenu?.invoke()
+                                }
+                        ) {
+                            Image(
+                                painter = painterResource(getAppIcon(R.drawable.ellipsis_horizontal)),
+                                contentDescription = "Lyrics options",
+                                colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
             }
         }
 
         // 2. Playback Controls & Seekbar (collapses when fullscreen lyrics, leaving song info visible)
         AnimatedVisibility(
-            visible = !isLyricsFullscreen,
+            visible = !isLyricsFullscreen || !isShowingLyrics,
             enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
             exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
         ) {

@@ -199,7 +199,8 @@ fun Lyrics(
     showControls: Boolean = true,
     isFullscreen: Boolean = false,
     onToggleFullscreen: (() -> Unit)? = null,
-    onSetFullscreen: ((Boolean) -> Unit)? = null
+    onSetFullscreen: ((Boolean) -> Unit)? = null,
+    onMenuActionReady: (((() -> Unit)?) -> Unit)? = null
 ) = AnimatedVisibility(
     visible = isDisplayed,
     enter = fadeIn(),
@@ -921,151 +922,163 @@ fun Lyrics(
                     }
                 }
 
-            Image(
-                painter = painterResource(getAppIcon(R.drawable.ellipsis_horizontal)),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(colorPalette.onOverlay),
-                modifier = Modifier
-                    .padding(all = 4.dp)
-                    .clickable(
-                        indication = ripple(bounded = false),
-                        interactionSource = remember { MutableInteractionSource() },
-                        onClick = {
-                            onMenuLaunch()
-                            menuState.display {
-                                Menu {
-                                    MenuSection {
-                                        entry(
-                                            icon = R.drawable.time,
-                                            text = stringResource(
-                                                if (shouldShowSynchronizedLyrics) R.string.show_unsynchronized_lyrics
-                                                else R.string.show_synchronized_lyrics
-                                            ),
-                                            secondaryText = if (shouldShowSynchronizedLyrics) null
-                                            else stringResource(R.string.provided_lyrics_by),
-                                            onClick = {
-                                                menuState.hide()
-                                                setShouldShowSynchronizedLyrics(!shouldShowSynchronizedLyrics)
-                                            }
-                                        )
+                val isExpressive = PlayerPreferences.playerLayout == PlayerPreferences.PlayerLayout.Expressive
+                val triggerLyricsMenu: () -> Unit = {
+                    onMenuLaunch()
+                    menuState.display {
+                        Menu {
+                            MenuSection {
+                                entry(
+                                    icon = R.drawable.time,
+                                    text = stringResource(
+                                        if (shouldShowSynchronizedLyrics) R.string.show_unsynchronized_lyrics
+                                        else R.string.show_synchronized_lyrics
+                                    ),
+                                    secondaryText = if (shouldShowSynchronizedLyrics) null
+                                    else stringResource(R.string.provided_lyrics_by),
+                                    onClick = {
+                                        menuState.hide()
+                                        setShouldShowSynchronizedLyrics(!shouldShowSynchronizedLyrics)
+                                    }
+                                )
 
-                                        entry(
-                                            icon = R.drawable.search,
-                                            text = stringResource(R.string.search_lyrics_providers),
-                                            onClick = {
-                                                menuState.hide()
-                                                picking = true
-                                            }
-                                        )
+                                entry(
+                                    icon = R.drawable.search,
+                                    text = stringResource(R.string.search_lyrics_providers),
+                                    onClick = {
+                                        menuState.hide()
+                                        picking = true
+                                    }
+                                )
 
-                                        entry(
-                                            icon = R.drawable.pencil,
-                                            text = stringResource(R.string.edit_lyrics),
-                                            onClick = {
-                                                menuState.hide()
-                                                editing = true
-                                            }
-                                        )
+                                entry(
+                                    icon = R.drawable.pencil,
+                                    text = stringResource(R.string.edit_lyrics),
+                                    onClick = {
+                                        menuState.hide()
+                                        editing = true
+                                    }
+                                )
 
-                                        entry(
-                                            icon = R.drawable.copy,
-                                            text = stringResource(R.string.copy_lyrics),
-                                            enabled = !text.isNullOrBlank(),
-                                            onClick = {
-                                                menuState.hide()
-                                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                                                val plainText = if (showSynchronizedLyrics && text != null) {
-                                                    text.lines().map { line ->
-                                                        line.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").trim()
-                                                    }.filter { it.isNotBlank() }.joinToString("\n")
-                                                } else {
-                                                    text.orEmpty()
-                                                }
-                                                clipboard.setPrimaryClip(ClipData.newPlainText("Lyrics", plainText))
-                                                context.toast(context.getString(R.string.lyrics_copied))
-                                            }
-                                        )
-
-                                        if (shouldShowSynchronizedLyrics) {
-                                            entry(
-                                                icon = R.drawable.play_skip_forward,
-                                                text = stringResource(R.string.set_lyrics_start_offset),
-                                                secondaryText = stringResource(
-                                                    R.string.set_lyrics_start_offset_description
-                                                ),
-                                                enabled = lyrics != null,
-                                                onClick = {
-                                                    menuState.hide()
-                                                    lyrics?.let {
-                                                        val startTime = binder?.player?.currentPosition
-                                                        query {
-                                                            Database.upsert(it.copy(startTime = startTime))
-                                                        }
-                                                    }
-                                                }
-                                            )
+                                entry(
+                                    icon = R.drawable.copy,
+                                    text = stringResource(R.string.copy_lyrics),
+                                    enabled = !text.isNullOrBlank(),
+                                    onClick = {
+                                        menuState.hide()
+                                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                        val plainText = if (showSynchronizedLyrics && text != null) {
+                                            text.lines().map { line ->
+                                                line.replace(Regex("""\[\d+:\d+(\.\d+)?\]"""), "").trim()
+                                            }.filter { it.isNotBlank() }.joinToString("\n")
+                                        } else {
+                                            text.orEmpty()
                                         }
+                                        clipboard.setPrimaryClip(ClipData.newPlainText("Lyrics", plainText))
+                                        context.toast(context.getString(R.string.lyrics_copied))
                                     }
+                                )
 
-                                    MenuSection {
-                                        val errorMsg = stringResource(R.string.no_browser_installed)
-                                        entry(
-                                            icon = R.drawable.globe,
-                                            text = stringResource(R.string.search_lyrics_online),
-                                            onClick = {
-                                                menuState.hide()
-                                                val mediaMetadata = currentMediaMetadataProvider()
-
-                                                try {
-                                                    context.startActivity(
-                                                        Intent(Intent.ACTION_WEB_SEARCH).apply {
-                                                            putExtra(
-                                                                SearchManager.QUERY,
-                                                                "${mediaMetadata.title} ${mediaMetadata.artist} lyrics"
-                                                            )
-                                                        }
-                                                    )
-                                                } catch (_: ActivityNotFoundException) {
-                                                    context.toast(errorMsg)
+                                if (shouldShowSynchronizedLyrics) {
+                                    entry(
+                                        icon = R.drawable.play_skip_forward,
+                                        text = stringResource(R.string.set_lyrics_start_offset),
+                                        secondaryText = stringResource(
+                                            R.string.set_lyrics_start_offset_description
+                                        ),
+                                        enabled = lyrics != null,
+                                        onClick = {
+                                            menuState.hide()
+                                            lyrics?.let {
+                                                val startTime = binder?.player?.currentPosition
+                                                query {
+                                                    Database.upsert(it.copy(startTime = startTime))
                                                 }
                                             }
-                                        )
-
-                                        entry(
-                                            icon = R.drawable.sync,
-                                            text = stringResource(R.string.refetch_lyrics),
-                                            enabled = lyrics != null,
-                                            onClick = {
-                                                menuState.hide()
-
-                                                transaction {
-                                                    runCatching {
-                                                        currentEnsureSongInserted()
-
-                                                        Database.upsert(
-                                                            if (shouldShowSynchronizedLyrics) Lyrics(
-                                                                songId = mediaId,
-                                                                fixed = lyrics?.fixed,
-                                                                synced = null
-                                                            ) else Lyrics(
-                                                                songId = mediaId,
-                                                                fixed = null,
-                                                                synced = lyrics?.synced
-                                                            )
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        )
-                                    }
+                                        }
+                                    )
                                 }
                             }
+
+                            MenuSection {
+                                val errorMsg = stringResource(R.string.no_browser_installed)
+                                entry(
+                                    icon = R.drawable.globe,
+                                    text = stringResource(R.string.search_lyrics_online),
+                                    onClick = {
+                                        menuState.hide()
+                                        val mediaMetadata = currentMediaMetadataProvider()
+
+                                        try {
+                                            context.startActivity(
+                                                Intent(Intent.ACTION_WEB_SEARCH).apply {
+                                                    putExtra(
+                                                        SearchManager.QUERY,
+                                                        "${mediaMetadata.title} ${mediaMetadata.artist} lyrics"
+                                                    )
+                                                }
+                                            )
+                                        } catch (_: ActivityNotFoundException) {
+                                            context.toast(errorMsg)
+                                        }
+                                    }
+                                )
+
+                                entry(
+                                    icon = R.drawable.sync,
+                                    text = stringResource(R.string.refetch_lyrics),
+                                    enabled = lyrics != null,
+                                    onClick = {
+                                        menuState.hide()
+
+                                        transaction {
+                                            runCatching {
+                                                currentEnsureSongInserted()
+
+                                                Database.upsert(
+                                                    if (shouldShowSynchronizedLyrics) Lyrics(
+                                                        songId = mediaId,
+                                                        fixed = lyrics?.fixed,
+                                                        synced = null
+                                                    ) else Lyrics(
+                                                        songId = mediaId,
+                                                        fixed = null,
+                                                        synced = lyrics?.synced
+                                                    )
+                                                )
+                                            }
+                                        }
+                                    }
+                                )
+                            }
                         }
+                    }
+                }
+
+                DisposableEffect(triggerLyricsMenu) {
+                    onMenuActionReady?.invoke(triggerLyricsMenu)
+                    onDispose {
+                        onMenuActionReady?.invoke(null)
+                    }
+                }
+
+                if (!isExpressive) {
+                    Image(
+                        painter = painterResource(getAppIcon(R.drawable.ellipsis_horizontal)),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(colorPalette.onOverlay),
+                        modifier = Modifier
+                            .padding(all = 4.dp)
+                            .clickable(
+                                indication = ripple(bounded = false),
+                                interactionSource = remember { MutableInteractionSource() },
+                                onClick = triggerLyricsMenu
+                            )
+                            .padding(all = 8.dp)
+                            .size(20.dp)
+                            .align(Alignment.BottomEnd)
                     )
-                    .padding(all = 8.dp)
-                    .size(20.dp)
-                    .align(Alignment.BottomEnd)
-            )
+                }
             }
         }
     }
