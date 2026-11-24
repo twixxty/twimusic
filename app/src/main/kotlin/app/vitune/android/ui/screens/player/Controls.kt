@@ -664,8 +664,10 @@ private fun ExpressiveControls(
                                 onToggleLyrics?.invoke()
                             }
                     ) {
+                        val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
+                            ?: binder.player.mediaMetadata.artworkUri
                         AsyncImage(
-                            model = media.artworkUri?.thumbnail(140.dp.px),
+                            model = artworkUri?.thumbnail(140.dp.px),
                             placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             contentDescription = null,
