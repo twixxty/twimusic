@@ -89,9 +89,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     enum class PlayerLayout(val displayName: @Composable () -> String) {
         Classic(displayName = { stringResource(R.string.classic_player_layout_name) }),
         Modern(displayName = { stringResource(R.string.modern_player_layout_name) }),
-        Expressive(displayName = { stringResource(R.string.expressive_player_layout_name) }),
-        @Deprecated("Use Modern instead")
-        New(displayName = { stringResource(R.string.modern_player_layout_name) })
+        Expressive(displayName = { stringResource(R.string.expressive_player_layout_name) })
     }
 
     enum class SeekBarStyle(val displayName: @Composable () -> String) {

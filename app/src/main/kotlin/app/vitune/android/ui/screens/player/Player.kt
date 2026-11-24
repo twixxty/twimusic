@@ -664,6 +664,7 @@ fun Player(
                 shouldBePlaying = shouldBePlaying,
                 position = position,
                 isShowingLyrics = isShowingLyrics,
+                isLyricsFullscreen = isLyricsFullscreen,
                 onToggleLyrics = {
                     if (isShowingLyrics) isLyricsFullscreen = false
                     isShowingLyrics = !isShowingLyrics
@@ -754,7 +755,7 @@ fun Player(
                 }
             }
 
-            if (!isLandscape && isCanvasActive && !isSquareCanvas && PlayerPreferences.playerLayout != PlayerPreferences.PlayerLayout.Expressive) {
+            if (!isLandscape && isCanvasActive && !isSquareCanvas) {
                 val canvasAlpha by animateFloatAsState(
                     targetValue = if (!isShowingLyrics) 1f else 0f,
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
@@ -891,9 +892,13 @@ fun Player(
                     label = "playerTopPadding"
                 )
                 val availableHeight = (totalHeight - topPadding).coerceAtLeast(0.dp)
-                val controlsTargetHeight = remember(availableHeight, isShowingLyrics) {
-                    val ratio = if (isShowingLyrics) (1f / 3.0f) else (1f / 2.6f)
-                    availableHeight * ratio
+                val isExpressive = playerLayout == PlayerPreferences.PlayerLayout.Expressive
+                val controlsTargetHeight = remember(availableHeight, isShowingLyrics, isLyricsFullscreen, isExpressive) {
+                    when {
+                        isLyricsFullscreen && isExpressive -> 76.dp
+                        isShowingLyrics -> availableHeight * (1f / 2.7f)
+                        else -> availableHeight * (1f / 2.5f)
+                    }
                 }
                 val animatedControlsHeight by animateDpAsState(
                     targetValue = controlsTargetHeight,
@@ -901,235 +906,75 @@ fun Player(
                     label = "playerControlsHeight"
                 )
 
-                val isExpressive = playerLayout == PlayerPreferences.PlayerLayout.Expressive
-
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(top = topPadding)
                 ) {
-                    if (isExpressive) {
-                        if (isShowingLyrics) {
-                            // 1. Top Compact Cover Art + Title + Artist + Like Header
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp, vertical = 6.dp)
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(52.dp)
-                                        .clip(RoundedCornerShape(12.dp))
-                                        .clickable(
-                                            indication = ripple(),
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) {
-                                            isShowingLyrics = false
-                                        }
-                                ) {
-                                    AsyncImage(
-                                        model = mediaItem?.mediaMetadata?.artworkUri?.thumbnail(140.dp.px),
-                                        placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
-                                        error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
-                                        contentDescription = null,
-                                        contentScale = ContentScale.Crop,
-                                        modifier = Modifier.fillMaxSize()
-                                    )
-                                }
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    ) {
+                        val artworkAlpha by animateFloatAsState(
+                            targetValue = if (!isShowingLyrics) 1f else 0f,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "ArtworkAlpha"
+                        )
+                        val lyricsAlpha by animateFloatAsState(
+                            targetValue = if (isShowingLyrics) 1f else 0f,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "LyricsAlpha"
+                        )
 
-                                Spacer(Modifier.width(14.dp))
-
-                                Column(modifier = Modifier.weight(1f)) {
-                                    BasicText(
-                                        text = mediaItem?.mediaMetadata?.title?.toString().orEmpty(),
-                                        style = typography.m.bold,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                    Spacer(Modifier.height(2.dp))
-                                    BasicText(
-                                        text = mediaItem?.mediaMetadata?.artist?.toString().orEmpty(),
-                                        style = typography.s.secondary,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                }
-
-                                if (PlayerPreferences.showLike) {
-                                    Spacer(Modifier.width(10.dp))
-                                    Box(
-                                        contentAlignment = Alignment.Center,
-                                        modifier = Modifier
-                                            .size(42.dp)
-                                            .clip(RoundedCornerShape(14.dp))
-                                            .background(colorPalette.background2)
-                                            .clickable(
-                                                indication = ripple(),
-                                                interactionSource = remember { MutableInteractionSource() }
-                                            ) {
-                                                likedAt = if (likedAt == null) System.currentTimeMillis() else null
-                                            }
-                                    ) {
-                                        Image(
-                                            painter = painterResource(getAppIcon(if (likedAt == null) R.drawable.heart_outline else R.drawable.heart)),
-                                            contentDescription = null,
-                                            colorFilter = ColorFilter.tint(if (likedAt != null) colorPalette.favoritesIcon else colorPalette.textSecondary),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                }
-                            }
-
-                            // 2. Lyrics Area
+                        if (isCanvasActive && !isSquareCanvas && isVideoReady) {
                             Box(
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = artworkAlpha }
+                                    .clickable(
+                                        enabled = !isShowingLyrics,
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) {
+                                        if (isShowingLyrics) isLyricsFullscreen = false
+                                        isShowingLyrics = !isShowingLyrics
+                                    }
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
+                            ) {
+                                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                            }
+                        }
+
+                        if (lyricsAlpha > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = lyricsAlpha }
                             ) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             }
-
-                            // 3. Playback controls below lyrics (hidden when fullscreen lyrics, but title/cover above stay visible!)
-                            AnimatedVisibility(
-                                visible = !isLyricsFullscreen,
-                                enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
-                                        fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
-                                exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                                       fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
-                            ) {
-                                controlsContent(
-                                    Modifier
-                                        .padding(vertical = 4.dp)
-                                        .fillMaxWidth()
-                                        .height(animatedControlsHeight)
-                                )
-                            }
-                        } else {
-                            // Smooth Cover Art to Canvas Morphing Box
-                            val hasCanvas = isCanvasActive && !isSquareCanvas && isVideoReady
-                            val animSpecDp = tween<Dp>(durationMillis = 400, easing = FastOutSlowInEasing)
-                            val animSpecFloat = tween<Float>(durationMillis = 400, easing = FastOutSlowInEasing)
-
-                            val animatedHorizontalPadding by animateDpAsState(if (hasCanvas) 0.dp else 32.dp, animSpecDp, label = "artHorizPad")
-                            val animatedTopPadding by animateDpAsState(if (hasCanvas) 0.dp else 8.dp, animSpecDp, label = "artTopPad")
-                            val animatedCornerRadius by animateDpAsState(if (hasCanvas) 0.dp else 24.dp, animSpecDp, label = "artCorner")
-                            val animatedCanvasAlpha by animateFloatAsState(if (hasCanvas) 1f else 0f, animSpecFloat, label = "artCanvasAlpha")
-                            val animatedCoverAlpha by animateFloatAsState(if (hasCanvas) 0f else 1f, animSpecFloat, label = "artCoverAlpha")
-
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .padding(horizontal = animatedHorizontalPadding)
-                                    .padding(top = animatedTopPadding)
-                                    .clip(RoundedCornerShape(animatedCornerRadius)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (animatedCoverAlpha > 0f) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer { alpha = animatedCoverAlpha },
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        thumbnailContent(Modifier.fillMaxSize())
-                                    }
-                                }
-
-                                if (hasCanvas || animatedCanvasAlpha > 0f) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .graphicsLayer { alpha = animatedCanvasAlpha }
-                                            .clickable(
-                                                enabled = !isShowingLyrics,
-                                                indication = null,
-                                                interactionSource = remember { MutableInteractionSource() }
-                                            ) {
-                                                isShowingLyrics = true
-                                            }
-                                    ) {
-                                        canvasContent(Modifier.fillMaxSize())
-                                    }
-                                }
-                            }
-
-                            // Expressive Controls
-                            controlsContent(
-                                Modifier
-                                    .padding(vertical = 8.dp)
-                                    .fillMaxWidth()
-                                    .height(animatedControlsHeight)
-                            )
                         }
-                    } else {
-                        // Classic & Modern layouts
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .weight(1f)
+                    }
+
+                    AnimatedVisibility(
+                        visible = !isShowingLyrics || !isLyricsFullscreen || isExpressive,
+                        enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
+                                fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
+                        exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
+                    ) {
+                        controlsContent(
+                            Modifier
+                                .padding(vertical = 8.dp)
                                 .fillMaxWidth()
-                        ) {
-                            val artworkAlpha by animateFloatAsState(
-                                targetValue = if (!isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "ArtworkAlpha"
-                            )
-                            val lyricsAlpha by animateFloatAsState(
-                                targetValue = if (isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "LyricsAlpha"
-                            )
-
-                            if (isCanvasActive && !isSquareCanvas && isVideoReady) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = artworkAlpha }
-                                        .clickable(
-                                            enabled = !isShowingLyrics,
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) {
-                                            if (isShowingLyrics) isLyricsFullscreen = false
-                                            isShowingLyrics = !isShowingLyrics
-                                        }
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
-                                ) {
-                                    thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
-                                }
-                            }
-
-                            if (lyricsAlpha > 0f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = lyricsAlpha }
-                                ) {
-                                    lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                                }
-                            }
-                        }
-
-                        AnimatedVisibility(
-                            visible = !isShowingLyrics || !isLyricsFullscreen,
-                            enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
-                                    fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
-                            exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
-                                   fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
-                        ) {
-                            controlsContent(
-                                Modifier
-                                    .padding(vertical = 8.dp)
-                                    .fillMaxWidth()
-                                    .height(animatedControlsHeight)
-                            )
-                        }
+                                .height(animatedControlsHeight)
+                        )
                     }
                 }
             }

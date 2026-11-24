@@ -235,13 +235,14 @@ fun TaperedWaveSlider(
     val phaseSpeed = 22f
 
     val infiniteTransition = rememberInfiniteTransition(label = "taperedWave")
+    val twoPi = (2f * Math.PI).toFloat()
     val phaseOffset = if (isPlaying) {
         infiniteTransition.animateFloat(
             initialValue = 0f,
-            targetValue = waveLength,
+            targetValue = twoPi,
             animationSpec = infiniteRepeatable(
                 animation = tween(
-                    durationMillis = ((waveLength / phaseSpeed) * 1000).toInt(),
+                    durationMillis = 2400,
                     easing = LinearEasing
                 ),
                 repeatMode = RepeatMode.Restart

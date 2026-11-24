@@ -13,15 +13,20 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
+import coil3.compose.AsyncImage
+import app.vitune.android.utils.thumbnail
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -103,6 +108,7 @@ fun Controls(
     position: Long,
     modifier: Modifier = Modifier,
     isShowingLyrics: Boolean = false,
+    isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout
 ) {
@@ -131,9 +137,7 @@ fun Controls(
             modifier = modifier
         )
 
-        PlayerPreferences.PlayerLayout.Modern,
-        @Suppress("DEPRECATION")
-        PlayerPreferences.PlayerLayout.New -> ModernControls(
+        PlayerPreferences.PlayerLayout.Modern -> ModernControls(
             media = media,
             binder = binder,
             shouldBePlaying = shouldBePlaying,
@@ -155,6 +159,7 @@ fun Controls(
             setLikedAt = setLikedAt,
             playButtonRadius = playButtonRadius,
             isShowingLyrics = isShowingLyrics,
+            isLyricsFullscreen = isLyricsFullscreen,
             onToggleLyrics = onToggleLyrics,
             modifier = modifier
         )
@@ -616,6 +621,7 @@ private fun ExpressiveControls(
     playButtonRadius: Dp,
     modifier: Modifier = Modifier,
     isShowingLyrics: Boolean = false,
+    isLyricsFullscreen: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp
 ) {
@@ -629,188 +635,231 @@ private fun ExpressiveControls(
     ) {
         Spacer(modifier = Modifier.weight(1f))
 
-        // Left-aligned Song Title, Artist & Like Button on the right (in normal mode or landscape)
-        if (isLandscape || !isShowingLyrics) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+        // 1. Song Info Row: Left-aligned Title/Artist & Like Button, with cover art thumbnail sliding in during lyrics
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            AnimatedVisibility(
+                visible = isShowingLyrics && !isLandscape,
+                enter = expandHorizontally(
+                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                    expandFrom = Alignment.Start
+                ) + fadeIn(tween(durationMillis = 300)),
+                exit = shrinkHorizontally(
+                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    shrinkTowards = Alignment.Start
+                ) + fadeOut(tween(durationMillis = 250))
             ) {
-                MediaInfo(
-                    media = media,
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start
-                )
-
-                if (PlayerPreferences.showLike) {
-                    Spacer(Modifier.width(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(colorPalette.background2)
+                            .size(52.dp)
+                            .clip(RoundedCornerShape(12.dp))
                             .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple()
+                                indication = ripple(),
+                                interactionSource = remember { MutableInteractionSource() }
                             ) {
-                                setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
+                                onToggleLyrics?.invoke()
                             }
                     ) {
-                        Image(
-                            painter = painterResource(getAppIcon(if (likedAt == null) R.drawable.heart_outline else R.drawable.heart)),
+                        AsyncImage(
+                            model = media.artworkUri?.thumbnail(140.dp.px),
+                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
+                            error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             contentDescription = null,
-                            colorFilter = ColorFilter.tint(if (likedAt != null) colorPalette.favoritesIcon else colorPalette.textSecondary),
-                            modifier = Modifier.size(22.dp)
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize()
+                        )
+                    }
+                    Spacer(Modifier.width(14.dp))
+                }
+            }
+
+            MediaInfo(
+                media = media,
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            )
+
+            if (PlayerPreferences.showLike) {
+                Spacer(Modifier.width(12.dp))
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colorPalette.background2)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple()
+                        ) {
+                            setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
+                        }
+                ) {
+                    Image(
+                        painter = painterResource(getAppIcon(if (likedAt == null) R.drawable.heart_outline else R.drawable.heart)),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(if (likedAt != null) colorPalette.favoritesIcon else colorPalette.textSecondary),
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. Playback Controls & Seekbar (collapses when fullscreen lyrics, leaving song info visible)
+        AnimatedVisibility(
+            visible = !isLyricsFullscreen,
+            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
+            exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(18.dp))
+
+                // Primary Controls Row (Skip Prev, Center Play/Pause with text, Skip Next)
+                val playInteractionSource = remember { MutableInteractionSource() }
+                val isPlayPressed by playInteractionSource.collectIsPressedAsState()
+
+                val nextInteractionSource = remember { MutableInteractionSource() }
+                val isNextPressed by nextInteractionSource.collectIsPressedAsState()
+
+                val topPrevInteractionSource = remember { MutableInteractionSource() }
+                val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
+
+                val expressiveSpring = spring<Float>(
+                    dampingRatio = 0.6f,
+                    stiffness = 500f
+                )
+                val expressiveSpringDp = spring<Dp>(
+                    dampingRatio = 0.6f,
+                    stiffness = 500f
+                )
+
+                val targetPlayWeight = when {
+                    isPlayPressed -> 2.2f
+                    isNextPressed || isTopPrevPressed -> 1.3f
+                    else -> 1.9f
+                }
+
+                val targetNextWeight = when {
+                    isNextPressed -> 0.9f
+                    isPlayPressed -> 0.4f
+                    isTopPrevPressed -> 0.5f
+                    else -> 0.6f
+                }
+
+                val targetPrevWeight = when {
+                    isTopPrevPressed -> 0.9f
+                    isPlayPressed -> 0.4f
+                    isNextPressed -> 0.5f
+                    else -> 0.6f
+                }
+
+                val playWeight by animateFloatAsState(targetPlayWeight, expressiveSpring, label = "playWeight")
+                val nextWeight by animateFloatAsState(targetNextWeight, expressiveSpring, label = "nextWeight")
+                val prevWeight by animateFloatAsState(targetPrevWeight, expressiveSpring, label = "prevWeight")
+
+                val playScale by animateFloatAsState(
+                    targetValue = when {
+                        isPlayPressed -> 0.96f
+                        isNextPressed || isTopPrevPressed -> 0.98f
+                        else -> 1f
+                    },
+                    animationSpec = expressiveSpring,
+                    label = "playScale"
+                )
+
+                val nextScale by animateFloatAsState(
+                    targetValue = when {
+                        isNextPressed -> 0.96f
+                        isPlayPressed -> 0.98f
+                        else -> 1f
+                    },
+                    animationSpec = expressiveSpring,
+                    label = "nextScale"
+                )
+
+                val prevScale by animateFloatAsState(
+                    targetValue = when {
+                        isTopPrevPressed -> 0.96f
+                        isPlayPressed -> 0.98f
+                        else -> 1f
+                    },
+                    animationSpec = expressiveSpring,
+                    label = "prevScale"
+                )
+
+                val basePlayRadius = if (shouldBePlaying) 20.dp else (controlHeight / 2)
+                val currentPlayRadius by animateDpAsState(
+                    targetValue = if (isPlayPressed) (basePlayRadius - 4.dp).coerceAtLeast(14.dp) else basePlayRadius,
+                    animationSpec = expressiveSpringDp,
+                    label = "playRadius"
+                )
+                val currentNextRadius by animateDpAsState(
+                    targetValue = if (isNextPressed) 26.dp else (controlHeight / 2),
+                    animationSpec = expressiveSpringDp,
+                    label = "nextRadius"
+                )
+                val currentPrevRadius by animateDpAsState(
+                    targetValue = if (isTopPrevPressed) 26.dp else (controlHeight / 2),
+                    animationSpec = expressiveSpringDp,
+                    label = "prevRadius"
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SkipButton(
+                        iconId = R.drawable.play_skip_back,
+                        onClick = binder.player::forceSeekToPrevious,
+                        modifier = Modifier
+                            .height(controlHeight)
+                            .weight(prevWeight),
+                        interactionSource = topPrevInteractionSource,
+                        scale = prevScale,
+                        shape = currentPrevRadius.roundedShape
+                    )
+                    ExpressivePlayButton(
+                        radius = currentPlayRadius,
+                        shouldBePlaying = shouldBePlaying,
+                        modifier = Modifier
+                            .height(controlHeight)
+                            .weight(playWeight),
+                        interactionSource = playInteractionSource,
+                        scale = playScale
+                    )
+                    SkipButton(
+                        iconId = R.drawable.play_skip_forward,
+                        onClick = binder.player::forceSeekToNext,
+                        modifier = Modifier
+                            .height(controlHeight)
+                            .weight(nextWeight),
+                        interactionSource = nextInteractionSource,
+                        scale = nextScale,
+                        shape = currentNextRadius.roundedShape
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Full-width Seek Bar (BELOW controls)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        SeekBar(
+                            binder = binder,
+                            position = position,
+                            media = media,
+                            color = colorPalette.accent,
+                            alwaysShowDuration = true
                         )
                     }
                 }
             }
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
-        // Full-width Seek Bar
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                SeekBar(
-                    binder = binder,
-                    position = position,
-                    media = media,
-                    color = colorPalette.accent,
-                    alwaysShowDuration = true
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Primary Controls Row (Skip Prev, Center Play/Pause with text, Skip Next)
-        val playInteractionSource = remember { MutableInteractionSource() }
-        val isPlayPressed by playInteractionSource.collectIsPressedAsState()
-
-        val nextInteractionSource = remember { MutableInteractionSource() }
-        val isNextPressed by nextInteractionSource.collectIsPressedAsState()
-
-        val topPrevInteractionSource = remember { MutableInteractionSource() }
-        val isTopPrevPressed by topPrevInteractionSource.collectIsPressedAsState()
-
-        val expressiveSpring = spring<Float>(
-            dampingRatio = 0.6f,
-            stiffness = 500f
-        )
-        val expressiveSpringDp = spring<Dp>(
-            dampingRatio = 0.6f,
-            stiffness = 500f
-        )
-
-        val targetPlayWeight = when {
-            isPlayPressed -> 2.2f
-            isNextPressed || isTopPrevPressed -> 1.3f
-            else -> 1.9f
-        }
-
-        val targetNextWeight = when {
-            isNextPressed -> 0.9f
-            isPlayPressed -> 0.4f
-            isTopPrevPressed -> 0.5f
-            else -> 0.6f
-        }
-
-        val targetPrevWeight = when {
-            isTopPrevPressed -> 0.9f
-            isPlayPressed -> 0.4f
-            isNextPressed -> 0.5f
-            else -> 0.6f
-        }
-
-        val playWeight by animateFloatAsState(targetPlayWeight, expressiveSpring, label = "playWeight")
-        val nextWeight by animateFloatAsState(targetNextWeight, expressiveSpring, label = "nextWeight")
-        val prevWeight by animateFloatAsState(targetPrevWeight, expressiveSpring, label = "prevWeight")
-
-        val playScale by animateFloatAsState(
-            targetValue = when {
-                isPlayPressed -> 0.96f
-                isNextPressed || isTopPrevPressed -> 0.98f
-                else -> 1f
-            },
-            animationSpec = expressiveSpring,
-            label = "playScale"
-        )
-
-        val nextScale by animateFloatAsState(
-            targetValue = when {
-                isNextPressed -> 0.96f
-                isPlayPressed -> 0.98f
-                else -> 1f
-            },
-            animationSpec = expressiveSpring,
-            label = "nextScale"
-        )
-
-        val prevScale by animateFloatAsState(
-            targetValue = when {
-                isTopPrevPressed -> 0.96f
-                isPlayPressed -> 0.98f
-                else -> 1f
-            },
-            animationSpec = expressiveSpring,
-            label = "prevScale"
-        )
-
-        val basePlayRadius = if (shouldBePlaying) 20.dp else (controlHeight / 2)
-        val currentPlayRadius by animateDpAsState(
-            targetValue = if (isPlayPressed) (basePlayRadius - 4.dp).coerceAtLeast(14.dp) else basePlayRadius,
-            animationSpec = expressiveSpringDp,
-            label = "playRadius"
-        )
-        val currentNextRadius by animateDpAsState(
-            targetValue = if (isNextPressed) 26.dp else (controlHeight / 2),
-            animationSpec = expressiveSpringDp,
-            label = "nextRadius"
-        )
-        val currentPrevRadius by animateDpAsState(
-            targetValue = if (isTopPrevPressed) 26.dp else (controlHeight / 2),
-            animationSpec = expressiveSpringDp,
-            label = "prevRadius"
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            SkipButton(
-                iconId = R.drawable.play_skip_back,
-                onClick = binder.player::forceSeekToPrevious,
-                modifier = Modifier
-                    .height(controlHeight)
-                    .weight(prevWeight),
-                interactionSource = topPrevInteractionSource,
-                scale = prevScale,
-                shape = currentPrevRadius.roundedShape
-            )
-            ExpressivePlayButton(
-                radius = currentPlayRadius,
-                shouldBePlaying = shouldBePlaying,
-                modifier = Modifier
-                    .height(controlHeight)
-                    .weight(playWeight),
-                interactionSource = playInteractionSource,
-                scale = playScale
-            )
-            SkipButton(
-                iconId = R.drawable.play_skip_forward,
-                onClick = binder.player::forceSeekToNext,
-                modifier = Modifier
-                    .height(controlHeight)
-                    .weight(nextWeight),
-                interactionSource = nextInteractionSource,
-                scale = nextScale,
-                shape = currentNextRadius.roundedShape
-            )
         }
 
         Spacer(modifier = Modifier.weight(1f))
@@ -983,7 +1032,10 @@ private fun MediaInfo(
         }
     }
 
-    val rowModifier = if (horizontalAlignment == Alignment.Start) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.75f)
+    val isLeftAligned = horizontalAlignment == Alignment.Start
+    val rowModifier = if (isLeftAligned) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.75f)
+    val arrangement = if (isLeftAligned) Arrangement.Start else Arrangement.Center
+    val contentAlignment = if (isLeftAligned) Alignment.CenterStart else Alignment.Center
 
     Column(
         horizontalAlignment = horizontalAlignment,
@@ -992,12 +1044,16 @@ private fun MediaInfo(
         AnimatedContent(
             targetState = media.title,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = ""
+            contentAlignment = contentAlignment,
+            label = "mediaTitle"
         ) { title ->
-            FadingRow(modifier = rowModifier) {
+            FadingRow(
+                modifier = rowModifier,
+                horizontalArrangement = arrangement
+            ) {
                 BasicText(
                     text = title,
-                    style = typography.l.bold,
+                    style = typography.xl.bold,
                     maxLines = 1
                 )
             }
@@ -1006,12 +1062,14 @@ private fun MediaInfo(
         AnimatedContent(
             targetState = media to artistInfo,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
-            label = ""
+            contentAlignment = contentAlignment,
+            label = "mediaArtist"
         ) { [media, state] ->
             state?.let { artists ->
                 FadingRow(
                     modifier = rowModifier
                         .heightIn(maxHeight.px.dp),
+                    horizontalArrangement = arrangement,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     artists.fastForEachIndexed { i, artist ->
@@ -1042,6 +1100,7 @@ private fun MediaInfo(
                 }
             } ?: FadingRow(
                 modifier = rowModifier,
+                horizontalArrangement = arrangement,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicText(

@@ -16,6 +16,7 @@ import app.vitune.android.ui.modifiers.horizontalFadingEdge
 inline fun FadingRow(
     modifier: Modifier = Modifier,
     segments: Int = 12,
+    horizontalArrangement: Arrangement.Horizontal = Arrangement.Center,
     verticalAlignment: Alignment.Vertical = Alignment.Top,
     content: @Composable RowScope.() -> Unit
 ) {
@@ -44,7 +45,7 @@ inline fun FadingRow(
                 alpha = alphaRight
             )
             .horizontalScroll(scrollState),
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = horizontalArrangement,
         verticalAlignment = verticalAlignment,
         content = content
     )

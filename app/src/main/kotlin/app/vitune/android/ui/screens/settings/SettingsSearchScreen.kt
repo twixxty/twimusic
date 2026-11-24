@@ -331,8 +331,7 @@ fun SettingsSearchScreen(
                 onInteract = {
                     PlayerPreferences.playerLayout = when (PlayerPreferences.playerLayout) {
                         PlayerPreferences.PlayerLayout.Classic -> PlayerPreferences.PlayerLayout.Modern
-                        PlayerPreferences.PlayerLayout.Modern,
-                        PlayerPreferences.PlayerLayout.New -> PlayerPreferences.PlayerLayout.Expressive
+                        PlayerPreferences.PlayerLayout.Modern -> PlayerPreferences.PlayerLayout.Expressive
                         PlayerPreferences.PlayerLayout.Expressive -> PlayerPreferences.PlayerLayout.Classic
                     }
                 },
