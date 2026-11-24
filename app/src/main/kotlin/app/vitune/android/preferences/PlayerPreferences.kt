@@ -43,7 +43,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var horizontalSwipeToClose by boolean(false)
     var horizontalSwipeToRemoveItem by boolean(false)
 
-    var playerLayout by enum(PlayerLayout.New)
+    var playerLayout by enum(PlayerLayout.Expressive)
     var seekBarStyle by enum(SeekBarStyle.TaperedWave)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var showLike by boolean(false)
@@ -88,7 +88,10 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class PlayerLayout(val displayName: @Composable () -> String) {
         Classic(displayName = { stringResource(R.string.classic_player_layout_name) }),
-        New(displayName = { stringResource(R.string.new_player_layout_name) })
+        Modern(displayName = { stringResource(R.string.modern_player_layout_name) }),
+        Expressive(displayName = { stringResource(R.string.expressive_player_layout_name) }),
+        @Deprecated("Use Modern instead")
+        New(displayName = { stringResource(R.string.modern_player_layout_name) })
     }
 
     enum class SeekBarStyle(val displayName: @Composable () -> String) {

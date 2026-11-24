@@ -325,14 +325,15 @@ fun SettingsSearchScreen(
             ),
             SearchSettingEntry(
                 title = "Player Layout",
-                description = "Choose between Classic and Modern control layouts",
+                description = "Choose between Classic, Modern, and Expressive control layouts",
                 categoryName = "Player",
                 tabIndex = 1,
                 onInteract = {
-                    PlayerPreferences.playerLayout = if (PlayerPreferences.playerLayout == PlayerPreferences.PlayerLayout.Classic) {
-                        PlayerPreferences.PlayerLayout.New
-                    } else {
-                        PlayerPreferences.PlayerLayout.Classic
+                    PlayerPreferences.playerLayout = when (PlayerPreferences.playerLayout) {
+                        PlayerPreferences.PlayerLayout.Classic -> PlayerPreferences.PlayerLayout.Modern
+                        PlayerPreferences.PlayerLayout.Modern,
+                        PlayerPreferences.PlayerLayout.New -> PlayerPreferences.PlayerLayout.Expressive
+                        PlayerPreferences.PlayerLayout.Expressive -> PlayerPreferences.PlayerLayout.Classic
                     }
                 },
                 trailingContent = {

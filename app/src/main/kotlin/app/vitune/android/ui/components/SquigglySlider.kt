@@ -319,23 +319,28 @@ fun TaperedWaveSlider(
                 cachedPath.reset()
                 cachedPath.moveTo(0f, centerY)
 
+                val waveReach = (waveLength * 1.35f).coerceAtLeast(48.dp.toPx())
+                val startWaveX = (totalProgressPx - waveReach).coerceAtLeast(0f)
+
+                // Flat straight line up to where the wave begins near scrubber
+                if (startWaveX > 0f) {
+                    cachedPath.lineTo(startWaveX, centerY)
+                }
+
+                // Smooth scaling when near progress start so it never spikes vertically
+                val progressScale = (totalProgressPx / waveReach).coerceIn(0f, 1f)
+                val smoothScale = progressScale * progressScale * (3f - 2f * progressScale)
+
+                val waveSpan = (totalProgressPx - startWaveX).coerceAtLeast(1f)
                 val step = 2f
-                var x = 0f
-                val taperLen = (waveLength * 0.75f).coerceAtMost(totalProgressPx * 0.5f).coerceAtLeast(1f)
-                val widthFactor = (totalProgressPx / (waveLength * 1.5f)).coerceIn(0f, 1f)
-                val smoothWidth = widthFactor * widthFactor * (3f - 2f * widthFactor)
-                val activeReach = (totalWidth * 0.40f).coerceAtLeast(100f)
-
+                var x = startWaveX
                 while (x <= totalProgressPx) {
-                    val distFromScrubber = (totalProgressPx - x).coerceAtLeast(0f)
-                    val reachTaper = (1f - (distFromScrubber / activeReach)).coerceIn(0f, 1f)
+                    val progressInWave = ((x - startWaveX) / waveSpan).coerceIn(0f, 1f)
+                    // Hanning envelope: 0 at startWaveX, 0 at totalProgressPx, smooth peak in between
+                    val envelope = 0.5f * (1f - kotlin.math.cos(progressInWave * 2f * Math.PI.toFloat()))
 
-                    val startT = (x / taperLen).coerceIn(0f, 1f)
-                    val endT = (distFromScrubber / taperLen).coerceIn(0f, 1f)
-                    val env = (startT * startT * (3f - 2f * startT)) * (endT * endT * (3f - 2f * endT))
-
-                    val amp = maxAmpPx * reachTaper * env * smoothWidth * heightFraction
-                    val angle = ((x - phaseOffset.value) / waveLength) * (2f * Math.PI.toFloat())
+                    val angle = (progressInWave * 2f * Math.PI.toFloat()) - phaseOffset.value
+                    val amp = maxAmpPx * envelope * smoothScale * heightFraction
                     val y = centerY + kotlin.math.sin(angle) * amp
                     cachedPath.lineTo(x, y)
                     x += step

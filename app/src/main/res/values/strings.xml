@@ -311,7 +311,9 @@
     <string name="quick_picks_cache_description">Saves the quick picks data to disk for offline access</string>
     <string name="player_layout">Player layout</string>
     <string name="classic_player_layout_name">Classic</string>
-    <string name="new_player_layout_name">Modern (new)</string>
+    <string name="new_player_layout_name">Modern</string>
+    <string name="modern_player_layout_name">Modern</string>
+    <string name="expressive_player_layout_name">Expressive</string>
     <string name="piped">Piped</string>
     <string name="instance">Instance</string>
     <string name="click_to_select">Click to select</string>
