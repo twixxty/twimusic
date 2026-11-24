@@ -2,6 +2,11 @@
 
 package app.vitune.android.ui.screens.settings
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -21,10 +26,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.runtime.Composable
@@ -43,14 +49,21 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
 import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.PlayerPreferences
-import app.vitune.android.ui.components.themed.IconButton
+import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import app.vitune.android.ui.components.themed.Header
+import app.vitune.android.ui.components.themed.Scaffold
+import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.Switch
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.align
 import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
@@ -74,9 +87,13 @@ fun SettingsSearchScreen(
     onBack: () -> Unit,
     onNavigateToCategory: (Int) -> Unit
 ) {
+    BackHandler(onBack = onBack)
+
     val (colorPalette, typography) = LocalAppearance.current
     val isExpressive = LocalIsExpressiveTheme.current
-    var query by rememberSaveable { mutableStateOf("") }
+    var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(TextFieldValue())
+    }
     val focusRequester = remember { FocusRequester() }
 
     LaunchedEffect(Unit) {
@@ -581,7 +598,7 @@ fun SettingsSearchScreen(
         )
     }
 
-    val trimmedQuery = query.trim()
+    val trimmedQuery = textFieldValue.text.trim()
     val filteredSettings = remember(trimmedQuery, allSettings) {
         if (trimmedQuery.isEmpty()) emptyList()
         else {
@@ -593,203 +610,197 @@ fun SettingsSearchScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(colorPalette.background0)
-            .padding(
-                LocalPlayerAwareWindowInsets.current
-                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.Horizontal)
-                    .asPaddingValues()
-            )
-    ) {
-        // Search Header Bar
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp)
-        ) {
-            IconButton(
-                icon = R.drawable.chevron_back,
-                onClick = onBack,
-                modifier = Modifier.size(40.dp)
-            )
-
-            Spacer(Modifier.width(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(if (isExpressive) 24.dp else 16.dp))
-                    .background(colorPalette.background1)
-                    .padding(horizontal = 16.dp, vertical = 10.dp)
+    val decorationBox: @Composable (@Composable () -> Unit) -> Unit = { innerTextField ->
+        Box {
+            AnimatedVisibility(
+                visible = textFieldValue.text.isEmpty(),
+                enter = fadeIn(tween(300)),
+                exit = fadeOut(tween(300)),
+                modifier = Modifier.align(Alignment.CenterEnd)
             ) {
-                Image(
-                    painter = painterResource(getAppIcon(R.drawable.search)),
-                    contentDescription = null,
-                    colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                    modifier = Modifier.size(20.dp)
+                BasicText(
+                    text = stringResource(R.string.search_settings),
+                    maxLines = 1,
+                    style = typography.xxl.secondary
                 )
+            }
 
-                Spacer(Modifier.width(12.dp))
+            innerTextField()
+        }
+    }
 
-                BasicTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    textStyle = typography.s.medium.copy(color = colorPalette.text),
-                    singleLine = true,
-                    cursorBrush = SolidColor(colorPalette.accent),
-                    modifier = Modifier
-                        .weight(1f)
-                        .focusRequester(focusRequester),
-                    decorationBox = { innerTextField ->
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            if (query.isEmpty()) {
-                                BasicText(
-                                    text = stringResource(R.string.search_settings),
-                                    style = typography.s.medium.copy(color = colorPalette.textDisabled)
+    Scaffold(
+        key = "settings_search",
+        topIconButtonId = R.drawable.chevron_back,
+        onTopIconButtonClick = onBack,
+        tabIndex = 0,
+        onTabChange = {},
+        tabColumnContent = {
+            tab(0, R.string.search_settings, R.drawable.search, canHide = false)
+        }
+    ) {
+        val lazyListState = rememberLazyListState()
+
+        Box(modifier = Modifier.fillMaxSize()) {
+            LazyColumn(
+                state = lazyListState,
+                contentPadding = LocalPlayerAwareWindowInsets.current
+                    .only(WindowInsetsSides.Vertical + WindowInsetsSides.End)
+                    .asPaddingValues(),
+                modifier = Modifier.fillMaxSize()
+            ) {
+                item(
+                    key = "header",
+                    contentType = 0
+                ) {
+                    Header(
+                        titleContent = {
+                            BasicTextField(
+                                value = textFieldValue,
+                                onValueChange = { textFieldValue = it },
+                                textStyle = typography.xxl.medium.align(TextAlign.End),
+                                singleLine = true,
+                                maxLines = 1,
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                cursorBrush = SolidColor(colorPalette.text),
+                                decorationBox = decorationBox,
+                                modifier = Modifier.focusRequester(focusRequester)
+                            )
+                        },
+                        actionsContent = {
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            if (textFieldValue.text.isNotEmpty()) {
+                                SecondaryTextButton(
+                                    text = stringResource(R.string.clear),
+                                    onClick = { textFieldValue = TextFieldValue() }
                                 )
                             }
-                            innerTextField()
                         }
-                    }
-                )
-
-                if (query.isNotEmpty()) {
-                    Spacer(Modifier.width(8.dp))
-                    Image(
-                        painter = painterResource(getAppIcon(R.drawable.close)),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                        modifier = Modifier
-                            .size(20.dp)
-                            .clip(CircleShape)
-                            .combinedClickable(
-                                onClick = { query = "" }
-                            )
                     )
                 }
-            }
-        }
 
-        // Helper instruction banner
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            BasicText(
-                text = "Tap setting to interact • Hold to open location",
-                style = typography.xxs.secondary
-            )
-            if (trimmedQuery.isNotEmpty()) {
-                BasicText(
-                    text = "${filteredSettings.size} results",
-                    style = typography.xxs.semiBold.copy(color = colorPalette.accent)
-                )
-            }
-        }
-
-        Spacer(Modifier.height(4.dp))
-
-        // Search Results List
-        if (trimmedQuery.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 80.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Image(
-                        painter = painterResource(getAppIcon(R.drawable.search)),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.textDisabled.copy(alpha = 0.5f)),
-                        modifier = Modifier.size(56.dp)
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    BasicText(
-                        text = "Type to search settings",
-                        style = typography.s.secondary
-                    )
-                }
-            }
-        } else if (filteredSettings.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(top = 80.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    BasicText(
-                        text = "No matching settings found",
-                        style = typography.m.semiBold.copy(color = colorPalette.textSecondary)
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    BasicText(
-                        text = "Try searching with a different keyword",
-                        style = typography.xs.secondary
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                items(filteredSettings, key = { it.title + it.categoryName }) { item ->
-                    Card(
-                        shape = RoundedCornerShape(if (isExpressive) 20.dp else 12.dp),
-                        colors = CardDefaults.cardColors(containerColor = colorPalette.background1),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
-                            .clip(RoundedCornerShape(if (isExpressive) 20.dp else 12.dp))
-                            .combinedClickable(
-                                onClick = item.onInteract,
-                                onLongClick = { onNavigateToCategory(item.tabIndex) }
-                            )
-                    ) {
+                if (trimmedQuery.isNotEmpty()) {
+                    item(key = "sub_header") {
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .padding(horizontal = 16.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                BasicText(
-                                    text = item.categoryName.uppercase(),
-                                    style = typography.xxs.semiBold.copy(color = colorPalette.accent)
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                BasicText(
-                                    text = item.title,
-                                    style = typography.s.semiBold.copy(color = colorPalette.text)
-                                )
-                                item.description?.let { desc ->
-                                    Spacer(Modifier.height(2.dp))
-                                    BasicText(
-                                        text = desc,
-                                        style = typography.xs.secondary
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.width(12.dp))
-
-                            item.trailingContent()
+                            BasicText(
+                                text = "Tap setting to interact • Hold to open location",
+                                style = typography.xxs.secondary
+                            )
+                            BasicText(
+                                text = "${filteredSettings.size} results",
+                                style = typography.xxs.semiBold.copy(color = colorPalette.accent)
+                            )
                         }
                     }
                 }
-                item {
-                    Spacer(Modifier.height(32.dp))
+
+                if (trimmedQuery.isEmpty()) {
+                    item(key = "empty_prompt") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 80.dp),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Image(
+                                    painter = painterResource(getAppIcon(R.drawable.search)),
+                                    contentDescription = null,
+                                    colorFilter = ColorFilter.tint(colorPalette.textDisabled.copy(alpha = 0.5f)),
+                                    modifier = Modifier.size(56.dp)
+                                )
+                                Spacer(Modifier.height(12.dp))
+                                BasicText(
+                                    text = "Type to search settings",
+                                    style = typography.s.secondary
+                                )
+                            }
+                        }
+                    }
+                } else if (filteredSettings.isEmpty()) {
+                    item(key = "no_results") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 80.dp),
+                            contentAlignment = Alignment.TopCenter
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                BasicText(
+                                    text = "No matching settings found",
+                                    style = typography.m.semiBold.copy(color = colorPalette.textSecondary)
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                BasicText(
+                                    text = "Try searching with a different keyword",
+                                    style = typography.xs.secondary
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    items(
+                        items = filteredSettings,
+                        key = { it.title + it.categoryName }
+                    ) { item ->
+                        Card(
+                            shape = RoundedCornerShape(if (isExpressive) 20.dp else 12.dp),
+                            colors = CardDefaults.cardColors(containerColor = colorPalette.background1),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 3.dp)
+                                .clip(RoundedCornerShape(if (isExpressive) 20.dp else 12.dp))
+                                .combinedClickable(
+                                    onClick = item.onInteract,
+                                    onLongClick = { onNavigateToCategory(item.tabIndex) }
+                                )
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    BasicText(
+                                        text = item.categoryName.uppercase(),
+                                        style = typography.xxs.semiBold.copy(color = colorPalette.accent)
+                                    )
+                                    Spacer(Modifier.height(2.dp))
+                                    BasicText(
+                                        text = item.title,
+                                        style = typography.s.semiBold.copy(color = colorPalette.text)
+                                    )
+                                    item.description?.let { desc ->
+                                        Spacer(Modifier.height(2.dp))
+                                        BasicText(
+                                            text = desc,
+                                            style = typography.xs.secondary
+                                        )
+                                    }
+                                }
+
+                                Spacer(Modifier.width(12.dp))
+
+                                item.trailingContent()
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(Modifier.height(32.dp))
+                    }
                 }
             }
+
+            FloatingActionsContainerWithScrollToTop(lazyListState = lazyListState)
         }
     }
 }

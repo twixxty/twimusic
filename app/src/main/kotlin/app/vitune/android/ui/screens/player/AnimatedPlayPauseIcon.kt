@@ -2,6 +2,8 @@ package app.vitune.android.ui.screens.player
 
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
@@ -10,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -23,6 +26,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import app.vitune.android.preferences.AppearancePreferences
+import app.vitune.android.ui.theme.LocalIsExpressiveTheme
 import app.vitune.android.R
 import app.vitune.core.ui.LocalAppearance
 import com.airbnb.lottie.LottieComposition
@@ -41,18 +45,25 @@ fun AnimatedPlayPauseButton(
     modifier: Modifier = Modifier,
     color: Color = Color(0xff16171d)
 ) {
-    if (AppearancePreferences.useMaterialSymbols) {
-        AnimatedContent(
-            targetState = playing,
-            transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
-            label = "playPauseIcon"
-        ) { isPlaying ->
-            Image(
-                painter = painterResource(if (isPlaying) R.drawable.ms_pause else R.drawable.ms_play),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(color),
-                modifier = modifier
-            )
+    val isExpressiveTheme = LocalIsExpressiveTheme.current
+    if (AppearancePreferences.useMaterialSymbols || isExpressiveTheme) {
+        Box(
+            modifier = modifier,
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedContent(
+                targetState = playing,
+                transitionSpec = { fadeIn(tween(150)) togetherWith fadeOut(tween(150)) },
+                contentAlignment = Alignment.Center,
+                label = "playPauseIcon"
+            ) { isPlaying ->
+                Image(
+                    painter = painterResource(if (isPlaying) R.drawable.ms_pause else R.drawable.ms_play),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(color),
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
         return
     }

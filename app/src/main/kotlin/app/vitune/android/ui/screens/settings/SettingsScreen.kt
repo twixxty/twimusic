@@ -56,6 +56,7 @@ import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
 import app.vitune.android.ui.components.themed.Header
 import app.vitune.android.ui.components.themed.NumberFieldDialog
+import app.vitune.android.ui.components.themed.PrimaryButton
 import app.vitune.android.ui.components.themed.Scaffold
 import app.vitune.android.ui.components.themed.Slider
 import app.vitune.android.ui.components.themed.Switch
@@ -130,30 +131,14 @@ fun SettingsScreen() {
                         }
                     }
 
-                    // Floating Search Button on main settings page
-                    val (colorPalette) = LocalAppearance.current
-                    val isExpressive = LocalIsExpressiveTheme.current
-                    val insets = LocalPlayerAwareWindowInsets.current.asPaddingValues()
-                    Box(
+                    PrimaryButton(
+                        icon = R.drawable.search,
+                        onClick = { isSearchPageOpen = true },
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
-                            .padding(
-                                end = 20.dp,
-                                bottom = 20.dp + insets.calculateBottomPadding()
-                            )
-                            .size(56.dp)
-                            .clip(RoundedCornerShape(if (isExpressive) 20.dp else 16.dp))
-                            .background(colorPalette.accent)
-                            .clickable { isSearchPageOpen = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Image(
-                            painter = painterResource(getAppIcon(R.drawable.search)),
-                            contentDescription = stringResource(R.string.search_settings),
-                            colorFilter = ColorFilter.tint(colorPalette.onAccent),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                            .padding(end = 16.dp, bottom = 16.dp)
+                            .padding(LocalPlayerAwareWindowInsets.current.only(WindowInsetsSides.Bottom).asPaddingValues())
+                    )
                 }
             }
         }

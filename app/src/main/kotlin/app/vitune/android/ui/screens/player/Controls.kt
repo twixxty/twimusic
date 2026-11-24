@@ -342,15 +342,6 @@ private fun ModernControls(
     onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp
 ) {
-    val previousButtonContent: @Composable RowScope.() -> Unit = {
-        SkipButton(
-            iconId = R.drawable.play_skip_back,
-            onClick = binder.player::forceSeekToPrevious,
-            modifier = Modifier.weight(1f),
-            offsetOnPress = -DefaultOffset
-        )
-    }
-
     val likeButtonContent: @Composable RowScope.() -> Unit = {
         BigIconButton(
             iconId = if (likedAt == null) R.drawable.heart_outline else R.drawable.heart,
@@ -391,12 +382,10 @@ private fun ModernControls(
             stiffness = 500f
         )
 
-        val hasTopPrev = PlayerPreferences.showLike
-
         val targetPlayWeight = when {
-            isPlayPressed -> if (hasTopPrev) 2.2f else 2.6f
-            isNextPressed || isTopPrevPressed -> if (hasTopPrev) 1.3f else 1.8f
-            else -> if (hasTopPrev) 1.9f else 2.4f
+            isPlayPressed -> 2.2f
+            isNextPressed || isTopPrevPressed -> 1.3f
+            else -> 1.9f
         }
 
         val targetNextWeight = when {
@@ -447,18 +436,19 @@ private fun ModernControls(
             label = "prevScale"
         )
 
+        val basePlayRadius = if (shouldBePlaying) 20.dp else (controlHeight / 2)
         val currentPlayRadius by animateDpAsState(
-            targetValue = if (isPlayPressed) (playButtonRadius - 4.dp).coerceAtLeast(8.dp) else playButtonRadius,
+            targetValue = if (isPlayPressed) (basePlayRadius - 4.dp).coerceAtLeast(14.dp) else basePlayRadius,
             animationSpec = expressiveSpringDp,
             label = "playRadius"
         )
         val currentNextRadius by animateDpAsState(
-            targetValue = if (isNextPressed) 28.dp else 32.dp,
+            targetValue = if (isNextPressed) 26.dp else (controlHeight / 2),
             animationSpec = expressiveSpringDp,
             label = "nextRadius"
         )
         val currentPrevRadius by animateDpAsState(
-            targetValue = if (isTopPrevPressed) 28.dp else 32.dp,
+            targetValue = if (isTopPrevPressed) 26.dp else (controlHeight / 2),
             animationSpec = expressiveSpringDp,
             label = "prevRadius"
         )
@@ -522,20 +512,18 @@ private fun ModernControls(
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(if (hasTopPrev) 4.dp else 8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                if (hasTopPrev) {
-                    SkipButton(
-                        iconId = R.drawable.play_skip_back,
-                        onClick = binder.player::forceSeekToPrevious,
-                        modifier = Modifier
-                            .height(controlHeight)
-                            .weight(prevWeight),
-                        interactionSource = topPrevInteractionSource,
-                        scale = prevScale,
-                        shape = currentPrevRadius.roundedShape
-                    )
-                }
+                SkipButton(
+                    iconId = R.drawable.play_skip_back,
+                    onClick = binder.player::forceSeekToPrevious,
+                    modifier = Modifier
+                        .height(controlHeight)
+                        .weight(prevWeight),
+                    interactionSource = topPrevInteractionSource,
+                    scale = prevScale,
+                    shape = currentPrevRadius.roundedShape
+                )
                 PlayButton(
                     radius = currentPlayRadius,
                     shouldBePlaying = shouldBePlaying,
@@ -568,7 +556,7 @@ private fun ModernControls(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+                    if (PlayerPreferences.showLike) likeButtonContent()
 
                     Column(modifier = Modifier.weight(4f)) {
                         SeekBar(
@@ -660,13 +648,13 @@ private fun PlayButton(
                     }
                 }
             )
-            .background(colorPalette.accent)
+            .background(colorPalette.accent),
+        contentAlignment = Alignment.Center
     ) {
         AnimatedPlayPauseButton(
             playing = shouldBePlaying,
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(32.dp)
+            color = colorPalette.onAccent,
+            modifier = Modifier.size(32.dp)
         )
     }
 }
