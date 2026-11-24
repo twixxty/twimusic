@@ -16,7 +16,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.C
@@ -90,7 +90,7 @@ fun BackgroundVideoView(
                 repeatMode = Player.REPEAT_MODE_ONE
                 volume = 0f
                 videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-                playWhenReady = !PlayerPreferences.pauseCanvasWithSong || isPlaying
+                playWhenReady = isPlaying
             }
     }
 
@@ -136,17 +136,13 @@ fun BackgroundVideoView(
         exoPlayer.prepare()
     }
 
-    val pauseWithSong = PlayerPreferences.pauseCanvasWithSong
-    LaunchedEffect(isPlaying, pauseWithSong) {
-        if (!pauseWithSong) {
-            exoPlayer.playbackParameters = PlaybackParameters(1f)
-            exoPlayer.playWhenReady = true
-        } else if (isPlaying) {
+    LaunchedEffect(isPlaying) {
+        if (isPlaying) {
             exoPlayer.playbackParameters = PlaybackParameters(1f)
             exoPlayer.playWhenReady = true
         } else {
-            val steps = 10
-            val durationMs = 500L
+            val steps = 8
+            val durationMs = 250L
             val stepDelay = durationMs / steps
             for (i in 1..steps) {
                 delay(stepDelay)
@@ -207,6 +203,6 @@ fun BackgroundVideoView(
                 }
             }
         },
-        modifier = modifier.alpha(alpha)
+        modifier = modifier.graphicsLayer { this.alpha = alpha }
     )
 }

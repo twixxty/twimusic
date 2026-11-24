@@ -58,34 +58,51 @@ class CoverHeroState {
     private var canvas: LayoutCoordinates? = null
     private var header: LayoutCoordinates? = null
     private var cachedHeader: Rect? = null
+    private var lastCoverRect: Rect? = null
+    private var lastCanvasRect: Rect? = null
+    private var lastHeaderRect: Rect? = null
 
     /** Bumped when any tracked node is re-positioned so draw-phase readers re-run. */
     private var layoutTick by mutableIntStateOf(0)
 
     internal fun onRoot(coordinates: LayoutCoordinates) {
+        val sizeChanged = root?.size != coordinates.size
         root = coordinates
-        layoutTick++
+        if (sizeChanged) layoutTick++
     }
 
     internal fun onCover(coordinates: LayoutCoordinates) {
         cover = coordinates
-        layoutTick++
+        val r = boundsOf(coordinates)
+        if (r != lastCoverRect) {
+            lastCoverRect = r
+            layoutTick++
+        }
     }
 
     internal fun onCanvas(coordinates: LayoutCoordinates) {
         canvas = coordinates
-        layoutTick++
+        val r = boundsOf(coordinates)
+        if (r != lastCanvasRect) {
+            lastCanvasRect = r
+            layoutTick++
+        }
     }
 
     internal fun onHeader(coordinates: LayoutCoordinates) {
         header = coordinates
-        layoutTick++
+        val r = boundsOf(coordinates)
+        if (r != lastHeaderRect) {
+            lastHeaderRect = r
+            layoutTick++
+        }
     }
 
     /** The header slot is going away for good (e.g. the player layout changed). */
     fun clearHeader() {
         header = null
         cachedHeader = null
+        lastHeaderRect = null
         layoutTick++
     }
 

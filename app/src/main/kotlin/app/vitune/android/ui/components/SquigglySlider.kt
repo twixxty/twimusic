@@ -336,7 +336,7 @@ fun TaperedWaveSlider(
                 val smoothScale = progressScale * progressScale * (3f - 2f * progressScale)
 
                 val waveSpan = (totalProgressPx - startWaveX).coerceAtLeast(1f)
-                val step = 2f
+                val step = (wavelengthPx / 20f).coerceIn(4f, 10f)
                 var x = startWaveX
                 val k = (2f * Math.PI.toFloat()) / wavelengthPx
 

@@ -645,7 +645,7 @@ fun Player(
                 ) {
                     BackgroundVideoView(
                         videoUrl = videoUrl,
-                        isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
+                        isPlaying = !layoutState.collapsed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph.
                         fadeInDurationMillis = if (landscape) 800 else 0,
                         onVideoReady = { isVideoReady = it },

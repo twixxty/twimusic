@@ -3,6 +3,7 @@ package app.vitune.core.ui
 import android.graphics.Bitmap
 import android.os.Parcel
 import android.os.Parcelable
+import android.util.LruCache
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -177,37 +178,56 @@ fun accentColorOf(
     ColorSource.MaterialYou -> materialAccentColor?.hsl ?: defaultAccentColor
 }
 
+private val dynamicColorCache = LruCache<Int, Hsl>(24)
+
 fun dynamicAccentColorOf(
     bitmap: Bitmap,
     isDark: Boolean
 ): Hsl? {
-    val palette = Palette
-        .from(bitmap)
-        .maximumColorCount(8)
-        .let {
-            if (isDark) it.addFilter { _, hsl -> hsl[0] !in 36f..100f } else it
-        }
-        .generate()
+    val cacheKey = bitmap.hashCode() * 31 + if (isDark) 1 else 0
+    dynamicColorCache.get(cacheKey)?.let { return it }
 
-    val hsl = if (isDark) {
-        palette.dominantSwatch ?: Palette
-            .from(bitmap)
-            .maximumColorCount(8)
-            .generate()
-            .dominantSwatch
+    val quantizeBitmap = if (bitmap.width > 64 || bitmap.height > 64) {
+        Bitmap.createScaledBitmap(bitmap, 64, 64, false)
     } else {
-        palette.dominantSwatch
-    }?.hsl ?: return null
+        bitmap
+    }
 
-    val arr = if (hsl[1] < 0.08)
-        palette.swatches
-            .map(Palette.Swatch::getHsl)
-            .sortedByDescending(FloatArray::component2)
-            .find { it[1] != 0f }
-            ?: hsl
-    else hsl
+    try {
+        val palette = Palette
+            .from(quantizeBitmap)
+            .maximumColorCount(8)
+            .let {
+                if (isDark) it.addFilter { _, hsl -> hsl[0] !in 36f..100f } else it
+            }
+            .generate()
 
-    return arr.hsl
+        val hsl = if (isDark) {
+            palette.dominantSwatch ?: Palette
+                .from(quantizeBitmap)
+                .maximumColorCount(8)
+                .generate()
+                .dominantSwatch
+        } else {
+            palette.dominantSwatch
+        }?.hsl ?: return null
+
+        val arr = if (hsl[1] < 0.08)
+            palette.swatches
+                .map(Palette.Swatch::getHsl)
+                .sortedByDescending(FloatArray::component2)
+                .find { it[1] != 0f }
+                ?: hsl
+        else hsl
+
+        val result = arr.hsl
+        dynamicColorCache.put(cacheKey, result)
+        return result
+    } finally {
+        if (quantizeBitmap != bitmap) {
+            quantizeBitmap.recycle()
+        }
+    }
 }
 
 fun ColorPalette.amoled() = if (isDark) {

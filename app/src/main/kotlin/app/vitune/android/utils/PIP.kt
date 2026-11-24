@@ -26,6 +26,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.toAndroidRectF
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -163,25 +164,46 @@ fun Modifier.pip(
     targetNumerator: Int,
     targetDenominator: Int,
     actions: ActionReceiver? = null
-) = this.onGloballyPositioned { layoutCoordinates ->
-    activity.setPipParams(
-        rect = layoutCoordinates.boundsInWindow().toAndroidRectF().toRect(),
-        targetNumerator = targetNumerator,
-        targetDenominator = targetDenominator
-    ) {
-        if (actions != null) {
-            setActions(
-                actions.all.values.map {
-                    RemoteAction(
-                        it.icon ?: Icon.createWithResource(activity, app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
-                        it.title.orEmpty(),
-                        it.contentDescription.orEmpty(),
-                        with(activity) { it.pendingIntent }
+) = this.composed {
+    var lastRect by remember { mutableStateOf<Rect?>(null) }
+    var lastNumerator by remember { mutableStateOf(0) }
+    var lastDenominator by remember { mutableStateOf(0) }
+
+    onGloballyPositioned { layoutCoordinates ->
+        val rect = layoutCoordinates.boundsInWindow().toAndroidRectF().toRect()
+        val prev = lastRect
+        val moved = prev == null ||
+            kotlin.math.abs(prev.left - rect.left) > 4 ||
+            kotlin.math.abs(prev.top - rect.top) > 4 ||
+            kotlin.math.abs(prev.right - rect.right) > 4 ||
+            kotlin.math.abs(prev.bottom - rect.bottom) > 4
+
+        val ratioChanged = lastNumerator != targetNumerator || lastDenominator != targetDenominator
+
+        if (moved || ratioChanged) {
+            lastRect = rect
+            lastNumerator = targetNumerator
+            lastDenominator = targetDenominator
+            activity.setPipParams(
+                rect = rect,
+                targetNumerator = targetNumerator,
+                targetDenominator = targetDenominator
+            ) {
+                if (actions != null) {
+                    setActions(
+                        actions.all.values.map {
+                            RemoteAction(
+                                it.icon ?: Icon.createWithResource(activity, app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
+                                it.title.orEmpty(),
+                                it.contentDescription.orEmpty(),
+                                with(activity) { it.pendingIntent }
+                            )
+                        }
                     )
+                } else {
+                    this
                 }
-            )
-        } else {
-            this
+            }
         }
     }
 }

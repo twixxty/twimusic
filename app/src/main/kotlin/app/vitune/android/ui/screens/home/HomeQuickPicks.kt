@@ -328,20 +328,23 @@ fun QuickPicks(
 
         suspend fun handleSong(song: Song?) {
             if (dynamicSectionsResult == null || trending?.id != song?.id) {
-                val res = Innertube.relatedPage(
-                    body = NextBody(videoId = (song?.id ?: "J7p4bzqLvCw"))
-                )
-                dynamicSectionsResult = res?.map { related ->
-                    related?.let {
-                        relatedPageToSections(
-                            related = it,
-                            quickPicksTitle = quickPicksTitle,
-                            relatedAlbumsTitle = relatedAlbumsTitle,
-                            similarArtistsTitle = similarArtistsTitle,
-                            recommendedPlaylistsTitle = recommendedPlaylistsTitle
-                        )
+                val sections = withContext(Dispatchers.IO) {
+                    val res = Innertube.relatedPage(
+                        body = NextBody(videoId = (song?.id ?: "J7p4bzqLvCw"))
+                    )
+                    res?.map { related ->
+                        related?.let {
+                            relatedPageToSections(
+                                related = it,
+                                quickPicksTitle = quickPicksTitle,
+                                relatedAlbumsTitle = relatedAlbumsTitle,
+                                similarArtistsTitle = similarArtistsTitle,
+                                recommendedPlaylistsTitle = recommendedPlaylistsTitle
+                            )
+                        }
                     }
                 }
+                dynamicSectionsResult = sections
             }
             trending = song
         }

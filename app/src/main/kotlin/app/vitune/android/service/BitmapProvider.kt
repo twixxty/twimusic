@@ -56,7 +56,7 @@ class BitmapProvider(
 
         lastIsSystemInDarkMode = isSystemInDarkMode
 
-        val size = getBitmapSize()
+        val size = getBitmapSize().coerceAtMost(128)
         defaultBitmap = createBitmap(size, size).applyCanvas {
             drawColor(getColor(isSystemInDarkMode))
         }

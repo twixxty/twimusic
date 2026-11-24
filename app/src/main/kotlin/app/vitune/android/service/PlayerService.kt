@@ -231,6 +231,10 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
 
     private val playbackStateMutex = Mutex()
     private val metadataBuilder = MediaMetadata.Builder()
+    private var lastMetadataTitle: String? = null
+    private var lastMetadataArtist: String? = null
+    private var lastMetadataAlbum: String? = null
+    private var lastMetadataDuration: Long = -1L
 
     private var timerJob: TimerJob? by mutableStateOf(null)
     private var radio: YouTubeRadio? = null
@@ -911,10 +915,24 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
         metadataBuilder.putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, bitmap)
         metadataBuilder.putString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI, uri)
 
+        val title = if (isAtLeastAndroid13 && player.currentMediaItemIndex == 0) {
+            "${player.mediaMetadata.title} "
+        } else {
+            player.mediaMetadata.title?.toString().orEmpty()
+        }
+        val artist = player.mediaMetadata.artist?.toString().orEmpty()
+        val album = player.mediaMetadata.albumTitle?.toString().orEmpty()
+        val duration = player.duration
+
+        lastMetadataTitle = title
+        lastMetadataArtist = artist
+        lastMetadataAlbum = album
+        lastMetadataDuration = duration
+
         if (isAtLeastAndroid13 && player.currentMediaItemIndex == 0) {
             metadataBuilder.putText(
                 MediaMetadata.METADATA_KEY_TITLE,
-                "${player.mediaMetadata.title} "
+                title
             )
         }
 
@@ -994,22 +1012,37 @@ class PlayerService : InvincibleService(), Player.Listener, PlaybackStatsListene
     @Suppress("DEPRECATION")
     override fun onEvents(player: Player, events: Player.Events) {
         listenTogetherManager.onLocalPlaybackChanged()
-        if (player.duration != C.TIME_UNSET) {
+        val title = player.mediaMetadata.title?.toString().orEmpty()
+        val artist = player.mediaMetadata.artist?.toString().orEmpty()
+        val album = player.mediaMetadata.albumTitle?.toString().orEmpty()
+        val duration = player.duration
+
+        if (duration != C.TIME_UNSET && (
+                title != lastMetadataTitle ||
+                artist != lastMetadataArtist ||
+                album != lastMetadataAlbum ||
+                duration != lastMetadataDuration
+            )
+        ) {
+            lastMetadataTitle = title
+            lastMetadataArtist = artist
+            lastMetadataAlbum = album
+            lastMetadataDuration = duration
             mediaSession.setMetadata(
                 metadataBuilder
                     .putText(
                         MediaMetadata.METADATA_KEY_TITLE,
-                        player.mediaMetadata.title?.toString().orEmpty()
+                        title
                     )
                     .putText(
                         MediaMetadata.METADATA_KEY_ARTIST,
-                        player.mediaMetadata.artist?.toString().orEmpty()
+                        artist
                     )
                     .putText(
                         MediaMetadata.METADATA_KEY_ALBUM,
-                        player.mediaMetadata.albumTitle?.toString().orEmpty()
+                        album
                     )
-                    .putLong(MediaMetadata.METADATA_KEY_DURATION, player.duration)
+                    .putLong(MediaMetadata.METADATA_KEY_DURATION, duration)
                     .build()
             )
         }

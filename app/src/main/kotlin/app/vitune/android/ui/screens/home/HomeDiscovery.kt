@@ -44,6 +44,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.LocalPlayerServiceBinder
 import app.vitune.android.R
@@ -109,7 +111,11 @@ fun HomeDiscovery(
     var discoverPage by persist<Result<Innertube.DiscoverPage>>("home/discovery")
 
     LaunchedEffect(Unit) {
-        if (discoverPage?.isSuccess != true) discoverPage = Innertube.discoverPage()
+        if (discoverPage?.isSuccess != true) {
+            discoverPage = withContext(Dispatchers.IO) {
+                Innertube.discoverPage()
+            }
+        }
     }
 
     BoxWithConstraints {
