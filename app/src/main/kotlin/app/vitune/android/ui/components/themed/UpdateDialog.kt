@@ -72,6 +72,7 @@ import app.vitune.android.utils.bold
 import app.vitune.android.utils.center
 import app.vitune.android.utils.color
 import app.vitune.android.utils.getAppIcon
+import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
 import app.vitune.android.utils.style
