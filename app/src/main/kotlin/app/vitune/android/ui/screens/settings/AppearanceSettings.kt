@@ -221,6 +221,18 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 )
             }
 
+            AnimatedVisibility(
+                visible = PlayerPreferences.playerLayout == PlayerPreferences.PlayerLayout.Expressive,
+                label = ""
+            ) {
+                SwitchSettingsEntry(
+                    title = stringResource(R.string.show_seekbar_on_top),
+                    text = stringResource(R.string.show_seekbar_on_top_description),
+                    isChecked = PlayerPreferences.showSeekBarOnTop,
+                    onCheckedChange = { PlayerPreferences.showSeekBarOnTop = it }
+                )
+            }
+
             SwitchSettingsEntry(
                 title = stringResource(R.string.swipe_to_remove_item),
                 text = stringResource(R.string.swipe_to_remove_item_description),

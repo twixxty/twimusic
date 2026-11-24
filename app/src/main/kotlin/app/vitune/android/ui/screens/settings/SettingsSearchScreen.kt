@@ -123,6 +123,7 @@ fun SettingsSearchScreen(
         PlayerPreferences.handleAudioFocus,
         PlayerPreferences.playerLayout,
         PlayerPreferences.seekBarStyle,
+        PlayerPreferences.showSeekBarOnTop,
         PlayerPreferences.showLike,
         PlayerPreferences.showRemaining,
         PlayerPreferences.horizontalSwipeToClose,
@@ -392,6 +393,14 @@ fun SettingsSearchScreen(
                 tabIndex = 1,
                 onInteract = { PlayerPreferences.showLike = !PlayerPreferences.showLike },
                 trailingContent = { Switch(isChecked = PlayerPreferences.showLike) }
+            ),
+            SearchSettingEntry(
+                title = "Show Seekbar on Top",
+                description = "Move the seekbar above the playback controls instead of below",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = { PlayerPreferences.showSeekBarOnTop = !PlayerPreferences.showSeekBarOnTop },
+                trailingContent = { Switch(isChecked = PlayerPreferences.showSeekBarOnTop) }
             ),
             SearchSettingEntry(
                 title = "Show Remaining Duration",

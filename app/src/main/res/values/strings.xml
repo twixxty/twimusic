@@ -206,6 +206,8 @@
     <string name="swipe_horizontally_to_close_description">Closes the player when swiping left/right on the collapsed player. Useful for users with Android\'s one-handed mode enabled.</string>
     <string name="show_like_button">Show like button</string>
     <string name="show_like_button_description">Show the like button directly in the player</string>
+    <string name="show_seekbar_on_top">Show seekbar on top</string>
+    <string name="show_seekbar_on_top_description">Move the seekbar above the playback controls instead of below</string>
     <string name="swipe_to_remove_item">Swipe to remove item</string>
     <string name="swipe_to_remove_item_description">Swipe left to remove an item from the queue</string>
     <string name="lyrics_keep_screen_awake">Keep screen awake (lyrics)</string>

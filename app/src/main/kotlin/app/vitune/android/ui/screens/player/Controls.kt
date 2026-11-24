@@ -898,6 +898,39 @@ private fun ExpressiveControls(
                     label = "prevRadius"
                 )
 
+                val seekBarContent = @Composable {
+                    AnimatedVisibility(
+                        visible = !isShowingLyrics,
+                        enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
+                        exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            if (!PlayerPreferences.showSeekBarOnTop) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SeekBar(
+                                    binder = binder,
+                                    position = position,
+                                    media = media,
+                                    color = colorPalette.accent,
+                                    alwaysShowDuration = true
+                                )
+                            }
+                            if (PlayerPreferences.showSeekBarOnTop) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                        }
+                    }
+                }
+
+                if (PlayerPreferences.showSeekBarOnTop) {
+                    seekBarContent()
+                }
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -934,27 +967,8 @@ private fun ExpressiveControls(
                     )
                 }
 
-                // Full-width Seek Bar (BELOW controls) - smoothly hidden when enabling lyrics
-                AnimatedVisibility(
-                    visible = !isShowingLyrics,
-                    enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
-                    exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SeekBar(
-                                binder = binder,
-                                position = position,
-                                media = media,
-                                color = colorPalette.accent,
-                                alwaysShowDuration = true
-                            )
-                        }
-                    }
+                if (!PlayerPreferences.showSeekBarOnTop) {
+                    seekBarContent()
                 }
             }
         }

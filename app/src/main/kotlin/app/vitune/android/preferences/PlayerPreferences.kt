@@ -47,6 +47,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var seekBarStyle by enum(SeekBarStyle.TaperedWave)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var taperedWaveFrequency by enum(TaperedWaveFrequency.Normal)
+    var showSeekBarOnTop by boolean(false)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
     var lyricsKeepScreenAwake by boolean(false)
