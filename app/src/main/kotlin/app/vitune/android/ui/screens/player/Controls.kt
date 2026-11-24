@@ -635,24 +635,11 @@ private fun ExpressiveControls(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    BasicText(
-                        text = media.title,
-                        style = typography.xl.bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    BasicText(
-                        text = media.artist,
-                        style = typography.s.secondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.clickable {
-                            media.artistInfo?.id?.let { artistRoute(it) }
-                        }
-                    )
-                }
+                MediaInfo(
+                    media = media,
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = Alignment.Start
+                )
 
                 if (PlayerPreferences.showLike) {
                     Spacer(Modifier.width(12.dp))
@@ -978,7 +965,11 @@ private fun PlayButton(
 }
 
 @Composable
-private fun MediaInfo(media: UiMedia) {
+private fun MediaInfo(
+    media: UiMedia,
+    modifier: Modifier = Modifier,
+    horizontalAlignment: Alignment.Horizontal = Alignment.CenterHorizontally
+) {
     val (colorPalette, typography) = LocalAppearance.current
 
     var artistInfo: List<Info>? by remember { mutableStateOf(null) }
@@ -992,13 +983,18 @@ private fun MediaInfo(media: UiMedia) {
         }
     }
 
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val rowModifier = if (horizontalAlignment == Alignment.Start) Modifier.fillMaxWidth() else Modifier.fillMaxWidth(0.75f)
+
+    Column(
+        horizontalAlignment = horizontalAlignment,
+        modifier = modifier
+    ) {
         AnimatedContent(
             targetState = media.title,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             label = ""
         ) { title ->
-            FadingRow(modifier = Modifier.fillMaxWidth(0.75f)) {
+            FadingRow(modifier = rowModifier) {
                 BasicText(
                     text = title,
                     style = typography.l.bold,
@@ -1014,8 +1010,7 @@ private fun MediaInfo(media: UiMedia) {
         ) { [media, state] ->
             state?.let { artists ->
                 FadingRow(
-                    modifier = Modifier
-                        .fillMaxWidth(0.75f)
+                    modifier = rowModifier
                         .heightIn(maxHeight.px.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -1046,7 +1041,7 @@ private fun MediaInfo(media: UiMedia) {
                     }
                 }
             } ?: FadingRow(
-                modifier = Modifier.fillMaxWidth(0.75f),
+                modifier = rowModifier,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicText(

@@ -91,8 +91,10 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceAtMost
 import androidx.compose.ui.unit.dp
+import app.vitune.core.ui.favoritesIcon
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
@@ -928,7 +930,7 @@ fun Player(
                                         }
                                 ) {
                                     AsyncImage(
-                                        model = mediaItem?.mediaMetadata?.artworkUri?.thumbnail(140.px),
+                                        model = mediaItem?.mediaMetadata?.artworkUri?.thumbnail(140.dp.px),
                                         placeholder = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                                         error = painterResource(id = app.vitune.android.preferences.AppearancePreferences.appLogo.iconDrawableRes),
                                         contentDescription = null,
@@ -967,7 +969,7 @@ fun Player(
                                                 indication = ripple(),
                                                 interactionSource = remember { MutableInteractionSource() }
                                             ) {
-                                                setLikedAt(if (likedAt == null) System.currentTimeMillis() else null)
+                                                likedAt = if (likedAt == null) System.currentTimeMillis() else null
                                             }
                                     ) {
                                         Image(
