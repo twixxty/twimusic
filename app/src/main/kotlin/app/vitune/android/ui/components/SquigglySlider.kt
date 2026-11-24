@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import app.vitune.android.preferences.PlayerPreferences
 
 @Composable
 fun SquigglySlider(
@@ -320,7 +321,9 @@ fun TaperedWaveSlider(
                 cachedPath.reset()
                 cachedPath.moveTo(0f, centerY)
 
-                val waveReach = (waveLength * 1.35f).coerceAtLeast(48.dp.toPx())
+                val freqMultiplier = PlayerPreferences.taperedWaveFrequency.multiplier
+                val wavelengthPx = (32.dp.toPx() / (freqMultiplier / 2.5f)).coerceAtLeast(14.dp.toPx())
+                val waveReach = (wavelengthPx * 3.5f).coerceAtLeast(70.dp.toPx())
                 val startWaveX = (totalProgressPx - waveReach).coerceAtLeast(0f)
 
                 // Flat straight line up to where the wave begins near scrubber
@@ -335,12 +338,15 @@ fun TaperedWaveSlider(
                 val waveSpan = (totalProgressPx - startWaveX).coerceAtLeast(1f)
                 val step = 2f
                 var x = startWaveX
+                val k = (2f * Math.PI.toFloat()) / wavelengthPx
+
                 while (x <= totalProgressPx) {
                     val progressInWave = ((x - startWaveX) / waveSpan).coerceIn(0f, 1f)
                     // Hanning envelope: 0 at startWaveX, 0 at totalProgressPx, smooth peak in between
                     val envelope = 0.5f * (1f - kotlin.math.cos(progressInWave * 2f * Math.PI.toFloat()))
 
-                    val angle = (progressInWave * 2f * Math.PI.toFloat()) - phaseOffset.value
+                    // Angle uses constant spatial wavelength, preventing horizontal compression into vertical line
+                    val angle = ((x - totalProgressPx) * k) - phaseOffset.value
                     val amp = maxAmpPx * envelope * smoothScale * heightFraction
                     val y = centerY + kotlin.math.sin(angle) * amp
                     cachedPath.lineTo(x, y)

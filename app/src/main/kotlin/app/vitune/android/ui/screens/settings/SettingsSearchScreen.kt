@@ -360,6 +360,23 @@ fun SettingsSearchScreen(
                 }
             ),
             SearchSettingEntry(
+                title = "Tapered Wave Frequency",
+                description = "Adjust oscillation frequency of the tapered wave seekbar",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = {
+                    val frequencies = PlayerPreferences.TaperedWaveFrequency.entries
+                    val next = (PlayerPreferences.taperedWaveFrequency.ordinal + 1) % frequencies.size
+                    PlayerPreferences.taperedWaveFrequency = frequencies[next]
+                },
+                trailingContent = {
+                    BasicText(
+                        text = PlayerPreferences.taperedWaveFrequency.name,
+                        style = typography.xs.semiBold.copy(color = colorPalette.accent)
+                    )
+                }
+            ),
+            SearchSettingEntry(
                 title = "Show Favorite Button in Controls",
                 description = "Display like button on the main player controls row",
                 categoryName = "Player",

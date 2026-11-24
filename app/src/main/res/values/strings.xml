@@ -339,6 +339,11 @@
     <string name="seek_bar_quality_high">High</string>
     <string name="seek_bar_quality_great">Great</string>
     <string name="seek_bar_quality_subpixel">Subpixel</string>
+    <string name="tapered_wave_frequency">Tapered wave frequency</string>
+    <string name="tapered_frequency_low">Low (1.5x)</string>
+    <string name="tapered_frequency_normal">Normal (2.5x)</string>
+    <string name="tapered_frequency_high">High (3.5x)</string>
+    <string name="tapered_frequency_very_high">Very High (5.0x)</string>
     <string name="remove_from_blacklist">Remove from blacklist</string>
     <string name="add_to_blacklist">Add to blacklist</string>
     <string name="reset_blacklist">Reset blacklist</string>

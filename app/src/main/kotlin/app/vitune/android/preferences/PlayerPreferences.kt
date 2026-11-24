@@ -46,6 +46,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var playerLayout by enum(PlayerLayout.Expressive)
     var seekBarStyle by enum(SeekBarStyle.TaperedWave)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
+    var taperedWaveFrequency by enum(TaperedWaveFrequency.Normal)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
     var lyricsKeepScreenAwake by boolean(false)
@@ -113,6 +114,16 @@ object PlayerPreferences : GlobalPreferencesHolder() {
             quality = 0.5f,
             displayName = { stringResource(R.string.seek_bar_quality_subpixel) }
         )
+    }
+
+    enum class TaperedWaveFrequency(
+        val multiplier: Float,
+        val displayName: @Composable () -> String
+    ) {
+        Low(multiplier = 1.5f, displayName = { stringResource(R.string.tapered_frequency_low) }),
+        Normal(multiplier = 2.5f, displayName = { stringResource(R.string.tapered_frequency_normal) }),
+        High(multiplier = 3.5f, displayName = { stringResource(R.string.tapered_frequency_high) }),
+        VeryHigh(multiplier = 5.0f, displayName = { stringResource(R.string.tapered_frequency_very_high) })
     }
 
     @Suppress("unused")

@@ -632,51 +632,21 @@ private fun ExpressiveControls(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = if (isLandscape) 16.dp else 24.dp)
+            .padding(horizontal = if (isLandscape) 16.dp else 24.dp),
+        verticalArrangement = Arrangement.Bottom
     ) {
-        Spacer(modifier = Modifier.weight(1f))
-
         // 1. Song Info Row: Left-aligned Title/Artist & Like Button, with cover art thumbnail sliding in during lyrics
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth()
         ) {
-            AnimatedVisibility(
-                visible = isShowingLyrics && !isLandscape,
-                enter = expandHorizontally(
-                    animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
-                    expandFrom = Alignment.Start
-                ) + fadeIn(tween(durationMillis = 300)),
-                exit = shrinkHorizontally(
-                    animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-                    shrinkTowards = Alignment.Start
-                ) + fadeOut(tween(durationMillis = 250))
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(RoundedCornerShape(12.dp))
-                            .clickable(
-                                indication = ripple(),
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                onToggleLyrics?.invoke()
-                            }
-                    ) {
-                        val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
-                            ?: binder.player.mediaMetadata?.artworkUri
-                        AsyncImage(
-                            model = artworkUri?.thumbnail(140.dp.px),
-                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(Modifier.width(14.dp))
-                }
+            val thumbnailSpacerWidth by animateDpAsState(
+                targetValue = if (isShowingLyrics && !isLandscape) 66.dp else 0.dp,
+                animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+                label = "thumbnailSpacerWidth"
+            )
+            if (thumbnailSpacerWidth > 0.dp) {
+                Spacer(Modifier.width(thumbnailSpacerWidth))
             }
 
             MediaInfo(
@@ -712,7 +682,7 @@ private fun ExpressiveControls(
 
         // 2. Playback Controls & Seekbar (collapses when fullscreen lyrics, leaving song info visible)
         AnimatedVisibility(
-            visible = !isLyricsFullscreen,
+            visible = !isLyricsFullscreen || !isShowingLyrics,
             enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
             exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
         ) {
@@ -845,27 +815,30 @@ private fun ExpressiveControls(
                     )
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Full-width Seek Bar (BELOW controls)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                // Full-width Seek Bar (BELOW controls) - smoothly hidden when enabling lyrics
+                AnimatedVisibility(
+                    visible = !isShowingLyrics,
+                    enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
+                    exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        SeekBar(
-                            binder = binder,
-                            position = position,
-                            media = media,
-                            color = colorPalette.accent,
-                            alwaysShowDuration = true
-                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            SeekBar(
+                                binder = binder,
+                                position = position,
+                                media = media,
+                                color = colorPalette.accent,
+                                alwaysShowDuration = true
+                            )
+                        }
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.weight(1f))
     }
 }
 

@@ -209,6 +209,18 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 )
             }
 
+            AnimatedVisibility(
+                visible = PlayerPreferences.seekBarStyle == PlayerPreferences.SeekBarStyle.TaperedWave,
+                label = ""
+            ) {
+                EnumValueSelectorSettingsEntry(
+                    title = stringResource(R.string.tapered_wave_frequency),
+                    selectedValue = PlayerPreferences.taperedWaveFrequency,
+                    onValueSelect = { PlayerPreferences.taperedWaveFrequency = it },
+                    valueText = { it.displayName() }
+                )
+            }
+
             SwitchSettingsEntry(
                 title = stringResource(R.string.swipe_to_remove_item),
                 text = stringResource(R.string.swipe_to_remove_item_description),
