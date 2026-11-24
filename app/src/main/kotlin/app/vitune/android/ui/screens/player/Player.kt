@@ -879,7 +879,9 @@ fun Player(
             }
 
             if (isLandscape) BoxWithConstraints(
-                modifier = containerModifier.fillMaxSize()
+                modifier = Modifier
+                    .padding(windowInsets.only(WindowInsetsSides.Horizontal).asPaddingValues())
+                    .fillMaxSize()
             ) {
                 val totalWidth = maxWidth
                 val landscapeTopPadding by animateDpAsState(
@@ -906,9 +908,7 @@ fun Player(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(top = landscapeTopPadding)
+                    modifier = Modifier.fillMaxSize()
                 ) {
                     Box(
                         contentAlignment = Alignment.Center,
@@ -978,6 +978,7 @@ fun Player(
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
+                                    .padding(top = landscapeTopPadding)
                                     .graphicsLayer { alpha = lyricsLandscapeAlpha }
                             ) {
                                 lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
@@ -994,7 +995,7 @@ fun Player(
                         modifier = Modifier
                             .weight(rightWeight)
                             .fillMaxHeight()
-                            .padding(bottom = playerBottomSheetState.collapsedBound)
+                            .padding(top = landscapeTopPadding, bottom = playerBottomSheetState.collapsedBound)
                     ) {
                         controlsContent(
                             Modifier
@@ -1019,7 +1020,7 @@ fun Player(
                     when {
                         isLyricsFullscreen && isExpressive -> 96.dp
                         isLyricsFullscreen -> 0.dp
-                        isShowingLyrics && isExpressive -> 180.dp
+                        isShowingLyrics && isExpressive -> 196.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
                         else -> availableHeight * (1f / 2.5f)
                     }
@@ -1105,6 +1106,24 @@ fun Player(
                         )
                     }
                 }
+            }
+
+            if (PlayerPreferences.showStatusBarGradient) {
+                val topInset = windowInsets.only(WindowInsetsSides.Top).asPaddingValues().calculateTopPadding()
+                val scrimHeight = (topInset + 36.dp).coerceAtLeast(64.dp)
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(scrimHeight)
+                        .align(Alignment.TopCenter)
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to Color.Black.copy(alpha = 0.60f),
+                                0.40f to Color.Black.copy(alpha = 0.30f),
+                                1.0f to Color.Transparent
+                            )
+                        )
+                )
             }
         }
 

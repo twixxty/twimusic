@@ -112,6 +112,7 @@ fun SettingsSearchScreen(
         PlayerPreferences.enableCanvas,
         PlayerPreferences.pauseCanvasWithSong,
         PlayerPreferences.hideStatusBarOnCanvas,
+        PlayerPreferences.showStatusBarGradient,
         PlayerPreferences.canvasStyle,
         PlayerPreferences.persistentQueue,
         PlayerPreferences.resumePlaybackWhenDeviceConnected,
@@ -247,6 +248,14 @@ fun SettingsSearchScreen(
                 tabIndex = 1,
                 onInteract = { PlayerPreferences.hideStatusBarOnCanvas = !PlayerPreferences.hideStatusBarOnCanvas },
                 trailingContent = { Switch(isChecked = PlayerPreferences.hideStatusBarOnCanvas) }
+            ),
+            SearchSettingEntry(
+                title = "Status bar contrast gradient",
+                description = "Add a subtle gradient shadow below the status bar to improve contrast",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = { PlayerPreferences.showStatusBarGradient = !PlayerPreferences.showStatusBarGradient },
+                trailingContent = { Switch(isChecked = PlayerPreferences.showStatusBarGradient) }
             ),
             SearchSettingEntry(
                 title = "Canvas Display Style",

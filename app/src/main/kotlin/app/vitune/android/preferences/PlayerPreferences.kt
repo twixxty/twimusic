@@ -79,6 +79,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var canvasStyle by enum(CanvasStyle.Cover)
     var pauseCanvasWithSong by boolean(true)
     var hideStatusBarOnCanvas by boolean(false)
+    var showStatusBarGradient by boolean(true)
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)

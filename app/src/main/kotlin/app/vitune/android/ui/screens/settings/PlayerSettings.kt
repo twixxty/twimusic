@@ -101,6 +101,12 @@ fun PlayerSettings() = with(PlayerPreferences) {
                         isChecked = hideStatusBarOnCanvas,
                         onCheckedChange = { hideStatusBarOnCanvas = it }
                     )
+                    SwitchSettingsEntry(
+                        title = stringResource(R.string.status_bar_gradient_contrast),
+                        text = stringResource(R.string.status_bar_gradient_contrast_description),
+                        isChecked = showStatusBarGradient,
+                        onCheckedChange = { showStatusBarGradient = it }
+                    )
                 }
             }
 

@@ -624,4 +624,6 @@
     <string name="pause_canvas_with_song_description">Slow down and pause video canvas when playback is paused</string>
     <string name="hide_status_bar_on_canvas">Hide status bar on canvas</string>
     <string name="hide_status_bar_on_canvas_description">Hide system status bar in player when canvas video is active</string>
+    <string name="status_bar_gradient_contrast">Status bar contrast gradient</string>
+    <string name="status_bar_gradient_contrast_description">Add a subtle gradient shadow below the status bar to improve contrast</string>
 </resources>
