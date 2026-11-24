@@ -916,19 +916,19 @@ fun Player(
                             label = "lyricsLandscapeAlpha"
                         )
 
-                        if (isCanvasActive && !isSquareCanvas && isVideoReady) {
+                        Box(
+                            modifier = Modifier.graphicsLayer { alpha = artworkLandscapeAlpha }
+                        ) {
+                            thumbnailContent(Modifier.size(coverArtTargetSize))
+                        }
+
+                        if (isCanvasActive && !isSquareCanvas) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .graphicsLayer { alpha = artworkLandscapeAlpha }
                             ) {
                                 canvasContent(Modifier.fillMaxSize())
-                            }
-                        } else {
-                            Box(
-                                modifier = Modifier.graphicsLayer { alpha = artworkLandscapeAlpha }
-                            ) {
-                                thumbnailContent(Modifier.size(coverArtTargetSize))
                             }
                         }
 

@@ -223,7 +223,8 @@ fun Lyrics(
     val shouldAutoHideFullscreen = PlayerPreferences.hideLyricsFullscreenButton &&
         (!isLandscape || PlayerPreferences.hideLyricsFullscreenButtonInLandscape)
 
-    var lyrics by remember { mutableStateOf<Lyrics?>(null) }
+    var lyrics by remember(mediaId) { mutableStateOf<Lyrics?>(null) }
+    var isFetchingOnline by remember(mediaId, shouldShowSynchronizedLyrics) { mutableStateOf(false) }
 
     val showSynchronizedLyrics = remember(shouldShowSynchronizedLyrics, lyrics) {
         shouldShowSynchronizedLyrics && lyrics?.synced?.isBlank() != true
@@ -233,8 +234,10 @@ fun Lyrics(
     var picking by remember(mediaId, shouldShowSynchronizedLyrics) { mutableStateOf(false) }
     var error by remember(mediaId, shouldShowSynchronizedLyrics) { mutableStateOf(false) }
 
-    val text = remember(lyrics, showSynchronizedLyrics) {
-        if (showSynchronizedLyrics) lyrics?.synced else lyrics?.fixed
+    val text = remember(lyrics, showSynchronizedLyrics, isFetchingOnline) {
+        if (showSynchronizedLyrics) lyrics?.synced
+        else if (isFetchingOnline) null
+        else lyrics?.fixed
     }
     var invalidLrc by remember(text) { mutableStateOf(false) }
 
@@ -280,6 +283,9 @@ fun Lyrics(
     }
 
     LaunchedEffect(mediaId, shouldShowSynchronizedLyrics) {
+        lyrics = null
+        error = false
+        isFetchingOnline = shouldShowSynchronizedLyrics
         runCatching {
             withContext(Dispatchers.IO) {
                 Database
@@ -294,7 +300,11 @@ fun Lyrics(
 
                         if (!shouldUpdateLyrics || hasSufficientLyrics) {
                             lyrics = currentLyrics
+                            isFetchingOnline = false
                         } else {
+                            isFetchingOnline = true
+                            lyrics = null
+                            error = false
                             val mediaMetadata = currentMediaMetadataProvider()
                             var duration =
                                 withContext(Dispatchers.Main) { currentDurationProvider() }
@@ -313,9 +323,6 @@ fun Lyrics(
                                     .trim()
                                 else it
                             }
-
-                            lyrics = null
-                            error = false
 
                             val fetched = LyricsHelper.getLyrics(
                                 context = context,
@@ -344,6 +351,7 @@ fun Lyrics(
                                 synced = synced.orEmpty()
                             )
                             lyrics = updatedLyrics
+                            isFetchingOnline = false
                             this@withContext.ensureActive()
 
                             transaction {
@@ -360,6 +368,7 @@ fun Lyrics(
                     }
             }
         }.exceptionOrNull()?.let {
+            isFetchingOnline = false
             if (it is CancellationException) throw it
             else it.printStackTrace()
         }
@@ -853,27 +862,29 @@ fun Lyrics(
                     }
                 }
             } else {
-                BasicText(
-                    text = lyrics?.fixed.orEmpty(),
-                    style = TextStyle(
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        lineHeight = 28.sp,
-                        letterSpacing = (-0.5).sp,
-                        textAlign = when (PlayerPreferences.lyricsTextPosition) {
-                            PlayerPreferences.LyricsTextPosition.Left -> TextAlign.Start
-                            PlayerPreferences.LyricsTextPosition.Center -> TextAlign.Center
-                            PlayerPreferences.LyricsTextPosition.Right -> TextAlign.End
-                        },
-                        color = colorPalette.onOverlay,
-                        fontFamily = typography.m.fontFamily
-                    ),
-                    modifier = Modifier
-                        .verticalFadingEdge()
-                        .verticalScroll(rememberScrollState())
-                        .fillMaxWidth()
-                        .padding(vertical = containerMaxHeight * 0.3f, horizontal = 24.dp)
-                )
+                if (!isFetchingOnline && (!shouldShowSynchronizedLyrics || lyrics?.synced?.isBlank() == true)) {
+                    BasicText(
+                        text = lyrics?.fixed.orEmpty(),
+                        style = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 28.sp,
+                            letterSpacing = (-0.5).sp,
+                            textAlign = when (PlayerPreferences.lyricsTextPosition) {
+                                PlayerPreferences.LyricsTextPosition.Left -> TextAlign.Start
+                                PlayerPreferences.LyricsTextPosition.Center -> TextAlign.Center
+                                PlayerPreferences.LyricsTextPosition.Right -> TextAlign.End
+                            },
+                            color = colorPalette.onOverlay,
+                            fontFamily = typography.m.fontFamily
+                        ),
+                        modifier = Modifier
+                            .verticalFadingEdge()
+                            .verticalScroll(rememberScrollState())
+                            .fillMaxWidth()
+                            .padding(vertical = containerMaxHeight * 0.3f, horizontal = 24.dp)
+                    )
+                }
             }
         }
 
