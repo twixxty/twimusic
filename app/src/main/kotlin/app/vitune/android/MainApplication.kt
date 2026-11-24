@@ -191,6 +191,10 @@ class MainActivity : ComponentActivity(), MonetColorsChangedListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        if (BuildConfig.DEBUG) {
+            app.vitune.android.utils.LagDiagnostics.attachWindow(window)
+        }
+
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         MonetCompat.setup(this)
@@ -643,6 +647,10 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
 
         MonetCompat.debugLog = BuildConfig.DEBUG
         super.onCreate()
+
+        if (BuildConfig.DEBUG) {
+            app.vitune.android.utils.LagDiagnostics.init(this)
+        }
 
         MonetCompat.enablePaletteCompat()
         ServiceNotifications.createAll()

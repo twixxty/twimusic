@@ -27,6 +27,8 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import coil3.compose.AsyncImage
 import app.vitune.android.utils.thumbnail
+import app.vitune.android.BuildConfig
+import app.vitune.android.utils.TrackRecomposition
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -115,6 +117,10 @@ fun Controls(
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout,
     hero: CoverHeroState? = null
 ) {
+    if (BuildConfig.DEBUG) {
+        TrackRecomposition("Controls")
+    }
+
     val shouldBePlayingTransition = updateTransition(
         targetState = shouldBePlaying,
         label = "shouldBePlaying"
@@ -370,6 +376,10 @@ private fun ModernControls(
     onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp
 ) {
+    if (BuildConfig.DEBUG) {
+        TrackRecomposition("ModernControls")
+    }
+
     val previousButtonContent: @Composable RowScope.() -> Unit = {
         SkipButton(
             iconId = R.drawable.play_skip_back,
@@ -632,6 +642,10 @@ private fun ExpressiveControls(
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    if (BuildConfig.DEBUG) {
+        TrackRecomposition("ExpressiveControls")
+    }
 
     // The header slot is only meaningful for as long as this layout is on screen.
     if (hero != null) DisposableEffect(hero) {

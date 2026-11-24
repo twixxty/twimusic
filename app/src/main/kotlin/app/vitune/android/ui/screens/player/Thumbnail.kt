@@ -66,6 +66,8 @@ import app.vitune.android.utils.forceSeekToPrevious
 import app.vitune.android.utils.isInPip
 import app.vitune.android.utils.thumbnail
 import app.vitune.android.utils.windowState
+import app.vitune.android.BuildConfig
+import app.vitune.android.utils.TrackRecomposition
 import app.vitune.core.ui.Dimensions
 import app.vitune.core.ui.LocalAppearance
 import app.vitune.core.ui.utils.px
@@ -99,6 +101,10 @@ fun Thumbnail(
     // tapping still opens the lyrics but long press / double tap are left alone.
     isCoverInteractive: Boolean = true
 ) {
+    if (BuildConfig.DEBUG) {
+        TrackRecomposition("Thumbnail")
+    }
+
     val binder = LocalPlayerServiceBinder.current
     val [colorPalette, _, _, thumbnailShape] = LocalAppearance.current
 

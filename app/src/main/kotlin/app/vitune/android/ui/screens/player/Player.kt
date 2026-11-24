@@ -33,6 +33,9 @@ import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.ui.components.LiquidBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
+import app.vitune.android.BuildConfig
+import app.vitune.android.utils.LagDiagnostics
+import app.vitune.android.utils.TrackRecomposition
 import app.vitune.android.canvas.BackgroundVideoView
 import app.vitune.android.canvas.Motionartwork
 import app.vitune.android.canvas.MotionartworkPlaybackCache
@@ -601,6 +604,18 @@ fun Player(
         val isCoverInteractive by remember { derivedStateOf { canvasProgress.value < 0.5f } }
         val heroCoverRadius = with(LocalDensity.current) { thumbnailCornerSize.toPx() }
         val heroHeaderRadius = with(LocalDensity.current) { 12.dp.toPx() }
+
+        if (BuildConfig.DEBUG) {
+            TrackRecomposition("Player")
+            SideEffect {
+                LagDiagnostics.updateContext(
+                    screen = if (layoutState.expanded) "Player(Expanded)" else "Player(Collapsed)",
+                    isCanvasActive = isCanvasActive && !isSquareCanvas,
+                    isLyricsVisible = isShowingLyrics,
+                    isPlaying = isPlayingState
+                )
+            }
+        }
 
         val containerModifier = Modifier
             .padding(

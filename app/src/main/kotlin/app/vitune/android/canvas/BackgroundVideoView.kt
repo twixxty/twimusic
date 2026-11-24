@@ -28,6 +28,8 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import app.vitune.android.preferences.PlayerPreferences
+import app.vitune.android.BuildConfig
+import app.vitune.android.utils.TrackRecomposition
 import kotlinx.coroutines.delay
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
@@ -50,6 +52,10 @@ fun BackgroundVideoView(
     onError: () -> Unit = {}
 ) {
     if (videoUrl.isBlank()) return
+
+    if (BuildConfig.DEBUG) {
+        TrackRecomposition("BackgroundVideoView")
+    }
 
     val context = LocalContext.current
     var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
