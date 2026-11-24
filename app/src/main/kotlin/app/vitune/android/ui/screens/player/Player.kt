@@ -916,6 +916,7 @@ fun Player(
                 modifier = containerModifier.fillMaxSize()
             ) {
                 val totalHeight = maxHeight
+                val totalWidth = maxWidth
                 val topPadding by animateDpAsState(
                     targetValue = if (isShowingLyrics && isLyricsFullscreen) 16.dp else 24.dp,
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
