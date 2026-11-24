@@ -38,6 +38,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -663,8 +664,10 @@ private fun ExpressiveControls(
                                 onToggleLyrics?.invoke()
                             }
                     ) {
+                        val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
+                            ?: binder.player.mediaMetadata?.artworkUri
                         AsyncImage(
-                            model = media.artworkUri?.thumbnail(140.dp.px),
+                            model = artworkUri?.thumbnail(140.dp.px),
                             placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
                             contentDescription = null,
