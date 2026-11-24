@@ -95,6 +95,12 @@ fun PlayerSettings() = with(PlayerPreferences) {
                         isChecked = pauseCanvasWithSong,
                         onCheckedChange = { pauseCanvasWithSong = it }
                     )
+                    SwitchSettingsEntry(
+                        title = stringResource(R.string.hide_status_bar_on_canvas),
+                        text = stringResource(R.string.hide_status_bar_on_canvas_description),
+                        isChecked = hideStatusBarOnCanvas,
+                        onCheckedChange = { hideStatusBarOnCanvas = it }
+                    )
                 }
             }
 

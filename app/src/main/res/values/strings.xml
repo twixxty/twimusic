@@ -620,4 +620,6 @@
     <string name="canvas_style_cover">Cover Art</string>
     <string name="pause_canvas_with_song">Pause canvas with song</string>
     <string name="pause_canvas_with_song_description">Slow down and pause video canvas when playback is paused</string>
+    <string name="hide_status_bar_on_canvas">Hide status bar on canvas</string>
+    <string name="hide_status_bar_on_canvas_description">Hide system status bar in player when canvas video is active</string>
 </resources>

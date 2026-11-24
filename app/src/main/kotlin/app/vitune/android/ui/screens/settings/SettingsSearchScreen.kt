@@ -111,6 +111,7 @@ fun SettingsSearchScreen(
         AppearancePreferences.openPlayer,
         PlayerPreferences.enableCanvas,
         PlayerPreferences.pauseCanvasWithSong,
+        PlayerPreferences.hideStatusBarOnCanvas,
         PlayerPreferences.canvasStyle,
         PlayerPreferences.persistentQueue,
         PlayerPreferences.resumePlaybackWhenDeviceConnected,
@@ -233,10 +234,18 @@ fun SettingsSearchScreen(
             SearchSettingEntry(
                 title = "Pause Canvas with song",
                 description = "Slow down and pause video canvas when playback is paused",
-                categoryName = "Appearance",
-                tabIndex = 0,
+                categoryName = "Player",
+                tabIndex = 1,
                 onInteract = { PlayerPreferences.pauseCanvasWithSong = !PlayerPreferences.pauseCanvasWithSong },
                 trailingContent = { Switch(isChecked = PlayerPreferences.pauseCanvasWithSong) }
+            ),
+            SearchSettingEntry(
+                title = "Hide status bar on canvas",
+                description = "Hide system status bar in player when canvas video is active",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = { PlayerPreferences.hideStatusBarOnCanvas = !PlayerPreferences.hideStatusBarOnCanvas },
+                trailingContent = { Switch(isChecked = PlayerPreferences.hideStatusBarOnCanvas) }
             ),
             SearchSettingEntry(
                 title = "Canvas Display Style",

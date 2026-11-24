@@ -682,32 +682,14 @@ private fun ExpressiveControls(
             }
         }
 
-        // 2. Full-width Seek Bar (between Song Info and Primary Controls) - smoothly hidden when enabling lyrics
-        AnimatedVisibility(
-            visible = !isShowingLyrics,
-            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
-            exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
-        ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SeekBar(
-                    binder = binder,
-                    position = position,
-                    media = media,
-                    color = colorPalette.accent,
-                    alwaysShowDuration = true
-                )
-            }
-        }
-
-        // 3. Primary Playback Controls (collapses in fullscreen lyrics)
+        // 2. Primary Playback Controls (collapses in fullscreen lyrics)
         AnimatedVisibility(
             visible = !isLyricsFullscreen || !isShowingLyrics,
             enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
             exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(if (isShowingLyrics) 24.dp else 16.dp))
 
                 // Primary Controls Row (Skip Prev, Center Play/Pause with text, Skip Next)
                 val playInteractionSource = remember { MutableInteractionSource() }
@@ -834,6 +816,24 @@ private fun ExpressiveControls(
                         shape = currentNextRadius.roundedShape
                     )
                 }
+            }
+        }
+
+        // 3. Full-width Seek Bar (BELOW controls) - smoothly hidden when enabling lyrics
+        AnimatedVisibility(
+            visible = !isShowingLyrics,
+            enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
+            exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                SeekBar(
+                    binder = binder,
+                    position = position,
+                    media = media,
+                    color = colorPalette.accent,
+                    alwaysShowDuration = true
+                )
             }
         }
     }

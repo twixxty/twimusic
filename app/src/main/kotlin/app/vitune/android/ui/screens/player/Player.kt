@@ -30,6 +30,8 @@ import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.ui.components.LiquidBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
+import app.vitune.android.utils.FullScreenState
+import androidx.core.view.WindowInsetsCompat
 import app.vitune.android.canvas.Motionartwork
 import app.vitune.android.canvas.MotionartworkPlaybackCache
 import app.vitune.android.canvas.AppleMusicMotionartworkProvider
@@ -574,6 +576,12 @@ fun Player(
             mutableStateOf(shouldShowInCover)
         }
 
+        val shouldHideStatusBar = PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && isVideoReady && !isShowingLyrics
+        FullScreenState(
+            shown = !shouldHideStatusBar,
+            type = WindowInsetsCompat.Type.statusBars()
+        )
+
         val containerModifier = Modifier
             .padding(
                 windowInsets
@@ -759,12 +767,12 @@ fun Player(
             }
 
             if (!isLandscape && isCanvasActive && !isSquareCanvas) {
-                if (playerLayout != PlayerPreferences.PlayerLayout.Expressive) {
-                    val canvasAlpha by animateFloatAsState(
-                        targetValue = if (!isShowingLyrics) 1f else 0f,
-                        animationSpec = tween(350, easing = FastOutSlowInEasing),
-                        label = "playerCanvasAlpha"
-                    )
+                val canvasAlpha by animateFloatAsState(
+                    targetValue = if (!isShowingLyrics && isVideoReady) 1f else 0f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerCanvasAlpha"
+                )
+                if (canvasAlpha > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -773,17 +781,19 @@ fun Player(
                         canvasContent(
                             Modifier
                                 .fillMaxWidth()
-                                .fillMaxHeight(0.82f)
+                                .fillMaxHeight(0.85f)
                                 .align(Alignment.TopCenter)
                         )
                     }
+                }
 
-                    // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
-                    val gradientAlpha by animateFloatAsState(
-                        targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isVideoReady) 1f else 0f,
-                        animationSpec = tween(350, easing = FastOutSlowInEasing),
-                        label = "playerCanvasGradientAlpha"
-                    )
+                // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
+                val gradientAlpha by animateFloatAsState(
+                    targetValue = if (!isShowingLyrics && isVideoReady) 1f else 0f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerCanvasGradientAlpha"
+                )
+                if (gradientAlpha > 0f) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -794,37 +804,12 @@ fun Player(
                                 Brush.verticalGradient(
                                     0.0f to Color.Transparent,
                                     0.25f to colorPalette.background0.copy(alpha = 0.50f),
-                                    0.50f to colorPalette.background0.copy(alpha = 0.95f),
-                                    0.65f to colorPalette.background0,
+                                    0.55f to colorPalette.background0.copy(alpha = 0.85f),
+                                    0.80f to colorPalette.background0,
                                     1.0f to colorPalette.background0
                                 )
                             )
                     )
-                } else {
-                    // In Expressive layout: bottom gradient fades smoothly with lyrics transition without any delay
-                    val gradientAlpha by animateFloatAsState(
-                        targetValue = if (!isShowingLyrics && isVideoReady) 1f else 0f,
-                        animationSpec = tween(350, easing = FastOutSlowInEasing),
-                        label = "playerExpressiveGradientAlpha"
-                    )
-                    if (gradientAlpha > 0f) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(0.65f)
-                                .align(Alignment.BottomCenter)
-                                .graphicsLayer { alpha = gradientAlpha }
-                                .background(
-                                    Brush.verticalGradient(
-                                        0.0f to Color.Transparent,
-                                        0.25f to colorPalette.background0.copy(alpha = 0.50f),
-                                        0.50f to colorPalette.background0.copy(alpha = 0.95f),
-                                        0.65f to colorPalette.background0,
-                                        1.0f to colorPalette.background0
-                                    )
-                                )
-                        )
-                    }
                 }
             }
 
@@ -926,11 +911,11 @@ fun Player(
                 val isExpressive = playerLayout == PlayerPreferences.PlayerLayout.Expressive
                 val controlsTargetHeight = remember(availableHeight, isShowingLyrics, isLyricsFullscreen, isExpressive) {
                     when {
-                        isLyricsFullscreen && isExpressive -> 68.dp
+                        isLyricsFullscreen && isExpressive -> 92.dp
                         isLyricsFullscreen -> 0.dp
-                        isShowingLyrics && isExpressive -> 150.dp
+                        isShowingLyrics && isExpressive -> 175.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
-                        isExpressive -> 204.dp
+                        isExpressive -> 216.dp
                         else -> availableHeight * (1f / 2.5f)
                     }
                 }
@@ -942,7 +927,7 @@ fun Player(
 
                 if (isExpressive) {
                     val isCanvasReady = isCanvasActive && !isSquareCanvas && isVideoReady
-                    val normalUpperAreaHeight = (availableHeight - 204.dp).coerceAtLeast(0.dp)
+                    val normalUpperAreaHeight = (availableHeight - 216.dp).coerceAtLeast(0.dp)
                     val normalCoverSize = (minOf(totalWidth - 64.dp, normalUpperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
 
                     val targetWidth: Dp
@@ -950,7 +935,6 @@ fun Player(
                     val targetRadius: Dp
                     val targetOffsetX: Dp
                     val targetOffsetY: Dp
-                    val targetCanvasAlpha: Float
                     val targetCoverAlpha: Float
 
                     when {
@@ -959,18 +943,8 @@ fun Player(
                             targetHeight = 52.dp
                             targetRadius = 12.dp
                             targetOffsetX = 24.dp
-                            targetOffsetY = totalHeight - (if (isLyricsFullscreen) 68.dp else 150.dp) + 8.dp
-                            targetCanvasAlpha = 0f
+                            targetOffsetY = totalHeight - (if (isLyricsFullscreen) 92.dp else 175.dp) + 8.dp
                             targetCoverAlpha = 1f
-                        }
-                        isCanvasReady -> {
-                            targetWidth = totalWidth
-                            targetHeight = totalHeight * 0.85f
-                            targetRadius = 0.dp
-                            targetOffsetX = 0.dp
-                            targetOffsetY = 0.dp
-                            targetCanvasAlpha = 1f
-                            targetCoverAlpha = 0f
                         }
                         else -> {
                             targetWidth = normalCoverSize
@@ -978,8 +952,7 @@ fun Player(
                             targetRadius = thumbnailCornerSize
                             targetOffsetX = (totalWidth - normalCoverSize) / 2
                             targetOffsetY = topPadding + ((normalUpperAreaHeight - normalCoverSize) / 2).coerceAtLeast(0.dp)
-                            targetCanvasAlpha = 0f
-                            targetCoverAlpha = 1f
+                            targetCoverAlpha = if (isCanvasReady) 0f else 1f
                         }
                     }
 
@@ -991,7 +964,6 @@ fun Player(
                     val animRadius by animateDpAsState(targetRadius, animSpecDp, label = "artworkRadius")
                     val animOffsetX by animateDpAsState(targetOffsetX, animSpecDp, label = "artworkOffsetX")
                     val animOffsetY by animateDpAsState(targetOffsetY, animSpecDp, label = "artworkOffsetY")
-                    val animCanvasAlpha by animateFloatAsState(targetCanvasAlpha, animSpecFloat, label = "canvasAlpha")
                     val animCoverAlpha by animateFloatAsState(targetCoverAlpha, animSpecFloat, label = "coverAlpha")
                     val animElevation by animateDpAsState(
                         targetValue = if (isShowingLyrics || isCanvasReady) 0.dp else 8.dp,
@@ -1006,7 +978,6 @@ fun Player(
                             .offset(x = animOffsetX, y = animOffsetY)
                             .size(width = animWidth, height = animHeight)
                             .clip(RoundedCornerShape(animRadius))
-                            .background(colorPalette.background0)
                             .shadow(
                                 elevation = animElevation,
                                 shape = RoundedCornerShape(animRadius),
@@ -1030,23 +1001,6 @@ fun Player(
                                 modifier = Modifier
                                     .fillMaxSize()
                                     .graphicsLayer { alpha = animCoverAlpha }
-                            )
-                        }
-
-                        if (isCanvasActive && !isSquareCanvas) {
-                            BackgroundVideoView(
-                                videoUrl = canvasVideoUrl,
-                                isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
-                                onVideoReady = { isVideoReady = it },
-                                onVideoSizeChanged = { width, height ->
-                                    if (width > 0 && height > 0) {
-                                        isSquareCanvas = (width.toFloat() / height.toFloat() in 0.82f..1.22f)
-                                    }
-                                },
-                                onError = { isVideoReady = false },
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { alpha = animCanvasAlpha }
                             )
                         }
                     }
