@@ -642,35 +642,13 @@ private fun ExpressiveControls(
                 .fillMaxWidth()
                 .height(52.dp)
         ) {
-            AnimatedVisibility(
-                visible = isShowingLyrics && !isLandscape,
-                enter = expandHorizontally(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350, easing = FastOutSlowInEasing)),
-                exit = shrinkHorizontally(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
-            ) {
-                Row {
-                    val artworkUri = binder.player.mediaMetadata.artworkUri
-                    Box(
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(12.dp.roundedShape)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = ripple()
-                            ) {
-                                onToggleLyrics?.invoke()
-                            }
-                    ) {
-                        AsyncImage(
-                            model = artworkUri?.thumbnail((96.dp).px),
-                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    }
-                    Spacer(Modifier.width(12.dp))
-                }
+            val thumbnailSpacerWidth by animateDpAsState(
+                targetValue = if (isShowingLyrics && !isLandscape) 64.dp else 0.dp,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "thumbnailSpacerWidth"
+            )
+            if (thumbnailSpacerWidth > 0.dp) {
+                Spacer(Modifier.width(thumbnailSpacerWidth))
             }
 
             MediaInfo(

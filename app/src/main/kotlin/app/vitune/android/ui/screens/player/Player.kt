@@ -766,7 +766,8 @@ fun Player(
                 }
             }
 
-            if (!isLandscape && isCanvasActive && !isSquareCanvas) {
+            val isExpressiveLayout = playerLayout == PlayerPreferences.PlayerLayout.Expressive
+            if (!isLandscape && isCanvasActive && !isSquareCanvas && !isExpressiveLayout) {
                 val canvasAlpha by animateFloatAsState(
                     targetValue = if (!isShowingLyrics) 1f else 0f,
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
@@ -777,12 +778,7 @@ fun Player(
                         .fillMaxSize()
                         .graphicsLayer { alpha = canvasAlpha }
                 ) {
-                    canvasContent(
-                        Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.82f)
-                            .align(Alignment.TopCenter)
-                    )
+                    canvasContent(Modifier.fillMaxSize())
                 }
 
                 // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
@@ -923,6 +919,94 @@ fun Player(
                     label = "playerControlsHeight"
                 )
 
+                if (isExpressive) {
+                    val normalUpperAreaHeight = (availableHeight - 236.dp).coerceAtLeast(0.dp)
+                    val normalCoverSize = (minOf(totalWidth - 64.dp, normalUpperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
+
+                    val targetWidth: Dp
+                    val targetHeight: Dp
+                    val targetRadius: Dp
+                    val targetCenterX: Dp
+                    val targetCenterY: Dp
+
+                    when {
+                        isShowingLyrics -> {
+                            targetWidth = 52.dp
+                            targetHeight = 52.dp
+                            targetRadius = 12.dp
+                            targetCenterX = 50.dp
+                            targetCenterY = totalHeight - (if (isLyricsFullscreen) 92.dp else 175.dp) + 6.dp + 26.dp
+                        }
+                        else -> {
+                            targetWidth = normalCoverSize
+                            targetHeight = normalCoverSize
+                            targetRadius = thumbnailCornerSize
+                            targetCenterX = totalWidth / 2
+                            targetCenterY = topPadding + (normalUpperAreaHeight / 2)
+                        }
+                    }
+
+                    val animSpecDp = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
+
+                    val animWidth by animateDpAsState(targetWidth, animSpecDp, label = "artworkWidth")
+                    val animHeight by animateDpAsState(targetHeight, animSpecDp, label = "artworkHeight")
+                    val animRadius by animateDpAsState(targetRadius, animSpecDp, label = "artworkRadius")
+                    val animCenterX by animateDpAsState(targetCenterX, animSpecDp, label = "artworkCenterX")
+                    val animCenterY by animateDpAsState(targetCenterY, animSpecDp, label = "artworkCenterY")
+                    val animElevation by animateDpAsState(
+                        targetValue = if (isShowingLyrics) 0.dp else 8.dp,
+                        animationSpec = animSpecDp,
+                        label = "artworkElevation"
+                    )
+
+                    val artworkUri = mediaItem?.mediaMetadata?.artworkUri ?: binder?.player?.mediaMetadata?.artworkUri
+
+                    Box(
+                        modifier = Modifier
+                            .offset(x = animCenterX - animWidth / 2, y = animCenterY - animHeight / 2)
+                            .size(width = animWidth, height = animHeight)
+                            .clip(RoundedCornerShape(animRadius))
+                            .shadow(
+                                elevation = animElevation,
+                                shape = RoundedCornerShape(animRadius),
+                                clip = false
+                            )
+                            .clickable(
+                                indication = if (isShowingLyrics) ripple() else null,
+                                interactionSource = remember { MutableInteractionSource() }
+                            ) {
+                                if (isShowingLyrics) isLyricsFullscreen = false
+                                isShowingLyrics = !isShowingLyrics
+                            }
+                    ) {
+                        AsyncImage(
+                            model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
+                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
+                            error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(colorPalette.background0)
+                        )
+
+                        if (isCanvasActive && !isShowingLyrics) {
+                            BackgroundVideoView(
+                                videoUrl = canvasVideoUrl,
+                                isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
+                                onVideoReady = { isVideoReady = it },
+                                onVideoSizeChanged = { width, height ->
+                                    if (width > 0 && height > 0) {
+                                        isSquareCanvas = (width.toFloat() / height.toFloat() in 0.82f..1.22f)
+                                    }
+                                },
+                                onError = { isVideoReady = false },
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
+
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier
@@ -935,46 +1019,63 @@ fun Player(
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        val artworkAlpha by animateFloatAsState(
-                            targetValue = if (!isShowingLyrics) 1f else 0f,
-                            animationSpec = tween(350, easing = FastOutSlowInEasing),
-                            label = "ArtworkAlpha"
-                        )
-                        val lyricsAlpha by animateFloatAsState(
-                            targetValue = if (isShowingLyrics) 1f else 0f,
-                            animationSpec = tween(350, easing = FastOutSlowInEasing),
-                            label = "LyricsAlpha"
-                        )
-
-                        if (isCanvasActive && !isSquareCanvas && isVideoReady) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { alpha = artworkAlpha }
-                                    .clickable(
-                                        enabled = !isShowingLyrics,
-                                        indication = null,
-                                        interactionSource = remember { MutableInteractionSource() }
-                                    ) {
-                                        if (isShowingLyrics) isLyricsFullscreen = false
-                                        isShowingLyrics = !isShowingLyrics
-                                    }
+                        if (isExpressive) {
+                            val lyricsAlpha by animateFloatAsState(
+                                targetValue = if (isShowingLyrics) 1f else 0f,
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                label = "LyricsAlpha"
                             )
-                        } else {
-                            Box(
-                                modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
-                            ) {
-                                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                            if (lyricsAlpha > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = lyricsAlpha }
+                                ) {
+                                    lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                                }
                             }
-                        }
+                        } else {
+                            val artworkAlpha by animateFloatAsState(
+                                targetValue = if (!isShowingLyrics) 1f else 0f,
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                label = "ArtworkAlpha"
+                            )
+                            val lyricsAlpha by animateFloatAsState(
+                                targetValue = if (isShowingLyrics) 1f else 0f,
+                                animationSpec = tween(350, easing = FastOutSlowInEasing),
+                                label = "LyricsAlpha"
+                            )
 
-                        if (lyricsAlpha > 0f) {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer { alpha = lyricsAlpha }
-                            ) {
-                                lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                            if (isCanvasActive && !isSquareCanvas && isVideoReady) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = artworkAlpha }
+                                        .clickable(
+                                            enabled = !isShowingLyrics,
+                                            indication = null,
+                                            interactionSource = remember { MutableInteractionSource() }
+                                        ) {
+                                            if (isShowingLyrics) isLyricsFullscreen = false
+                                            isShowingLyrics = !isShowingLyrics
+                                        }
+                                )
+                            } else {
+                                Box(
+                                    modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
+                                ) {
+                                    thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
+                                }
+                            }
+
+                            if (lyricsAlpha > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = lyricsAlpha }
+                                ) {
+                                    lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
+                                }
                             }
                         }
                     }
