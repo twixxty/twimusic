@@ -649,9 +649,9 @@ fun Player(
                 ) {
                     BackgroundVideoView(
                         videoUrl = videoUrl,
-                        isPlaying = !layoutState.collapsed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
+                        isPlaying = !layoutState.collapsed && (!isShowingLyrics || isLandscape) && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph,
-                        // and in landscape it is driven by canvasLandscapeAlpha / coverLandscapeAlpha.
+                        // and in landscape it is driven by canvasLandscapeProgress.
                         fadeInDurationMillis = 0,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
@@ -893,6 +893,17 @@ fun Player(
                     if (maxCoverArtHeight > 0.dp && sizeFromWidth > maxCoverArtHeight) maxCoverArtHeight else sizeFromWidth
                 }
 
+                val leftWeight by animateFloatAsState(
+                    targetValue = if (isLyricsFullscreen) 1f else 1.35f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerLandscapeLeftWeight"
+                )
+                val rightWeight by animateFloatAsState(
+                    targetValue = if (isLyricsFullscreen) 0.0001f else 1f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerLandscapeRightWeight"
+                )
+
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier
@@ -902,7 +913,7 @@ fun Player(
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
-                            .weight(1.35f)
+                            .weight(leftWeight)
                             .fillMaxHeight()
                     ) {
                         val artworkLandscapeAlpha by animateFloatAsState(
@@ -915,46 +926,51 @@ fun Player(
                             animationSpec = tween(350, easing = FastOutSlowInEasing),
                             label = "lyricsLandscapeAlpha"
                         )
-                        val canvasLandscapeAlpha by animateFloatAsState(
+                        val canvasLandscapeProgress by animateFloatAsState(
                             targetValue = if (isCanvasActive && !isSquareCanvas && isVideoReady) 1f else 0f,
-                            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-                            label = "canvasLandscapeAlpha"
-                        )
-                        val coverLandscapeAlpha by animateFloatAsState(
-                            targetValue = if (!isCanvasActive || isSquareCanvas || !isVideoReady) 1f else 0f,
-                            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
-                            label = "coverLandscapeAlpha"
+                            animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
+                            label = "canvasLandscapeProgress"
                         )
 
-                        Box(
-                            modifier = Modifier.graphicsLayer { alpha = artworkLandscapeAlpha * coverLandscapeAlpha }
-                        ) {
-                            thumbnailContent(Modifier.size(coverArtTargetSize))
+                        val coverScale = 1f + 0.12f * canvasLandscapeProgress
+                        val coverAlpha = artworkLandscapeAlpha * (1f - canvasLandscapeProgress).coerceIn(0f, 1f)
+
+                        if (coverAlpha > 0f) {
+                            Box(
+                                modifier = Modifier.graphicsLayer {
+                                    alpha = coverAlpha
+                                    scaleX = coverScale
+                                    scaleY = coverScale
+                                }
+                            ) {
+                                thumbnailContent(Modifier.size(coverArtTargetSize))
+                            }
                         }
 
                         if (isCanvasActive && !isSquareCanvas) {
+                            val canvasScale = 1.06f - 0.06f * canvasLandscapeProgress
+                            val canvasAlpha = artworkLandscapeAlpha * canvasLandscapeProgress
                             Box(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .graphicsLayer { alpha = artworkLandscapeAlpha * canvasLandscapeAlpha }
+                                    .graphicsLayer {
+                                        alpha = canvasAlpha
+                                        scaleX = canvasScale
+                                        scaleY = canvasScale
+                                        compositingStrategy = CompositingStrategy.Offscreen
+                                    }
+                                    .drawWithContent {
+                                        drawContent()
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                0.55f to Color.Black,
+                                                1.0f to Color.Transparent
+                                            ),
+                                            blendMode = BlendMode.DstIn
+                                        )
+                                    }
                             ) {
                                 canvasContent(Modifier.fillMaxSize())
-
-                                // Fading gradient towards the right to seamlessly blend canvas into the controls background
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxHeight()
-                                        .fillMaxWidth(0.50f)
-                                        .align(Alignment.CenterEnd)
-                                        .background(
-                                            Brush.horizontalGradient(
-                                                0.0f to Color.Transparent,
-                                                0.35f to colorPalette.background0.copy(alpha = 0.45f),
-                                                0.70f to colorPalette.background0.copy(alpha = 0.85f),
-                                                1.0f to colorPalette.background0
-                                            )
-                                        )
-                                )
                             }
                         }
 
@@ -976,7 +992,7 @@ fun Player(
                         exit = shrinkHorizontally(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
                                 fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
                         modifier = Modifier
-                            .weight(1f)
+                            .weight(rightWeight)
                             .fillMaxHeight()
                             .padding(bottom = playerBottomSheetState.collapsedBound)
                     ) {
