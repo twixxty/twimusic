@@ -599,12 +599,12 @@ fun Player(
             if (!videoUrl.isNullOrBlank()) {
                 Box(
                     modifier = innerModifier
-                        .fillMaxSize()
                         .clickable(
-                            enabled = !isShowingLyrics,
+                            enabled = !isShowingLyrics && isVideoReady,
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
                         ) {
+                            if (isShowingLyrics) isLyricsFullscreen = false
                             isShowingLyrics = !isShowingLyrics
                         }
                 ) {
@@ -772,19 +772,12 @@ fun Player(
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "playerCanvasAlpha"
                 )
-                if (canvasAlpha > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .graphicsLayer { alpha = canvasAlpha }
-                    ) {
-                        canvasContent(
-                            Modifier
-                                .fillMaxWidth()
-                                .fillMaxHeight(0.85f)
-                                .align(Alignment.TopCenter)
-                        )
-                    }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { alpha = canvasAlpha }
+                ) {
+                    canvasContent(Modifier.fillMaxSize())
                 }
 
                 // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
@@ -915,7 +908,7 @@ fun Player(
                         isLyricsFullscreen -> 0.dp
                         isShowingLyrics && isExpressive -> 175.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
-                        isExpressive -> 216.dp
+                        isExpressive -> 236.dp
                         else -> availableHeight * (1f / 2.5f)
                     }
                 }
@@ -927,14 +920,14 @@ fun Player(
 
                 if (isExpressive) {
                     val isCanvasReady = isCanvasActive && !isSquareCanvas && isVideoReady
-                    val normalUpperAreaHeight = (availableHeight - 216.dp).coerceAtLeast(0.dp)
+                    val normalUpperAreaHeight = (availableHeight - 236.dp).coerceAtLeast(0.dp)
                     val normalCoverSize = (minOf(totalWidth - 64.dp, normalUpperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
 
                     val targetWidth: Dp
                     val targetHeight: Dp
                     val targetRadius: Dp
-                    val targetOffsetX: Dp
-                    val targetOffsetY: Dp
+                    val targetCenterX: Dp
+                    val targetCenterY: Dp
                     val targetCoverAlpha: Float
 
                     when {
@@ -942,16 +935,16 @@ fun Player(
                             targetWidth = 52.dp
                             targetHeight = 52.dp
                             targetRadius = 12.dp
-                            targetOffsetX = 24.dp
-                            targetOffsetY = totalHeight - (if (isLyricsFullscreen) 92.dp else 175.dp) + 8.dp
+                            targetCenterX = 50.dp
+                            targetCenterY = totalHeight - (if (isLyricsFullscreen) 92.dp else 175.dp) + 6.dp + 26.dp
                             targetCoverAlpha = 1f
                         }
                         else -> {
                             targetWidth = normalCoverSize
                             targetHeight = normalCoverSize
                             targetRadius = thumbnailCornerSize
-                            targetOffsetX = (totalWidth - normalCoverSize) / 2
-                            targetOffsetY = topPadding + ((normalUpperAreaHeight - normalCoverSize) / 2).coerceAtLeast(0.dp)
+                            targetCenterX = totalWidth / 2
+                            targetCenterY = topPadding + (normalUpperAreaHeight / 2)
                             targetCoverAlpha = if (isCanvasReady) 0f else 1f
                         }
                     }
@@ -962,8 +955,8 @@ fun Player(
                     val animWidth by animateDpAsState(targetWidth, animSpecDp, label = "artworkWidth")
                     val animHeight by animateDpAsState(targetHeight, animSpecDp, label = "artworkHeight")
                     val animRadius by animateDpAsState(targetRadius, animSpecDp, label = "artworkRadius")
-                    val animOffsetX by animateDpAsState(targetOffsetX, animSpecDp, label = "artworkOffsetX")
-                    val animOffsetY by animateDpAsState(targetOffsetY, animSpecDp, label = "artworkOffsetY")
+                    val animCenterX by animateDpAsState(targetCenterX, animSpecDp, label = "artworkCenterX")
+                    val animCenterY by animateDpAsState(targetCenterY, animSpecDp, label = "artworkCenterY")
                     val animCoverAlpha by animateFloatAsState(targetCoverAlpha, animSpecFloat, label = "coverAlpha")
                     val animElevation by animateDpAsState(
                         targetValue = if (isShowingLyrics || isCanvasReady) 0.dp else 8.dp,
@@ -975,7 +968,7 @@ fun Player(
 
                     Box(
                         modifier = Modifier
-                            .offset(x = animOffsetX, y = animOffsetY)
+                            .offset(x = animCenterX - animWidth / 2, y = animCenterY - animHeight / 2)
                             .size(width = animWidth, height = animHeight)
                             .clip(RoundedCornerShape(animRadius))
                             .shadow(

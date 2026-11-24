@@ -633,7 +633,7 @@ private fun ExpressiveControls(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = if (isLandscape) 16.dp else 24.dp)
-            .padding(top = 8.dp, bottom = 8.dp)
+            .padding(top = 6.dp, bottom = 14.dp)
     ) {
         // 1. Song Info Row: Left-aligned Title/Artist & Like Button, with cover art thumbnail sliding in during lyrics
         Row(
@@ -689,7 +689,7 @@ private fun ExpressiveControls(
             exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(if (isShowingLyrics) 24.dp else 16.dp))
+                Spacer(modifier = Modifier.height(if (isShowingLyrics) 20.dp else 14.dp))
 
                 // Primary Controls Row (Skip Prev, Center Play/Pause with text, Skip Next)
                 val playInteractionSource = remember { MutableInteractionSource() }
@@ -826,7 +826,7 @@ private fun ExpressiveControls(
             exit = shrinkVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeOut(tween(350, easing = FastOutSlowInEasing))
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(10.dp))
                 SeekBar(
                     binder = binder,
                     position = position,
