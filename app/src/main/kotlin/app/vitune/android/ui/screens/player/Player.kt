@@ -25,13 +25,13 @@ import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.core.view.WindowInsetsCompat
+import app.vitune.android.utils.FullScreenState
 import app.vitune.android.ui.components.LavaLampBackground
 import app.vitune.android.ui.components.BlurredArtworkBackground
 import app.vitune.android.ui.components.LiquidBackground
 import app.vitune.android.utils.collectProvidedBitmapAsState
 import app.vitune.android.canvas.BackgroundVideoView
-import app.vitune.android.utils.FullScreenState
-import androidx.core.view.WindowInsetsCompat
 import app.vitune.android.canvas.Motionartwork
 import app.vitune.android.canvas.MotionartworkPlaybackCache
 import app.vitune.android.canvas.AppleMusicMotionartworkProvider
@@ -576,12 +576,6 @@ fun Player(
             mutableStateOf(shouldShowInCover)
         }
 
-        val shouldHideStatusBar = PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && isVideoReady && !isShowingLyrics
-        FullScreenState(
-            shown = !shouldHideStatusBar,
-            type = WindowInsetsCompat.Type.statusBars()
-        )
-
         val containerModifier = Modifier
             .padding(
                 windowInsets
@@ -599,12 +593,12 @@ fun Player(
             if (!videoUrl.isNullOrBlank()) {
                 Box(
                     modifier = innerModifier
+                        .fillMaxSize()
                         .clickable(
-                            enabled = !isShowingLyrics && isVideoReady,
+                            enabled = !isShowingLyrics,
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
                         ) {
-                            if (isShowingLyrics) isLyricsFullscreen = false
                             isShowingLyrics = !isShowingLyrics
                         }
                 ) {
@@ -766,8 +760,7 @@ fun Player(
                 }
             }
 
-            val isExpressiveLayout = playerLayout == PlayerPreferences.PlayerLayout.Expressive
-            if (!isLandscape && isCanvasActive && !isSquareCanvas && !isExpressiveLayout) {
+            if (!isLandscape && isCanvasActive && !isSquareCanvas) {
                 val canvasAlpha by animateFloatAsState(
                     targetValue = if (!isShowingLyrics) 1f else 0f,
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
@@ -778,7 +771,12 @@ fun Player(
                         .fillMaxSize()
                         .graphicsLayer { alpha = canvasAlpha }
                 ) {
-                    canvasContent(Modifier.fillMaxSize())
+                    canvasContent(
+                        Modifier
+                            .fillMaxWidth()
+                            .fillMaxHeight(0.85f)
+                            .align(Alignment.TopCenter)
+                    )
                 }
 
                 // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
@@ -787,24 +785,29 @@ fun Player(
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "playerCanvasGradientAlpha"
                 )
-                if (gradientAlpha > 0f) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .fillMaxHeight(0.65f)
-                            .align(Alignment.BottomCenter)
-                            .graphicsLayer { alpha = gradientAlpha }
-                            .background(
-                                Brush.verticalGradient(
-                                    0.0f to Color.Transparent,
-                                    0.25f to colorPalette.background0.copy(alpha = 0.50f),
-                                    0.55f to colorPalette.background0.copy(alpha = 0.85f),
-                                    0.80f to colorPalette.background0,
-                                    1.0f to colorPalette.background0
-                                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .fillMaxHeight(0.65f)
+                        .align(Alignment.BottomCenter)
+                        .graphicsLayer { alpha = gradientAlpha }
+                        .background(
+                            Brush.verticalGradient(
+                                0.0f to Color.Transparent,
+                                0.25f to colorPalette.background0.copy(alpha = 0.50f),
+                                0.50f to colorPalette.background0.copy(alpha = 0.95f),
+                                0.65f to colorPalette.background0,
+                                1.0f to colorPalette.background0
                             )
-                    )
-                }
+                        )
+                )
+            }
+
+            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && !isShowingLyrics && !layoutState.collapsed) {
+                FullScreenState(
+                    shown = false,
+                    type = WindowInsetsCompat.Type.statusBars()
+                )
             }
 
             if (isLandscape) BoxWithConstraints(
@@ -905,11 +908,10 @@ fun Player(
                 val isExpressive = playerLayout == PlayerPreferences.PlayerLayout.Expressive
                 val controlsTargetHeight = remember(availableHeight, isShowingLyrics, isLyricsFullscreen, isExpressive) {
                     when {
-                        isLyricsFullscreen && isExpressive -> 92.dp
+                        isLyricsFullscreen && isExpressive -> 96.dp
                         isLyricsFullscreen -> 0.dp
-                        isShowingLyrics && isExpressive -> 175.dp
+                        isShowingLyrics && isExpressive -> 180.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
-                        isExpressive -> 236.dp
                         else -> availableHeight * (1f / 2.5f)
                     }
                 }
@@ -918,94 +920,6 @@ fun Player(
                     animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
                     label = "playerControlsHeight"
                 )
-
-                if (isExpressive) {
-                    val normalUpperAreaHeight = (availableHeight - 236.dp).coerceAtLeast(0.dp)
-                    val normalCoverSize = (minOf(totalWidth - 64.dp, normalUpperAreaHeight - 32.dp)).coerceAtLeast(140.dp)
-
-                    val targetWidth: Dp
-                    val targetHeight: Dp
-                    val targetRadius: Dp
-                    val targetCenterX: Dp
-                    val targetCenterY: Dp
-
-                    when {
-                        isShowingLyrics -> {
-                            targetWidth = 52.dp
-                            targetHeight = 52.dp
-                            targetRadius = 12.dp
-                            targetCenterX = 50.dp
-                            targetCenterY = totalHeight - (if (isLyricsFullscreen) 92.dp else 175.dp) + 6.dp + 26.dp
-                        }
-                        else -> {
-                            targetWidth = normalCoverSize
-                            targetHeight = normalCoverSize
-                            targetRadius = thumbnailCornerSize
-                            targetCenterX = totalWidth / 2
-                            targetCenterY = topPadding + (normalUpperAreaHeight / 2)
-                        }
-                    }
-
-                    val animSpecDp = tween<Dp>(durationMillis = 350, easing = FastOutSlowInEasing)
-
-                    val animWidth by animateDpAsState(targetWidth, animSpecDp, label = "artworkWidth")
-                    val animHeight by animateDpAsState(targetHeight, animSpecDp, label = "artworkHeight")
-                    val animRadius by animateDpAsState(targetRadius, animSpecDp, label = "artworkRadius")
-                    val animCenterX by animateDpAsState(targetCenterX, animSpecDp, label = "artworkCenterX")
-                    val animCenterY by animateDpAsState(targetCenterY, animSpecDp, label = "artworkCenterY")
-                    val animElevation by animateDpAsState(
-                        targetValue = if (isShowingLyrics) 0.dp else 8.dp,
-                        animationSpec = animSpecDp,
-                        label = "artworkElevation"
-                    )
-
-                    val artworkUri = mediaItem?.mediaMetadata?.artworkUri ?: binder?.player?.mediaMetadata?.artworkUri
-
-                    Box(
-                        modifier = Modifier
-                            .offset(x = animCenterX - animWidth / 2, y = animCenterY - animHeight / 2)
-                            .size(width = animWidth, height = animHeight)
-                            .clip(RoundedCornerShape(animRadius))
-                            .shadow(
-                                elevation = animElevation,
-                                shape = RoundedCornerShape(animRadius),
-                                clip = false
-                            )
-                            .clickable(
-                                indication = if (isShowingLyrics) ripple() else null,
-                                interactionSource = remember { MutableInteractionSource() }
-                            ) {
-                                if (isShowingLyrics) isLyricsFullscreen = false
-                                isShowingLyrics = !isShowingLyrics
-                            }
-                    ) {
-                        AsyncImage(
-                            model = artworkUri?.thumbnail((Dimensions.thumbnails.player.song - 64.dp).px),
-                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .background(colorPalette.background0)
-                        )
-
-                        if (isCanvasActive && !isShowingLyrics) {
-                            BackgroundVideoView(
-                                videoUrl = canvasVideoUrl,
-                                isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
-                                onVideoReady = { isVideoReady = it },
-                                onVideoSizeChanged = { width, height ->
-                                    if (width > 0 && height > 0) {
-                                        isSquareCanvas = (width.toFloat() / height.toFloat() in 0.82f..1.22f)
-                                    }
-                                },
-                                onError = { isVideoReady = false },
-                                modifier = Modifier.fillMaxSize()
-                            )
-                        }
-                    }
-                }
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -1019,63 +933,46 @@ fun Player(
                             .weight(1f)
                             .fillMaxWidth()
                     ) {
-                        if (isExpressive) {
-                            val lyricsAlpha by animateFloatAsState(
-                                targetValue = if (isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "LyricsAlpha"
+                        val artworkAlpha by animateFloatAsState(
+                            targetValue = if (!isShowingLyrics) 1f else 0f,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "ArtworkAlpha"
+                        )
+                        val lyricsAlpha by animateFloatAsState(
+                            targetValue = if (isShowingLyrics) 1f else 0f,
+                            animationSpec = tween(350, easing = FastOutSlowInEasing),
+                            label = "LyricsAlpha"
+                        )
+
+                        if (isCanvasActive && !isSquareCanvas && isVideoReady) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = artworkAlpha }
+                                    .clickable(
+                                        enabled = !isShowingLyrics,
+                                        indication = null,
+                                        interactionSource = remember { MutableInteractionSource() }
+                                    ) {
+                                        if (isShowingLyrics) isLyricsFullscreen = false
+                                        isShowingLyrics = !isShowingLyrics
+                                    }
                             )
-                            if (lyricsAlpha > 0f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = lyricsAlpha }
-                                ) {
-                                    lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                                }
-                            }
                         } else {
-                            val artworkAlpha by animateFloatAsState(
-                                targetValue = if (!isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "ArtworkAlpha"
-                            )
-                            val lyricsAlpha by animateFloatAsState(
-                                targetValue = if (isShowingLyrics) 1f else 0f,
-                                animationSpec = tween(350, easing = FastOutSlowInEasing),
-                                label = "LyricsAlpha"
-                            )
-
-                            if (isCanvasActive && !isSquareCanvas && isVideoReady) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = artworkAlpha }
-                                        .clickable(
-                                            enabled = !isShowingLyrics,
-                                            indication = null,
-                                            interactionSource = remember { MutableInteractionSource() }
-                                        ) {
-                                            if (isShowingLyrics) isLyricsFullscreen = false
-                                            isShowingLyrics = !isShowingLyrics
-                                        }
-                                )
-                            } else {
-                                Box(
-                                    modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
-                                ) {
-                                    thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
-                                }
+                            Box(
+                                modifier = Modifier.graphicsLayer { alpha = artworkAlpha }
+                            ) {
+                                thumbnailContent(Modifier.padding(horizontal = 32.dp, vertical = 8.dp))
                             }
+                        }
 
-                            if (lyricsAlpha > 0f) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .graphicsLayer { alpha = lyricsAlpha }
-                                ) {
-                                    lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
-                                }
+                        if (lyricsAlpha > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer { alpha = lyricsAlpha }
+                            ) {
+                                lyricsContent(Modifier.fillMaxSize().padding(horizontal = 16.dp))
                             }
                         }
                     }
@@ -1084,11 +981,12 @@ fun Player(
                         visible = !isShowingLyrics || !isLyricsFullscreen || isExpressive,
                         enter = expandVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
                                 fadeIn(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)),
-                        exit = shrinkVertically(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing)) +
-                               fadeOut(animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing))
+                        exit = shrinkVertically(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)) +
+                               fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing))
                     ) {
                         controlsContent(
                             Modifier
+                                .padding(vertical = 8.dp)
                                 .fillMaxWidth()
                                 .height(animatedControlsHeight)
                         )

@@ -87,7 +87,7 @@ fun getMenuEntryShape(position: MenuEntryPosition, isExpressive: Boolean): Shape
         MenuEntryPosition.Bottom -> RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp, bottomStart = 20.dp, bottomEnd = 20.dp)
         MenuEntryPosition.Single -> RoundedCornerShape(20.dp)
         MenuEntryPosition.Middle -> RoundedCornerShape(4.dp)
-        MenuEntryPosition.Auto -> RoundedCornerShape(16.dp)
+        MenuEntryPosition.Auto -> RoundedCornerShape(12.dp)
     }
 }
 
