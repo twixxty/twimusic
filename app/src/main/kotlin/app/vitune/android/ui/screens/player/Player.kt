@@ -13,6 +13,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.expandVertically
@@ -194,6 +195,7 @@ fun Player(
         )
     }
     var shouldBePlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
+    var isPlayingState by remember(binder) { mutableStateOf(binder?.player?.isPlaying == true) }
 
     var canvasArtwork by remember(mediaItem?.mediaId) { mutableStateOf<Motionartwork?>(null) }
     var spotifyCanvasUrl by remember(mediaItem?.mediaId) { mutableStateOf<String?>(null) }
@@ -303,6 +305,8 @@ fun Player(
         object : Player.Listener {
             override fun onMediaItemTransition(newMediaItem: MediaItem?, reason: Int) {
                 mediaItem = newMediaItem
+                shouldBePlaying = player.shouldBePlaying
+                isPlayingState = player.isPlaying
             }
 
             override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) {
@@ -315,9 +319,16 @@ fun Player(
 
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 shouldBePlaying = player.shouldBePlaying
+                isPlayingState = player.isPlaying
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
+                shouldBePlaying = player.shouldBePlaying
+                isPlayingState = player.isPlaying
+            }
+
+            override fun onIsPlayingChanged(isPlaying: Boolean) {
+                isPlayingState = isPlaying
                 shouldBePlaying = player.shouldBePlaying
             }
         }
@@ -577,7 +588,6 @@ fun Player(
             }
         }
 
-        val isPlayingState = binder?.player?.isPlaying == true
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
@@ -592,6 +602,21 @@ fun Player(
         // recomposition and layout work.
         val hero = remember { CoverHeroState() }
         val isWideCanvasPresent = !isLandscape && isCanvasActive && !isSquareCanvas
+        val isWideCanvasActive = isCanvasActive && !isSquareCanvas && isVideoReady
+        val isSquareCanvasActive = isCanvasActive && isSquareCanvas
+        val shouldShrinkStaticCover = !isPlayingState &&
+            !isShowingLyrics &&
+            !isShowingStatsForNerds &&
+            !isWideCanvasActive &&
+            !isSquareCanvasActive
+        val staticCoverScale by animateFloatAsState(
+            targetValue = if (shouldShrinkStaticCover) 0.9f else 1f,
+            animationSpec = spring(
+                dampingRatio = 0.78f,
+                stiffness = 340f
+            ),
+            label = "staticCoverScale"
+        )
         val lyricsProgress = animateFloatAsState(
             targetValue = if (isShowingLyrics) 1f else 0f,
             animationSpec = tween(HeroLyricsDurationMillis, easing = HeroEasing),
@@ -683,8 +708,9 @@ fun Player(
                     likedAt = likedAt,
                     setLikedAt = { likedAt = it },
                     squareCanvasUrl = if (isCanvasActive && isSquareCanvas) canvasVideoUrl else null,
-                    isPlaying = isPlayingState && !isShowingLyrics && !layoutState.collapsed,
+                    isPlaying = !layoutState.collapsed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                     squareCanvasAlpha = { hero.squareCanvasAlpha() },
+                    coverScale = { staticCoverScale },
                     isCoverInteractive = isCoverInteractive,
                     modifier = Modifier
                         .nestedScroll(layoutState.preUpPostDownNestedScrollConnection)
@@ -755,7 +781,8 @@ fun Player(
                     isFullscreen = isLyricsFullscreen,
                     onToggleFullscreen = { isLyricsFullscreen = !isLyricsFullscreen },
                     onSetFullscreen = { isLyricsFullscreen = it },
-                    onMenuActionReady = { openLyricsMenu = it }
+                    onMenuActionReady = { openLyricsMenu = it },
+                    isActive = isShowingLyrics && layoutState.expanded
                 )
             }
         }
@@ -1020,7 +1047,7 @@ fun Player(
                     when {
                         isLyricsFullscreen && isExpressive -> 96.dp
                         isLyricsFullscreen -> 0.dp
-                        isShowingLyrics && isExpressive -> 196.dp
+                        isShowingLyrics && isExpressive -> 180.dp
                         isShowingLyrics -> availableHeight * (1f / 2.7f)
                         else -> availableHeight * (1f / 2.5f)
                     }

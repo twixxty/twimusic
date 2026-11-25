@@ -97,6 +97,8 @@ fun Thumbnail(
     // Read in the draw phase only; lets the player fade a square canvas back into the static art
     // while the cover is flying to the lyrics header.
     squareCanvasAlpha: () -> Float = { 1f },
+    // Read in the draw phase only; smoothly scales static cover art on pause/loading/seeking.
+    coverScale: () -> Float = { 1f },
     // While a wide canvas is covering the screen this cover is only a hidden gesture surface:
     // tapping still opens the lyrics but long press / double tap are left alone.
     isCoverInteractive: Boolean = true
@@ -179,6 +181,11 @@ fun Thumbnail(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .graphicsLayer {
+                        val s = if (isInPip || !squareCanvasUrl.isNullOrBlank() || error != null) 1f else coverScale()
+                        scaleX = s
+                        scaleY = s
+                    }
                     .clip(if (isInPip) RectangleShape else thumbnailShape)
                     .background(colorPalette.background0)
                     .shadow(

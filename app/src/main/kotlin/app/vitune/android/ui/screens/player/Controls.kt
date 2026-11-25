@@ -597,26 +597,28 @@ private fun ModernControls(
                     shape = currentNextRadius.roundedShape
                 )
             }
-            Spacer(modifier = Modifier.height(12.dp))
             val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
             AnimatedVisibility(
                 visible = isLandscape || !isShowingLyrics,
                 enter = fadeIn(tween(350, easing = FastOutSlowInEasing)) + expandVertically(tween(350, easing = FastOutSlowInEasing)),
                 exit = fadeOut(tween(300, easing = FastOutSlowInEasing)) + shrinkVertically(tween(300, easing = FastOutSlowInEasing))
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (PlayerPreferences.showLike) likeButtonContent() else previousButtonContent()
 
-                    Column(modifier = Modifier.weight(4f)) {
-                        SeekBar(
-                            binder = binder,
-                            position = position,
-                            media = media
-                        )
+                        Column(modifier = Modifier.weight(4f)) {
+                            SeekBar(
+                                binder = binder,
+                                position = position,
+                                media = media
+                            )
+                        }
                     }
                 }
             }
@@ -899,24 +901,30 @@ private fun ExpressiveControls(
                 )
 
                 val seekBarContent = @Composable {
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        if (!PlayerPreferences.showSeekBarOnTop) {
-                            Spacer(modifier = Modifier.height(14.dp))
-                        }
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            SeekBar(
-                                binder = binder,
-                                position = position,
-                                media = media,
-                                color = colorPalette.accent,
-                                alwaysShowDuration = true
-                            )
-                        }
-                        if (PlayerPreferences.showSeekBarOnTop) {
-                            Spacer(modifier = Modifier.height(14.dp))
+                    AnimatedVisibility(
+                        visible = isLandscape || !isShowingLyrics,
+                        enter = expandVertically(animationSpec = tween(350, easing = FastOutSlowInEasing)) + fadeIn(tween(350)),
+                        exit = shrinkVertically(animationSpec = tween(300, easing = FastOutSlowInEasing)) + fadeOut(tween(300))
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            if (!PlayerPreferences.showSeekBarOnTop) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                SeekBar(
+                                    binder = binder,
+                                    position = position,
+                                    media = media,
+                                    color = colorPalette.accent,
+                                    alwaysShowDuration = true
+                                )
+                            }
+                            if (PlayerPreferences.showSeekBarOnTop) {
+                                Spacer(modifier = Modifier.height(14.dp))
+                            }
                         }
                     }
                 }

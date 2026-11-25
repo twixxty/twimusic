@@ -90,6 +90,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -200,7 +201,8 @@ fun Lyrics(
     isFullscreen: Boolean = false,
     onToggleFullscreen: (() -> Unit)? = null,
     onSetFullscreen: ((Boolean) -> Unit)? = null,
-    onMenuActionReady: (((() -> Unit)?) -> Unit)? = null
+    onMenuActionReady: (((() -> Unit)?) -> Unit)? = null,
+    isActive: Boolean = isDisplayed
 ) = AnimatedVisibility(
     visible = isDisplayed,
     enter = fadeIn(),
@@ -247,19 +249,24 @@ fun Lyrics(
         }
     }
 
-    var isPlayerPlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
+    var isPlayerPlaying by remember(binder) { mutableStateOf(binder?.player?.isPlaying == true) }
+    var shouldBePlaying by remember(binder) { mutableStateOf(binder?.player?.shouldBePlaying == true) }
     DisposableEffect(binder) {
         val player = binder?.player ?: return@DisposableEffect onDispose { }
-        isPlayerPlaying = player.shouldBePlaying
+        isPlayerPlaying = player.isPlaying
+        shouldBePlaying = player.shouldBePlaying
         val listener = object : Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                isPlayerPlaying = player.shouldBePlaying
+                isPlayerPlaying = isPlaying
+                shouldBePlaying = player.shouldBePlaying
             }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                isPlayerPlaying = player.shouldBePlaying
+                isPlayerPlaying = player.isPlaying
+                shouldBePlaying = player.shouldBePlaying
             }
             override fun onPlaybackStateChanged(playbackState: Int) {
-                isPlayerPlaying = player.shouldBePlaying
+                isPlayerPlaying = player.isPlaying
+                shouldBePlaying = player.shouldBePlaying
             }
         }
         player.addListener(listener)
@@ -268,8 +275,8 @@ fun Lyrics(
         }
     }
 
-    LaunchedEffect(isPlayerPlaying) {
-        if (!isPlayerPlaying && isFullscreen) {
+    LaunchedEffect(shouldBePlaying) {
+        if (!shouldBePlaying && isFullscreen) {
             onSetFullscreen?.invoke(false)
         }
     }
@@ -441,7 +448,7 @@ fun Lyrics(
         )
     }
 
-    var lastInteractionTime by remember { mutableLongStateOf(android.os.SystemClock.elapsedRealtime()) }
+    var interactionNonce by remember { mutableIntStateOf(0) }
 
     BoxWithConstraints(
         contentAlignment = Alignment.Center,
@@ -451,7 +458,7 @@ fun Lyrics(
                     while (true) {
                         val event = awaitPointerEvent(PointerEventPass.Initial)
                         if (event.changes.any { it.pressed }) {
-                            lastInteractionTime = android.os.SystemClock.elapsedRealtime()
+                            interactionNonce++
                         }
                     }
                 }
@@ -622,24 +629,23 @@ fun Lyrics(
                 }
 
                 LaunchedEffect(
-                    lastInteractionTime,
+                    interactionNonce,
                     isFullscreen,
                     isDesynced,
                     isPlayerPlaying,
+                    shouldBePlaying,
                     shouldAutoHideFullscreen,
+                    isActive,
+                    mediaId,
                     onSetFullscreen
                 ) {
                     if (onSetFullscreen == null) return@LaunchedEffect
 
-                    if (isFullscreen && (!isPlayerPlaying || isDesynced)) {
+                    if (isFullscreen && (!shouldBePlaying || isDesynced || !isActive)) {
                         onSetFullscreen(false)
-                    } else if (shouldAutoHideFullscreen && !isFullscreen && !isDesynced && isPlayerPlaying) {
-                        val elapsed = android.os.SystemClock.elapsedRealtime() - lastInteractionTime
-                        val remaining = 5000L - elapsed
-                        if (remaining > 0) {
-                            delay(remaining)
-                        }
-                        if (!isDesynced && isPlayerPlaying && (android.os.SystemClock.elapsedRealtime() - lastInteractionTime) >= 5000L) {
+                    } else if (isActive && shouldAutoHideFullscreen && !isFullscreen && !isDesynced && isPlayerPlaying) {
+                        delay(5000L)
+                        if (isActive && !isDesynced && isPlayerPlaying && !isFullscreen) {
                             onSetFullscreen(true)
                         }
                     }
@@ -648,7 +654,7 @@ fun Lyrics(
                 LaunchedEffect(lazyListState.isScrollInProgress) {
                     if (lazyListState.isScrollInProgress) {
                         isAutoScrollEnabled = false
-                        lastInteractionTime = android.os.SystemClock.elapsedRealtime()
+                        interactionNonce++
                         onSetFullscreen?.invoke(false)
                     }
                 }
