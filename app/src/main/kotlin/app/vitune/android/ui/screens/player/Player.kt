@@ -1523,11 +1523,12 @@ fun Player(
                 }
                 val isBleedBarTranslucent = isFullscreenArtworkStyle && !isShowingLyrics
                 val barBaseColor = if (isBleedBarTranslucent) Color.White else colorPalette.text
+                val landscapeMode = isLandscape
 
                 // Build a custom collapsed bar row from the user's configured action list
                 val customActionsContent: @Composable RowScope.() -> Unit = {
-                    activeActions.forEach { action ->
-                        val iconColor = when (action) {
+                    activeActions.forEach { bottomAction ->
+                        val iconColor = when (bottomAction) {
                             PlayerPreferences.PlayerBottomAction.Lyrics ->
                                 if (isShowingLyrics) colorPalette.accent else barBaseColor
                             PlayerPreferences.PlayerBottomAction.Repeat ->
@@ -1542,16 +1543,16 @@ fun Player(
                                 if (enableCanvas) colorPalette.accent else barBaseColor
                             else -> barBaseColor
                         }
-                        val iconRes = when (action) {
+                        val iconRes = when (bottomAction) {
                             PlayerPreferences.PlayerBottomAction.Like ->
                                 if (likedAt != null) R.drawable.heart else R.drawable.heart_outline
-                            else -> action.icon
+                            else -> bottomAction.icon
                         }
                         IconButton(
                             icon = iconRes,
                             color = iconColor,
                             onClick = {
-                                when (action) {
+                                when (bottomAction) {
                                     PlayerPreferences.PlayerBottomAction.Lyrics -> {
                                         if (isShowingLyrics) {
                                             isLyricsFullscreen = false
@@ -1586,7 +1587,7 @@ fun Player(
                                     PlayerPreferences.PlayerBottomAction.Share -> {
                                         mediaItem?.let { item ->
                                             val sendIntent = Intent().apply {
-                                                action = Intent.ACTION_SEND
+                                                this.action = Intent.ACTION_SEND
                                                 type = "text/plain"
                                                 putExtra(
                                                     Intent.EXTRA_TEXT,
@@ -1607,7 +1608,7 @@ fun Player(
                                         }
                                     }
                                     PlayerPreferences.PlayerBottomAction.StatsForNerds -> {
-                                        if (!isLandscape && isShowingLyrics && !isShowingStatsForNerds) {
+                                        if (!landscapeMode && isShowingLyrics && !isShowingStatsForNerds) {
                                             isLyricsFullscreen = false
                                             isShowingLyrics = false
                                             isShowingStatsForNerds = true

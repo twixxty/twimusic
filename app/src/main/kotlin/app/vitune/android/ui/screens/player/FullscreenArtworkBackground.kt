@@ -291,7 +291,8 @@ private fun LandscapeFullscreenThumbnailBackground(
 
         val layoutDirection = LocalLayoutDirection.current
         val cutoutStart = WindowInsets.displayCutout.asPaddingValues().calculateStartPadding(layoutDirection)
-        val artWidth = maxOf(maxHeight * 1.25f, maxWidth * 0.62f).coerceAtMost(maxWidth * 0.70f)
+        val containerMaxHeight = maxHeight
+        val artWidth = maxOf(containerMaxHeight * 1.25f, maxWidth * 0.62f).coerceAtMost(maxWidth * 0.70f)
 
         Crossfade(
             targetState = artworkUri,
@@ -416,7 +417,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                             Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    alpha = coverAlpha
+                                    this.alpha = coverAlpha
                                     compositingStrategy = CompositingStrategy.Offscreen
                                 }
                                 .drawWithContent {
@@ -429,7 +430,7 @@ private fun LandscapeFullscreenThumbnailBackground(
             }
 
             if (hasVideo) {
-                val videoWidth = if (canvasTall) minOf(artWidth, maxHeight * 0.92f) else artWidth
+                val videoWidth = if (canvasTall) minOf(artWidth, containerMaxHeight * 0.92f) else artWidth
                 Box(
                     modifier =
                         Modifier
