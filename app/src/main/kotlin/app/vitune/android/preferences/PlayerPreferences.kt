@@ -74,7 +74,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
 
     enum class CanvasStyle(val displayName: @Composable () -> String) {
         Cover(displayName = { stringResource(R.string.canvas_style_cover) }),
-        Wide(displayName = { stringResource(R.string.canvas_style_wide) })
+        Wide(displayName = { stringResource(R.string.canvas_style_wide) }),
+        FullscreenArtwork(displayName = { stringResource(R.string.canvas_style_fullscreen_artwork) })
     }
     var canvasStyle by enum(CanvasStyle.Cover)
     var pauseCanvasWithSong by boolean(true)

@@ -1,6 +1,7 @@
 package app.vitune.android.canvas
 
 import android.graphics.SurfaceTexture
+import android.os.SystemClock
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
@@ -14,8 +15,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
@@ -39,6 +43,27 @@ import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 
+private class CanvasFrameSampler(
+    private val intervalMs: Long = 50L,
+    private val maxSide: Int = 48
+) {
+    private var lastSampleMs: Long? = null
+
+    fun reset() {
+        lastSampleMs = null
+    }
+
+    fun sampleSize(nowMs: Long, width: Int, height: Int): Pair<Int, Int>? {
+        if (width <= 0 || height <= 0) return null
+        if (lastSampleMs?.let { nowMs - it < intervalMs } == true) return null
+        lastSampleMs = nowMs
+        val longestSide = maxOf(width, height)
+        val sampleSide = minOf(maxSide, longestSide).toLong()
+        return (sampleSide * width / longestSide).toInt().coerceAtLeast(1) to
+            (sampleSide * height / longestSide).toInt().coerceAtLeast(1)
+    }
+}
+
 @OptIn(UnstableApi::class)
 @Composable
 fun BackgroundVideoView(
@@ -49,7 +74,8 @@ fun BackgroundVideoView(
     fadeInDurationMillis: Int = 800,
     onVideoSizeChanged: (width: Int, height: Int) -> Unit = { _, _ -> },
     onVideoReady: (Boolean) -> Unit = {},
-    onError: () -> Unit = {}
+    onError: () -> Unit = {},
+    onFrame: ((ImageBitmap?) -> Unit)? = null
 ) {
     if (videoUrl.isBlank()) return
 
@@ -59,6 +85,9 @@ fun BackgroundVideoView(
 
     val context = LocalContext.current
     var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
+    val latestOnFrame by rememberUpdatedState(onFrame)
+    val latestIsVideoReady by rememberUpdatedState(isVideoReady)
+    val frameSampler = remember { CanvasFrameSampler() }
 
     val trackSelector = remember {
         DefaultTrackSelector(context).apply {
@@ -115,6 +144,8 @@ fun BackgroundVideoView(
             }
             override fun onPlayerError(error: PlaybackException) {
                 isVideoReady = false
+                frameSampler.reset()
+                latestOnFrame?.invoke(null)
                 onVideoReady(false)
                 onError()
             }
@@ -127,6 +158,8 @@ fun BackgroundVideoView(
 
     LaunchedEffect(videoUrl) {
         isVideoReady = false
+        frameSampler.reset()
+        latestOnFrame?.invoke(null)
         onVideoReady(false)
         val mediaItem = MediaItem.Builder()
             .setUri(videoUrl)
@@ -166,6 +199,7 @@ fun BackgroundVideoView(
 
     DisposableEffect(Unit) {
         onDispose {
+            latestOnFrame?.invoke(null)
             exoPlayer.release()
         }
     }
@@ -192,10 +226,26 @@ fun BackgroundVideoView(
                             }
                             override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
                             override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                                frameSampler.reset()
+                                latestOnFrame?.invoke(null)
                                 exoPlayer.clearVideoTextureView(this@apply)
                                 return true
                             }
-                            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {}
+                            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                                val callback = latestOnFrame ?: return
+                                if (!latestIsVideoReady) return
+                                val sample = frameSampler.sampleSize(
+                                    nowMs = SystemClock.uptimeMillis(),
+                                    width = this@apply.width,
+                                    height = this@apply.height
+                                ) ?: return
+                                val sampledBitmap = runCatching {
+                                    this@apply.getBitmap(sample.first, sample.second)
+                                }.getOrNull()
+                                if (sampledBitmap != null) {
+                                    callback(sampledBitmap.asImageBitmap())
+                                }
+                            }
                         }
                     }
                     addView(textureView)

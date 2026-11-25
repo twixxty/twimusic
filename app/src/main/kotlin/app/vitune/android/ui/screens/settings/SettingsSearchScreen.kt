@@ -259,19 +259,17 @@ fun SettingsSearchScreen(
             ),
             SearchSettingEntry(
                 title = "Canvas Display Style",
-                description = "Switch between Cover Art and Wide/Fullscreen video presentation",
+                description = "Switch between Cover Art, Wide/Fullscreen, and Metrolist Fullscreen Artwork",
                 categoryName = "Appearance",
                 tabIndex = 0,
                 onInteract = {
-                    PlayerPreferences.canvasStyle = if (PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Cover) {
-                        PlayerPreferences.CanvasStyle.Wide
-                    } else {
-                        PlayerPreferences.CanvasStyle.Cover
-                    }
+                    val entries = PlayerPreferences.CanvasStyle.entries
+                    val nextIndex = (entries.indexOf(PlayerPreferences.canvasStyle) + 1) % entries.size
+                    PlayerPreferences.canvasStyle = entries[nextIndex]
                 },
                 trailingContent = {
                     BasicText(
-                        text = PlayerPreferences.canvasStyle.name,
+                        text = PlayerPreferences.canvasStyle.displayName(),
                         style = typography.xs.semiBold.copy(color = colorPalette.accent)
                     )
                 }

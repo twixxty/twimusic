@@ -116,7 +116,8 @@ fun Controls(
     onToggleLyrics: (() -> Unit)? = null,
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout,
     hero: CoverHeroState? = null,
-    onOpenLyricsMenu: (() -> Unit)? = null
+    onOpenLyricsMenu: (() -> Unit)? = null,
+    mediaInfoModifier: Modifier = Modifier
 ) {
     if (BuildConfig.DEBUG) {
         TrackRecomposition("Controls")
@@ -144,6 +145,7 @@ fun Controls(
             playButtonRadius = playButtonRadius,
             isShowingLyrics = isShowingLyrics,
             onToggleLyrics = onToggleLyrics,
+            mediaInfoModifier = mediaInfoModifier,
             modifier = modifier
         )
 
@@ -157,6 +159,7 @@ fun Controls(
             playButtonRadius = playButtonRadius,
             isShowingLyrics = isShowingLyrics,
             onToggleLyrics = onToggleLyrics,
+            mediaInfoModifier = mediaInfoModifier,
             modifier = modifier
         )
 
@@ -173,6 +176,7 @@ fun Controls(
             onToggleLyrics = onToggleLyrics,
             hero = hero,
             onOpenLyricsMenu = onOpenLyricsMenu,
+            mediaInfoModifier = mediaInfoModifier,
             modifier = modifier
         )
     }
@@ -189,7 +193,8 @@ private fun ClassicControls(
     playButtonRadius: Dp,
     modifier: Modifier = Modifier,
     isShowingLyrics: Boolean = false,
-    onToggleLyrics: (() -> Unit)? = null
+    onToggleLyrics: (() -> Unit)? = null,
+    mediaInfoModifier: Modifier = Modifier
 ) = with(PlayerPreferences) {
     val (colorPalette) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -201,7 +206,10 @@ private fun ClassicControls(
             .padding(horizontal = if (isLandscape) 16.dp else 32.dp)
     ) {
         Spacer(modifier = Modifier.weight(1f))
-        MediaInfo(media)
+        MediaInfo(
+            media = media,
+            modifier = mediaInfoModifier
+        )
         Spacer(modifier = Modifier.weight(1f))
         val isGuest = binder.listenTogether.isGuestPlaybackLocked
 
@@ -376,7 +384,8 @@ private fun ModernControls(
     modifier: Modifier = Modifier,
     isShowingLyrics: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
-    controlHeight: Dp = 64.dp
+    controlHeight: Dp = 64.dp,
+    mediaInfoModifier: Modifier = Modifier
 ) {
     if (BuildConfig.DEBUG) {
         TrackRecomposition("ModernControls")
@@ -410,7 +419,10 @@ private fun ModernControls(
             .padding(horizontal = if (isLandscape) 16.dp else 32.dp)
     ) {
         Spacer(modifier = Modifier.weight(1f))
-        MediaInfo(media)
+        MediaInfo(
+            media = media,
+            modifier = mediaInfoModifier
+        )
         Spacer(modifier = Modifier.weight(1f))
 
         val playInteractionSource = remember { MutableInteractionSource() }
@@ -643,7 +655,8 @@ private fun ExpressiveControls(
     onToggleLyrics: (() -> Unit)? = null,
     controlHeight: Dp = 64.dp,
     hero: CoverHeroState? = null,
-    onOpenLyricsMenu: (() -> Unit)? = null
+    onOpenLyricsMenu: (() -> Unit)? = null,
+    mediaInfoModifier: Modifier = Modifier
 ) {
     val (colorPalette, typography) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -714,7 +727,9 @@ private fun ExpressiveControls(
 
             MediaInfo(
                 media = media,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .then(mediaInfoModifier),
                 horizontalAlignment = Alignment.Start
             )
 

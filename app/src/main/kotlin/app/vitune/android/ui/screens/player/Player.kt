@@ -10,8 +10,13 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.SeekableTransitionState
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.rememberTransition
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -23,11 +28,19 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.core.view.WindowInsetsCompat
 import app.vitune.android.utils.FullScreenState
 import app.vitune.android.ui.components.LavaLampBackground
@@ -48,7 +61,10 @@ import app.vitune.android.canvas.validateMotionartworkMatch
 import app.vitune.android.lyrics.LyricsUtils
 import app.vitune.android.spotify.Spotify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.net.UnknownHostException
+import java.nio.channels.UnresolvedAddressException
 import java.util.Locale
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -79,6 +95,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
@@ -88,6 +105,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -99,6 +117,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -119,7 +138,13 @@ import app.vitune.android.R
 import app.vitune.android.models.ui.toUiMedia
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.query
+import app.vitune.android.service.LoginRequiredException
+import app.vitune.android.service.PlayableFormatNotFoundException
 import app.vitune.android.service.PlayerService
+import app.vitune.android.service.RestrictedVideoException
+import app.vitune.android.service.UnplayableException
+import app.vitune.android.service.VideoIdMismatchException
+import app.vitune.android.service.isLocal
 import app.vitune.android.transaction
 import app.vitune.android.ui.components.BottomSheet
 import app.vitune.android.ui.components.BottomSheetState
@@ -147,6 +172,7 @@ import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
 import app.vitune.android.utils.shouldBePlaying
 import app.vitune.android.utils.thumbnail
+import app.vitune.android.utils.windowState
 import app.vitune.compose.persist.PersistMapCleanup
 import app.vitune.compose.routing.OnGlobalRoute
 import app.vitune.core.ui.Dimensions
@@ -573,38 +599,52 @@ fun Player(
             expandedBound = layoutState.expandedBound
         )
 
+        val isFullscreenArtworkStyle = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.FullscreenArtwork
         val allowCanvas = PlayerPreferences.enableCanvas
         val isMobileBlocked = PlayerPreferences.canvasLoadOnlyWifi && context.isMobileData()
         val preferCover = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Cover
+        val preferSquareCanvas = preferCover || (isFullscreenArtworkStyle && isLandscape)
 
         val artworkSquareVideo = canvasArtwork?.animated ?: canvasArtwork?.videoUrl
         val artworkTallVideo = canvasArtwork?.animatedTall
 
-        val canvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else {
-            if (preferCover) {
+        val rawCanvasVideoUrl = if (isMobileBlocked || !allowCanvas) null else {
+            if (preferSquareCanvas) {
                 artworkSquareVideo ?: artworkTallVideo ?: spotifyCanvasUrl
             } else {
                 artworkTallVideo ?: artworkSquareVideo ?: spotifyCanvasUrl
             }
         }
 
+        var canvasFailed by remember(rawCanvasVideoUrl) { mutableStateOf(false) }
+        val canvasVideoUrl = if (canvasFailed) null else rawCanvasVideoUrl
+
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
-        val shouldShowInCover = preferCover || (!artworkSquareVideo.isNullOrBlank() && artworkTallVideo.isNullOrBlank() && canvasVideoUrl == artworkSquareVideo)
+        val shouldShowInCover = !isFullscreenArtworkStyle && (
+            preferCover || (!artworkSquareVideo.isNullOrBlank() && artworkTallVideo.isNullOrBlank() && canvasVideoUrl == artworkSquareVideo)
+        )
 
         var isSquareCanvas by remember(canvasVideoUrl, shouldShowInCover) {
             mutableStateOf(shouldShowInCover)
+        }
+        var isTallCanvasVideo by remember(canvasVideoUrl, artworkTallVideo, spotifyCanvasUrl) {
+            mutableStateOf(
+                !canvasVideoUrl.isNullOrBlank() &&
+                    (canvasVideoUrl == artworkTallVideo || canvasVideoUrl == spotifyCanvasUrl)
+            )
         }
 
         // Shared artwork morph: cover <-> wide canvas <-> lyrics header (see PlayerHero.kt). Both
         // progress values are only ever read in the draw phase, so animating them is free of
         // recomposition and layout work.
         val hero = remember { CoverHeroState() }
-        val isWideCanvasPresent = !isLandscape && isCanvasActive && !isSquareCanvas
-        val isWideCanvasActive = isCanvasActive && !isSquareCanvas && isVideoReady
-        val isSquareCanvasActive = isCanvasActive && isSquareCanvas
-        val shouldShrinkStaticCover = !isPlayingState &&
+        val isWideCanvasPresent = !isFullscreenArtworkStyle && !isLandscape && isCanvasActive && !isSquareCanvas
+        val isWideCanvasActive = !isFullscreenArtworkStyle && isCanvasActive && !isSquareCanvas && isVideoReady
+        val isSquareCanvasActive = !isFullscreenArtworkStyle && isCanvasActive && isSquareCanvas
+        val shouldShrinkStaticCover = !isFullscreenArtworkStyle &&
+            !isPlayingState &&
             !isShowingLyrics &&
             !isShowingStatsForNerds &&
             !isWideCanvasActive &&
@@ -634,6 +674,30 @@ fun Player(
         val heroCoverRadius = with(LocalDensity.current) { thumbnailCornerSize.toPx() }
         val heroHeaderRadius = with(LocalDensity.current) { 12.dp.toPx() }
 
+        var playerRootCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+        var playerRootHeightPx by remember { mutableFloatStateOf(0f) }
+        var songTitleTopPx by remember { mutableFloatStateOf(Float.NaN) }
+        var artistBottomPx by remember { mutableFloatStateOf(Float.NaN) }
+        val fullscreenTransitionBounds by remember {
+            derivedStateOf {
+                if (playerRootHeightPx > 0f && !songTitleTopPx.isNaN() && !artistBottomPx.isNaN()) {
+                    val start =
+                        ((songTitleTopPx - playerRootHeightPx * FULLSCREEN_TITLE_TRANSITION_OFFSET_FRACTION) / playerRootHeightPx)
+                            .coerceIn(0f, 0.85f)
+                    val end =
+                        (artistBottomPx / playerRootHeightPx)
+                            .coerceAtLeast(start + FULLSCREEN_MIN_FADE_SPAN_FRACTION)
+                            .coerceIn(start, 1f)
+                    FullscreenTransitionBounds(
+                        bottomTransitionStartFraction = start,
+                        bottomTransitionEndFraction = end
+                    )
+                } else {
+                    null
+                }
+            }
+        }
+
         if (BuildConfig.DEBUG) {
             TrackRecomposition("Player")
             SideEffect {
@@ -657,15 +721,14 @@ fun Player(
                 else it.padding(bottom = playerBottomSheetState.collapsedBound)
             }
 
-        val canvasContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
+        val canvasContent: @Composable (modifier: Modifier, onFrame: ((ImageBitmap?) -> Unit)?) -> Unit = { innerModifier, onFrame ->
             val videoUrl = canvasVideoUrl
-            val landscape = isLandscape
             if (!videoUrl.isNullOrBlank()) {
                 Box(
                     modifier = innerModifier
                         .fillMaxSize()
                         .clickable(
-                            enabled = !isShowingLyrics,
+                            enabled = !isShowingLyrics && !isFullscreenArtworkStyle,
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
                         ) {
@@ -676,17 +739,21 @@ fun Player(
                         videoUrl = videoUrl,
                         isPlaying = !layoutState.collapsed && (!isShowingLyrics || isLandscape) && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph,
-                        // and in landscape it is driven by canvasLandscapeProgress.
+                        // and in landscape it is driven by canvasLandscapeProgress / FullscreenThumbnailBackground.
                         fadeInDurationMillis = 0,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
-                                isSquareCanvas = (width.toFloat() / height.toFloat() in 0.82f..1.22f)
+                                val aspectRatio = width.toFloat() / height.toFloat()
+                                isSquareCanvas = !isFullscreenArtworkStyle && (aspectRatio in 0.82f..1.22f)
+                                isTallCanvasVideo = aspectRatio < 0.85f
                             }
                         },
                         onError = {
                             isVideoReady = false
+                            canvasFailed = true
                         },
+                        onFrame = onFrame,
                         modifier = Modifier.fillMaxSize()
                     )
                 }
@@ -735,29 +802,64 @@ fun Player(
         }
 
         val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
+        val appearance = LocalAppearance.current
+        val useWhiteFullscreenControls = isFullscreenArtworkStyle && !colorPalette.isDark && (!isShowingLyrics || isLandscape)
+        val effectiveControlsAppearance = remember(appearance, useWhiteFullscreenControls) {
+            if (!useWhiteFullscreenControls) {
+                appearance
+            } else {
+                appearance.copy(
+                    colorPalette = appearance.colorPalette.copy(
+                        background1 = Color.White.copy(alpha = 0.14f),
+                        background2 = Color.White.copy(alpha = 0.18f),
+                        text = Color.White,
+                        textSecondary = Color.White.copy(alpha = 0.78f),
+                        textDisabled = Color.White.copy(alpha = 0.45f),
+                        isDark = true
+                    ),
+                    typography = appearance.typography.copy(color = Color.White)
+                )
+            }
+        }
+        val mediaInfoBoundsModifier =
+            if (isFullscreenArtworkStyle && !isLandscape && !isShowingLyrics) {
+                Modifier.onGloballyPositioned { coordinates ->
+                    val root = playerRootCoordinates
+                    if (root != null && root.isAttached && coordinates.isAttached) {
+                        val top = root.localPositionOf(coordinates, Offset.Zero).y
+                        songTitleTopPx = top
+                        artistBottomPx = top + coordinates.size.height
+                    }
+                }
+            } else {
+                Modifier
+            }
 
         val controlsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
-            Controls(
-                media = mediaItem?.toUiMedia(duration),
-                binder = binder,
-                likedAt = likedAt,
-                setLikedAt = { likedAt = it },
-                shouldBePlaying = shouldBePlaying,
-                position = position,
-                isShowingLyrics = isShowingLyrics,
-                isLyricsFullscreen = isLyricsFullscreen,
-                onToggleLyrics = {
-                    if (isShowingLyrics) {
-                        isLyricsFullscreen = false
-                        isShowingLyrics = false
-                    } else {
-                        isShowingLyrics = true
-                    }
-                },
-                hero = hero,
-                onOpenLyricsMenu = openLyricsMenu,
-                modifier = innerModifier
-            )
+            CompositionLocalProvider(LocalAppearance provides effectiveControlsAppearance) {
+                Controls(
+                    media = mediaItem?.toUiMedia(duration),
+                    binder = binder,
+                    likedAt = likedAt,
+                    setLikedAt = { likedAt = it },
+                    shouldBePlaying = shouldBePlaying,
+                    position = position,
+                    isShowingLyrics = isShowingLyrics,
+                    isLyricsFullscreen = isLyricsFullscreen,
+                    onToggleLyrics = {
+                        if (isShowingLyrics) {
+                            isLyricsFullscreen = false
+                            isShowingLyrics = false
+                        } else {
+                            isShowingLyrics = true
+                        }
+                    },
+                    hero = if (isFullscreenArtworkStyle) null else hero,
+                    onOpenLyricsMenu = openLyricsMenu,
+                    mediaInfoModifier = mediaInfoBoundsModifier,
+                    modifier = innerModifier
+                )
+            }
         }
 
         val lyricsContent: @Composable (modifier: Modifier) -> Unit = { innerModifier ->
@@ -792,6 +894,8 @@ fun Player(
                 .fillMaxSize()
                 .clip(shape)
                 .heroRoot(hero)
+                .onPlaced { playerRootCoordinates = it }
+                .onSizeChanged { playerRootHeightPx = it.height.toFloat() }
         ) {
             val darkOverlayAlpha by animateFloatAsState(
                 targetValue = if (isShowingLyrics) 0.55f else 0.35f,
@@ -845,6 +949,34 @@ fun Player(
                 }
             }
 
+            val fullscreenBgAlpha by animateFloatAsState(
+                targetValue = if (isFullscreenArtworkStyle && !isShowingLyrics) 1f else 0f,
+                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                label = "fullscreenThumbnailBgAlpha"
+            )
+            if (isFullscreenArtworkStyle && (!isShowingLyrics || fullscreenBgAlpha > 0f)) {
+                val currentArtworkUri = mediaItem?.mediaMetadata?.artworkUri
+                    ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
+                    ?: binder?.player?.mediaMetadata?.artworkUri
+                FullscreenThumbnailBackground(
+                    artworkUri = currentArtworkUri,
+                    fallbackBackgroundColor = colorPalette.background0,
+                    alpha = fullscreenBgAlpha,
+                    transitionBounds = fullscreenTransitionBounds,
+                    isLandscape = isLandscape,
+                    canvasVideoUrl = canvasVideoUrl,
+                    isVideoReady = isVideoReady,
+                    canvasTall = isTallCanvasVideo,
+                    isBlurredBackgroundStyle = playerBackgroundStyle == PlayerPreferences.PlayerBackgroundStyle.Blur,
+                    canvasContent =
+                        if (isCanvasActive) {
+                            { videoModifier, onFrame -> canvasContent(videoModifier, onFrame) }
+                        } else {
+                            null
+                        }
+                )
+            }
+
             if (isWideCanvasPresent) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     // The slot itself never moves, only the layer inside it does: that keeps the
@@ -869,7 +1001,7 @@ fun Player(
                                     )
                                 }
                         ) {
-                            canvasContent(Modifier.fillMaxSize())
+                            canvasContent(Modifier.fillMaxSize(), null)
                         }
                     }
                 }
@@ -962,42 +1094,67 @@ fun Player(
                         val coverScale = 1f + 0.12f * canvasLandscapeProgress
                         val coverAlpha = artworkLandscapeAlpha * (1f - canvasLandscapeProgress).coerceIn(0f, 1f)
 
-                        if (coverAlpha > 0f) {
-                            Box(
-                                modifier = Modifier.graphicsLayer {
-                                    alpha = coverAlpha
-                                    scaleX = coverScale
-                                    scaleY = coverScale
+                        if (isFullscreenArtworkStyle) {
+                            if (artworkLandscapeAlpha > 0f) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer { alpha = artworkLandscapeAlpha }
+                                ) {
+                                    FullscreenArtworkOverlay(
+                                        binder = binder,
+                                        isShowingLyrics = isShowingLyrics,
+                                        onShowLyrics = { isShowingLyrics = it },
+                                        isShowingStatsForNerds = isShowingStatsForNerds,
+                                        onShowStatsForNerds = { isShowingStatsForNerds = it },
+                                        likedAt = likedAt,
+                                        setLikedAt = { likedAt = it },
+                                        nestedScrollConnection = layoutState.preUpPostDownNestedScrollConnection,
+                                        isShowingLyricsDialog = isShowingLyricsDialog,
+                                        onShowLyricsDialog = { isShowingLyricsDialog = true },
+                                        onEnterPip = { pipHandler.enterPictureInPictureMode() },
+                                        modifier = Modifier.fillMaxSize()
+                                    )
                                 }
-                            ) {
-                                thumbnailContent(Modifier.size(coverArtTargetSize))
                             }
-                        }
+                        } else {
+                            if (coverAlpha > 0f) {
+                                Box(
+                                    modifier = Modifier.graphicsLayer {
+                                        alpha = coverAlpha
+                                        scaleX = coverScale
+                                        scaleY = coverScale
+                                    }
+                                ) {
+                                    thumbnailContent(Modifier.size(coverArtTargetSize))
+                                }
+                            }
 
-                        if (isCanvasActive && !isSquareCanvas) {
-                            val canvasScale = 1.06f - 0.06f * canvasLandscapeProgress
-                            val canvasAlpha = artworkLandscapeAlpha * canvasLandscapeProgress
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .graphicsLayer {
-                                        alpha = canvasAlpha
-                                        scaleX = canvasScale
-                                        scaleY = canvasScale
-                                        compositingStrategy = CompositingStrategy.Offscreen
-                                    }
-                                    .drawWithContent {
-                                        drawContent()
-                                        drawRect(
-                                            brush = Brush.horizontalGradient(
-                                                0.55f to Color.Black,
-                                                1.0f to Color.Transparent
-                                            ),
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    }
-                            ) {
-                                canvasContent(Modifier.fillMaxSize())
+                            if (isCanvasActive && !isSquareCanvas) {
+                                val canvasScale = 1.06f - 0.06f * canvasLandscapeProgress
+                                val canvasAlpha = artworkLandscapeAlpha * canvasLandscapeProgress
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            alpha = canvasAlpha
+                                            scaleX = canvasScale
+                                            scaleY = canvasScale
+                                            compositingStrategy = CompositingStrategy.Offscreen
+                                        }
+                                        .drawWithContent {
+                                            drawContent()
+                                            drawRect(
+                                                brush = Brush.horizontalGradient(
+                                                    0.55f to Color.Black,
+                                                    1.0f to Color.Transparent
+                                                ),
+                                                blendMode = BlendMode.DstIn
+                                            )
+                                        }
+                                ) {
+                                    canvasContent(Modifier.fillMaxSize(), null)
+                                }
                             }
                         }
 
@@ -1083,27 +1240,46 @@ fun Player(
                             label = "LyricsAlpha"
                         )
 
-                        // The cover is always composed (so its image, swipe handling and square
-                        // canvas stay alive) and is moved / faded purely in the graphics layer.
-                        // This slot is measured un-transformed, the layer inside it is the
-                        // thing that morphs towards the canvas or the lyrics header.
-                        Box(
-                            modifier = Modifier
-                                .padding(horizontal = 32.dp, vertical = 8.dp)
-                                .heroCoverSlot(hero)
-                        ) {
+                        if (isFullscreenArtworkStyle) {
+                            if (!isShowingLyrics) {
+                                FullscreenArtworkOverlay(
+                                    binder = binder,
+                                    isShowingLyrics = isShowingLyrics,
+                                    onShowLyrics = { isShowingLyrics = it },
+                                    isShowingStatsForNerds = isShowingStatsForNerds,
+                                    onShowStatsForNerds = { isShowingStatsForNerds = it },
+                                    likedAt = likedAt,
+                                    setLikedAt = { likedAt = it },
+                                    nestedScrollConnection = layoutState.preUpPostDownNestedScrollConnection,
+                                    isShowingLyricsDialog = isShowingLyricsDialog,
+                                    onShowLyricsDialog = { isShowingLyricsDialog = true },
+                                    onEnterPip = { pipHandler.enterPictureInPictureMode() },
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
+                        } else {
+                            // The cover is always composed (so its image, swipe handling and square
+                            // canvas stay alive) and is moved / faded purely in the graphics layer.
+                            // This slot is measured un-transformed, the layer inside it is the
+                            // thing that morphs towards the canvas or the lyrics header.
                             Box(
-                                modifier = Modifier.graphicsLayer {
-                                    hero.applyCoverLayer(
-                                        scope = this,
-                                        lyricsProgress = lyricsProgress.value,
-                                        canvasProgress = canvasProgress.value,
-                                        coverRadius = heroCoverRadius,
-                                        headerRadius = heroHeaderRadius
-                                    )
-                                }
+                                modifier = Modifier
+                                    .padding(horizontal = 32.dp, vertical = 8.dp)
+                                    .heroCoverSlot(hero)
                             ) {
-                                thumbnailContent(Modifier)
+                                Box(
+                                    modifier = Modifier.graphicsLayer {
+                                        hero.applyCoverLayer(
+                                            scope = this,
+                                            lyricsProgress = lyricsProgress.value,
+                                            canvasProgress = canvasProgress.value,
+                                            coverRadius = heroCoverRadius,
+                                            headerRadius = heroHeaderRadius
+                                        )
+                                    }
+                                ) {
+                                    thumbnailContent(Modifier)
+                                }
                             }
                         }
 
@@ -1362,4 +1538,123 @@ private fun PlayerMenu(
 private fun onDismiss(binder: PlayerService.Binder) {
     binder.stopRadio()
     binder.player.clearMediaItems()
+}
+
+@Composable
+private fun FullscreenArtworkOverlay(
+    binder: PlayerService.Binder?,
+    isShowingLyrics: Boolean,
+    onShowLyrics: (Boolean) -> Unit,
+    isShowingStatsForNerds: Boolean,
+    onShowStatsForNerds: (Boolean) -> Unit,
+    likedAt: Long?,
+    setLikedAt: (Long?) -> Unit,
+    nestedScrollConnection: NestedScrollConnection,
+    isShowingLyricsDialog: Boolean,
+    onShowLyricsDialog: () -> Unit,
+    onEnterPip: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val (colorPalette) = LocalAppearance.current
+    val (window, error) = windowState()
+    val coroutineScope = rememberCoroutineScope()
+    val transitionState = remember { SeekableTransitionState(false) }
+    val transition = rememberTransition(transitionState, label = "fullscreenHeart")
+    val opacity by transition.animateFloat(label = "fullscreenHeartOpacity") { if (it) 1f else 0f }
+    val scale by transition.animateFloat(
+        label = "fullscreenHeartScale",
+        transitionSpec = { spring(dampingRatio = Spring.DampingRatioLowBouncy) }
+    ) { if (it) 1f else 0f }
+
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .nestedScroll(nestedScrollConnection)
+            .pinchToToggle(
+                key = isShowingLyricsDialog,
+                direction = PinchDirection.Out,
+                threshold = 1.05f,
+                onPinch = {
+                    if (isShowingLyrics) onShowLyricsDialog()
+                }
+            )
+            .pinchToToggle(
+                key = isShowingLyricsDialog,
+                direction = PinchDirection.In,
+                threshold = 0.95f,
+                onPinch = onEnterPip
+            )
+            .onSwipe(
+                onSwipeLeft = { binder?.player?.forceSeekToNext() },
+                onSwipeRight = { binder?.player?.forceSeekToPrevious(seekToStart = false) }
+            )
+            .pointerInput(isShowingLyrics, isShowingStatsForNerds) {
+                if (!isShowingLyrics) {
+                    detectTapGestures(
+                        onTap = { onShowLyrics(true) },
+                        onLongPress = { onShowStatsForNerds(!isShowingStatsForNerds) },
+                        onDoubleTap = {
+                            if (likedAt == null) setLikedAt(System.currentTimeMillis())
+                            coroutineScope.launch {
+                                val spec = tween<Float>(durationMillis = 500)
+                                transitionState.animateTo(true, spec)
+                                transitionState.animateTo(false, spec)
+                            }
+                        }
+                    )
+                }
+            }
+    ) {
+        val currentWindow = window
+        if (currentWindow != null) {
+            StatsForNerds(
+                mediaId = currentWindow.mediaItem.mediaId,
+                isDisplayed = isShowingStatsForNerds && error == null,
+                onDismiss = { onShowStatsForNerds(false) },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 24.dp, vertical = 12.dp)
+            )
+
+            Image(
+                painter = painterResource(getAppIcon(R.drawable.heart)),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(colorPalette.accent),
+                modifier = Modifier
+                    .fillMaxSize(0.38f)
+                    .aspectRatio(1f)
+                    .align(Alignment.Center)
+                    .graphicsLayer(
+                        scaleX = scale,
+                        scaleY = scale,
+                        alpha = opacity,
+                        shadowElevation = 8.dp.px.toFloat()
+                    )
+            )
+
+            PlaybackError(
+                isDisplayed = error != null,
+                messageProvider = {
+                    if (currentWindow.mediaItem.isLocal) stringResource(R.string.error_local_music_deleted)
+                    else when (error?.cause?.cause) {
+                        is UnresolvedAddressException, is UnknownHostException ->
+                            stringResource(R.string.error_network)
+
+                        is PlayableFormatNotFoundException -> stringResource(R.string.error_unplayable)
+
+                        is UnplayableException -> stringResource(R.string.error_source_deleted)
+
+                        is LoginRequiredException, is RestrictedVideoException ->
+                            stringResource(R.string.error_server_restrictions)
+
+                        is VideoIdMismatchException -> stringResource(R.string.error_id_mismatch)
+
+                        else -> stringResource(R.string.error_unknown_playback)
+                    }
+                },
+                onDismiss = { binder?.player?.prepare() },
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+    }
 }

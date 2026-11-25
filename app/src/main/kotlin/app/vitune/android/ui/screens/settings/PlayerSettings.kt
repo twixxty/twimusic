@@ -74,6 +74,13 @@ fun PlayerSettings() = with(PlayerPreferences) {
                 onCheckedChange = { skipOnError = it }
             )
 
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.canvas_style),
+                selectedValue = canvasStyle,
+                onValueSelect = { canvasStyle = it },
+                valueText = { it.displayName() }
+            )
+
             SwitchSettingsEntry(
                 title = "Canvas & Motion Artwork",
                 text = "Show animated video canvases and Motion Artwork in player",
@@ -83,12 +90,6 @@ fun PlayerSettings() = with(PlayerPreferences) {
 
             AnimatedVisibility(visible = enableCanvas) {
                 Column {
-                    EnumValueSelectorSettingsEntry(
-                        title = stringResource(R.string.canvas_style),
-                        selectedValue = canvasStyle,
-                        onValueSelect = { canvasStyle = it },
-                        valueText = { it.displayName() }
-                    )
                     SwitchSettingsEntry(
                         title = stringResource(R.string.pause_canvas_with_song),
                         text = stringResource(R.string.pause_canvas_with_song_description),
@@ -101,13 +102,18 @@ fun PlayerSettings() = with(PlayerPreferences) {
                         isChecked = hideStatusBarOnCanvas,
                         onCheckedChange = { hideStatusBarOnCanvas = it }
                     )
-                    SwitchSettingsEntry(
-                        title = stringResource(R.string.status_bar_gradient_contrast),
-                        text = stringResource(R.string.status_bar_gradient_contrast_description),
-                        isChecked = showStatusBarGradient,
-                        onCheckedChange = { showStatusBarGradient = it }
-                    )
                 }
+            }
+
+            AnimatedVisibility(
+                visible = enableCanvas || canvasStyle == PlayerPreferences.CanvasStyle.FullscreenArtwork
+            ) {
+                SwitchSettingsEntry(
+                    title = stringResource(R.string.status_bar_gradient_contrast),
+                    text = stringResource(R.string.status_bar_gradient_contrast_description),
+                    isChecked = showStatusBarGradient,
+                    onCheckedChange = { showStatusBarGradient = it }
+                )
             }
 
         }

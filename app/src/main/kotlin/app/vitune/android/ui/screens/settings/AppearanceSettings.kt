@@ -268,6 +268,13 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 valueText = { it.displayName() }
             )
 
+            EnumValueSelectorSettingsEntry(
+                title = stringResource(R.string.canvas_style),
+                selectedValue = PlayerPreferences.canvasStyle,
+                onValueSelect = { PlayerPreferences.canvasStyle = it },
+                valueText = { it.displayName() }
+            )
+
             SwitchSettingsEntry(
                 title = "Canvas & Motion Artwork",
                 text = "Show animated video canvases and Motion Artwork in player",
@@ -277,12 +284,6 @@ fun AppearanceSettings() = with(AppearancePreferences) {
 
             AnimatedVisibility(visible = PlayerPreferences.enableCanvas) {
                 Column {
-                    EnumValueSelectorSettingsEntry(
-                        title = stringResource(R.string.canvas_style),
-                        selectedValue = PlayerPreferences.canvasStyle,
-                        onValueSelect = { PlayerPreferences.canvasStyle = it },
-                        valueText = { it.displayName() }
-                    )
                     SwitchSettingsEntry(
                         title = stringResource(R.string.pause_canvas_with_song),
                         text = stringResource(R.string.pause_canvas_with_song_description),
