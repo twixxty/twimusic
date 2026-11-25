@@ -1,6 +1,7 @@
 package app.vitune.android.preferences
 
 import android.media.audiofx.PresetReverb
+import androidx.annotation.DrawableRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import app.vitune.android.GlobalPreferencesHolder
@@ -81,6 +82,83 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var pauseCanvasWithSong by boolean(true)
     var hideStatusBarOnCanvas by boolean(false)
     var showStatusBarGradient by boolean(true)
+
+    /** Comma-separated list of active bottom-bar button keys (enum names). */
+    const val DEFAULT_PLAYER_BOTTOM_BAR_ACTIONS = "Lyrics,Repeat,Queue,MoreOptions"
+    var playerBottomBarActions by string(DEFAULT_PLAYER_BOTTOM_BAR_ACTIONS)
+
+    enum class PlayerBottomAction(
+        @DrawableRes val icon: Int,
+        @DrawableRes val activeIcon: Int = icon,
+        val displayName: @Composable () -> String,
+    ) {
+        Lyrics(
+            icon = R.drawable.lyrics,
+            displayName = { stringResource(R.string.lyrics) }
+        ),
+        Repeat(
+            icon = R.drawable.infinite,
+            displayName = { stringResource(R.string.player_bottom_bar_repeat) }
+        ),
+        Queue(
+            icon = R.drawable.playlist,
+            displayName = { stringResource(R.string.player_bottom_bar_queue) }
+        ),
+        Shuffle(
+            icon = R.drawable.shuffle,
+            displayName = { stringResource(R.string.shuffle) }
+        ),
+        Like(
+            icon = R.drawable.heart_outline,
+            activeIcon = R.drawable.heart,
+            displayName = { stringResource(R.string.like) }
+        ),
+        SleepTimer(
+            icon = R.drawable.alarm,
+            displayName = { stringResource(R.string.sleep_timer) }
+        ),
+        AudioSettings(
+            icon = R.drawable.speed,
+            displayName = { stringResource(R.string.player_bottom_bar_audio_settings) }
+        ),
+        Equalizer(
+            icon = R.drawable.equalizer,
+            displayName = { stringResource(R.string.equalizer) }
+        ),
+        Radio(
+            icon = R.drawable.radio,
+            displayName = { stringResource(R.string.player_bottom_bar_radio) }
+        ),
+        Share(
+            icon = R.drawable.share_social,
+            displayName = { stringResource(R.string.player_bottom_bar_share) }
+        ),
+        PreCache(
+            icon = R.drawable.download,
+            displayName = { stringResource(R.string.player_bottom_bar_pre_cache) }
+        ),
+        StatsForNerds(
+            icon = R.drawable.information,
+            displayName = { stringResource(R.string.player_bottom_bar_stats_for_nerds) }
+        ),
+        VolumeBoost(
+            icon = R.drawable.volume_up,
+            displayName = { stringResource(R.string.volume_boost) }
+        ),
+        CanvasToggle(
+            icon = R.drawable.film,
+            displayName = { stringResource(R.string.player_bottom_bar_canvas_toggle) }
+        ),
+        MoreOptions(
+            icon = R.drawable.ellipsis_horizontal,
+            displayName = { stringResource(R.string.more) }
+        );
+    }
+
+    fun parsePlayerBottomActions(raw: String = playerBottomBarActions): List<PlayerBottomAction> =
+        raw.split(',')
+            .mapNotNull { key -> PlayerBottomAction.entries.find { it.name == key.trim() } }
+            .distinct()
 
     var skipOnError by boolean(false)
     var handleAudioFocus by boolean(true)

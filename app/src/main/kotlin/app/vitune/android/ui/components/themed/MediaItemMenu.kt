@@ -592,114 +592,11 @@ fun MediaItemMenu(
                 }
             }
 
-            val stopAfterSong = {
-                runCatching {
-                    binder?.startSleepTimer(
-                        binder.player.duration - binder.player.contentPosition
-                    )
-                }
-                isShowingSleepTimerDialog = false
-            }
-
             if (isShowingSleepTimerDialog) {
-                if (sleepTimerMillisLeft == 0L) DefaultDialog(
+                SleepTimerDialog(
+                    binder = binder,
+                    sleepTimerMillisLeft = sleepTimerMillisLeft,
                     onDismiss = { isShowingSleepTimerDialog = false }
-                ) {
-                    var amount by remember { mutableIntStateOf(1) }
-
-                    BasicText(
-                        text = stringResource(R.string.set_sleep_timer),
-                        style = typography.s.semiBold,
-                        modifier = Modifier.padding(vertical = 8.dp, horizontal = 24.dp)
-                    )
-
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(
-                            space = 16.dp,
-                            alignment = Alignment.CenterHorizontally
-                        ),
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .alpha(if (amount <= 1) 0.5f else 1f)
-                                .clip(CircleShape)
-                                .clickable(enabled = amount > 1) { amount-- }
-                                .size(48.dp)
-                                .background(colorPalette.background0)
-                        ) {
-                            BasicText(
-                                text = "-",
-                                style = typography.xs.semiBold
-                            )
-                        }
-
-                        Box(contentAlignment = Alignment.Center) {
-                            BasicText(
-                                text = "88h 88m",
-                                style = typography.s.semiBold,
-                                modifier = Modifier.alpha(0f)
-                            )
-                            BasicText(
-                                text = "${stringResource(R.string.format_hours, amount / 6)} ${
-                                    stringResource(
-                                        R.string.format_minutes,
-                                        (amount % 6) * 10
-                                    )
-                                }",
-                                style = typography.s.semiBold
-                            )
-                        }
-
-                        Box(
-                            contentAlignment = Alignment.Center,
-                            modifier = Modifier
-                                .alpha(if (amount >= 60) 0.5f else 1f)
-                                .clip(CircleShape)
-                                .clickable(enabled = amount < 60) { amount++ }
-                                .size(48.dp)
-                                .background(colorPalette.background0)
-                        ) {
-                            BasicText(
-                                text = "+",
-                                style = typography.xs.semiBold
-                            )
-                        }
-                    }
-
-                    SecondaryTextButton(
-                        text = stringResource(R.string.sleep_timer_until_song_end),
-                        onClick = stopAfterSong,
-                        modifier = Modifier.padding(vertical = 12.dp)
-                    )
-
-                    Row(
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                        modifier = Modifier.fillMaxWidth()
-                    ) {
-                        DialogTextButton(
-                            text = stringResource(R.string.cancel),
-                            onClick = { isShowingSleepTimerDialog = false }
-                        )
-
-                        DialogTextButton(
-                            text = stringResource(R.string.set),
-                            enabled = amount > 0,
-                            primary = true,
-                            onClick = {
-                                binder?.startSleepTimer(amount * 10 * 60 * 1000L)
-                                isShowingSleepTimerDialog = false
-                            }
-                        )
-                    }
-                } else ConfirmationDialog(
-                    text = stringResource(R.string.stop_sleep_timer_prompt),
-                    cancelText = stringResource(R.string.no),
-                    confirmText = stringResource(R.string.stop),
-                    onDismiss = { isShowingSleepTimerDialog = false },
-                    onConfirm = { binder?.cancelSleepTimer() }
                 )
             }
 
@@ -818,7 +715,13 @@ fun MediaItemMenu(
                         icon = R.drawable.alarm,
                         text = stringResource(R.string.sleep_timer),
                         onClick = { isShowingSleepTimerDialog = true },
-                        onLongClick = stopAfterSong,
+                        onLongClick = {
+                            runCatching {
+                                binder?.startSleepTimer(
+                                    binder.player.duration - binder.player.contentPosition
+                                )
+                            }
+                        },
                         trailingContent = {
                             AnimatedVisibility(
                                 visible = sleepTimerMillisLeft != 0L,
@@ -969,4 +872,118 @@ fun MediaItemMenu(
             }
         }
     }
+}
+
+@Composable
+fun SleepTimerDialog(
+    binder: app.vitune.android.service.PlayerService.Binder?,
+    sleepTimerMillisLeft: Long,
+    onDismiss: () -> Unit,
+) {
+    val (colorPalette, typography) = LocalAppearance.current
+
+    if (sleepTimerMillisLeft == 0L) DefaultDialog(onDismiss = onDismiss) {
+        var amount by remember { mutableIntStateOf(1) }
+
+        BasicText(
+            text = stringResource(R.string.set_sleep_timer),
+            style = typography.s.semiBold,
+            modifier = Modifier.padding(vertical = 8.dp, horizontal = 24.dp)
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(
+                space = 16.dp,
+                alignment = Alignment.CenterHorizontally
+            ),
+            modifier = Modifier.padding(vertical = 16.dp)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .alpha(if (amount <= 1) 0.5f else 1f)
+                    .clip(CircleShape)
+                    .clickable(enabled = amount > 1) { amount-- }
+                    .size(48.dp)
+                    .background(colorPalette.background0)
+            ) {
+                BasicText(
+                    text = "-",
+                    style = typography.xs.semiBold
+                )
+            }
+
+            Box(contentAlignment = Alignment.Center) {
+                BasicText(
+                    text = "88h 88m",
+                    style = typography.s.semiBold,
+                    modifier = Modifier.alpha(0f)
+                )
+                BasicText(
+                    text = "${stringResource(R.string.format_hours, amount / 6)} ${
+                        stringResource(
+                            R.string.format_minutes,
+                            (amount % 6) * 10
+                        )
+                    }",
+                    style = typography.s.semiBold
+                )
+            }
+
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .alpha(if (amount >= 60) 0.5f else 1f)
+                    .clip(CircleShape)
+                    .clickable(enabled = amount < 60) { amount++ }
+                    .size(48.dp)
+                    .background(colorPalette.background0)
+            ) {
+                BasicText(
+                    text = "+",
+                    style = typography.xs.semiBold
+                )
+            }
+        }
+
+        SecondaryTextButton(
+            text = stringResource(R.string.sleep_timer_until_song_end),
+            onClick = {
+                runCatching {
+                    binder?.startSleepTimer(
+                        binder.player.duration - binder.player.contentPosition
+                    )
+                }
+                onDismiss()
+            },
+            modifier = Modifier.padding(vertical = 12.dp)
+        )
+
+        Row(
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            DialogTextButton(
+                text = stringResource(R.string.cancel),
+                onClick = onDismiss
+            )
+
+            DialogTextButton(
+                text = stringResource(R.string.set),
+                enabled = amount > 0,
+                primary = true,
+                onClick = {
+                    binder?.startSleepTimer(amount * 10 * 60 * 1000L)
+                    onDismiss()
+                }
+            )
+        }
+    } else ConfirmationDialog(
+        text = stringResource(R.string.stop_sleep_timer_prompt),
+        cancelText = stringResource(R.string.no),
+        confirmText = stringResource(R.string.stop),
+        onDismiss = onDismiss,
+        onConfirm = { binder?.cancelSleepTimer() }
+    )
 }

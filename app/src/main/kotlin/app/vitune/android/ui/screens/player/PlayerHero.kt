@@ -150,8 +150,10 @@ class CoverHeroState {
     /** `true` when there is a lyrics header cover to fly to. */
     fun hasHeader() = headerRect() != null
 
+    private fun hasSourceSlot() = coverRect() != null || canvasRect() != null
+
     /** Alpha of the real cover in the lyrics header: hard swap right before the flight lands. */
-    fun headerArtAlpha() = if (lyricsProgress() >= HandoffThreshold) 1f else 0f
+    fun headerArtAlpha() = if (!hasSourceSlot() || lyricsProgress() >= HandoffThreshold) 1f else 0f
 
     /**
      * Alpha of a canvas video that lives *inside* the cover (square canvas). It fades to the
@@ -166,8 +168,9 @@ class CoverHeroState {
         coverRadius: Float,
         headerRadius: Float
     ): Frame? {
-        val coverBounds = coverRect() ?: return null
-        val canvasBounds = if (canvasProgress > 0f) canvasRect() else null
+        val canvasSlot = canvasRect()
+        val coverBounds = coverRect() ?: canvasSlot ?: return null
+        val canvasBounds = if (canvasProgress > 0f) canvasSlot else null
         val headerBounds = headerRect()
         val morph = headerBounds != null
         val canvasWeight = if (canvasBounds != null) canvasProgress else 0f

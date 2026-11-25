@@ -2,9 +2,11 @@ package app.vitune.android.canvas
 
 import android.graphics.SurfaceTexture
 import android.os.SystemClock
+import android.view.Gravity
 import android.view.TextureView
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import android.widget.FrameLayout
 import androidx.annotation.OptIn
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
@@ -13,11 +15,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -31,7 +35,6 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
-import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.BuildConfig
 import app.vitune.android.utils.TrackRecomposition
 import kotlinx.coroutines.delay
@@ -85,6 +88,7 @@ fun BackgroundVideoView(
 
     val context = LocalContext.current
     var isVideoReady by remember(videoUrl) { mutableStateOf(false) }
+    var videoAspectRatio by remember(videoUrl) { mutableFloatStateOf(1f) }
     val latestOnFrame by rememberUpdatedState(onFrame)
     val latestIsVideoReady by rememberUpdatedState(isVideoReady)
     val frameSampler = remember { CanvasFrameSampler() }
@@ -93,21 +97,29 @@ fun BackgroundVideoView(
         DefaultTrackSelector(context).apply {
             parameters = buildUponParameters()
                 .setMaxVideoSize(1080, 1920)
+                .setTrackTypeDisabled(C.TRACK_TYPE_AUDIO, true)
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
                 .build()
         }
     }
 
-    val exoPlayer = remember {
+    val isHls = remember(videoUrl) { videoUrl.contains("m3u8", ignoreCase = true) }
+
+    val exoPlayer = remember(isHls) {
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(8000)
             .setReadTimeoutMs(8000)
-        val defaultDataSourceFactory = DefaultDataSource.Factory(context, httpDataSourceFactory)
-        val mediaSourceFactory = DefaultMediaSourceFactory(context)
-            .setDataSourceFactory(defaultDataSourceFactory)
+        val dataSourceFactory = if (isHls) {
+            DefaultDataSource.Factory(context.applicationContext, httpDataSourceFactory)
+        } else {
+            CanvasVideoCache.dataSourceFactory(context, httpDataSourceFactory)
+        }
+        val mediaSourceFactory = DefaultMediaSourceFactory(context.applicationContext)
+            .setDataSourceFactory(dataSourceFactory)
 
-        ExoPlayer.Builder(context)
+        ExoPlayer.Builder(context.applicationContext)
             .setMediaSourceFactory(mediaSourceFactory)
             .setTrackSelector(trackSelector)
             .setLoadControl(
@@ -118,23 +130,17 @@ fun BackgroundVideoView(
             .build().apply {
                 repeatMode = Player.REPEAT_MODE_ONE
                 volume = 0f
-                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
+                videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
                 playWhenReady = isPlaying
             }
-    }
-
-    val aspectRatioFrameLayout = remember(resizeMode) {
-        AspectRatioFrameLayout(context).apply {
-            this.resizeMode = resizeMode
-            setBackgroundColor(android.graphics.Color.TRANSPARENT)
-        }
     }
 
     DisposableEffect(exoPlayer) {
         val listener = object : Player.Listener {
             override fun onVideoSizeChanged(videoSize: VideoSize) {
                 if (videoSize.width > 0 && videoSize.height > 0) {
-                    aspectRatioFrameLayout.setAspectRatio(videoSize.width.toFloat() / videoSize.height)
+                    videoAspectRatio =
+                        (videoSize.width * videoSize.pixelWidthHeightRatio) / videoSize.height.toFloat()
                     onVideoSizeChanged(videoSize.width, videoSize.height)
                 }
             }
@@ -163,7 +169,7 @@ fun BackgroundVideoView(
         onVideoReady(false)
         val mediaItem = MediaItem.Builder()
             .setUri(videoUrl)
-            .setMimeType(if (videoUrl.contains("m3u8")) MimeTypes.APPLICATION_M3U8 else MimeTypes.VIDEO_MP4)
+            .setMimeType(if (isHls) MimeTypes.APPLICATION_M3U8 else MimeTypes.VIDEO_MP4)
             .build()
         exoPlayer.setMediaItem(mediaItem)
         exoPlayer.prepare()
@@ -189,15 +195,7 @@ fun BackgroundVideoView(
         }
     }
 
-    LaunchedEffect(resizeMode) {
-        exoPlayer.videoScalingMode = if (resizeMode == AspectRatioFrameLayout.RESIZE_MODE_FIT) {
-            C.VIDEO_SCALING_MODE_SCALE_TO_FIT
-        } else {
-            C.VIDEO_SCALING_MODE_SCALE_TO_FIT_WITH_CROPPING
-        }
-    }
-
-    DisposableEffect(Unit) {
+    DisposableEffect(exoPlayer) {
         onDispose {
             latestOnFrame?.invoke(null)
             exoPlayer.release()
@@ -211,48 +209,59 @@ fun BackgroundVideoView(
     )
 
     AndroidView(
-        factory = { _ ->
-            aspectRatioFrameLayout.apply {
+        factory = { viewContext ->
+            AspectRatioFrameLayout(viewContext).apply {
+                this.resizeMode = resizeMode
+                setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 isEnabled = false
                 isClickable = false
                 isFocusable = false
 
-                if (childCount == 0) {
-                    val textureView = TextureView(context).apply {
-                        layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
-                        surfaceTextureListener = object : TextureView.SurfaceTextureListener {
-                            override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-                                exoPlayer.setVideoTextureView(this@apply)
-                            }
-                            override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
-                            override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
-                                frameSampler.reset()
-                                latestOnFrame?.invoke(null)
-                                exoPlayer.clearVideoTextureView(this@apply)
-                                return true
-                            }
-                            override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
-                                val callback = latestOnFrame ?: return
-                                if (!latestIsVideoReady) return
-                                val sample = frameSampler.sampleSize(
-                                    nowMs = SystemClock.uptimeMillis(),
-                                    width = this@apply.width,
-                                    height = this@apply.height
-                                ) ?: return
-                                val sampledBitmap = runCatching {
-                                    this@apply.getBitmap(sample.first, sample.second)
-                                }.getOrNull()
-                                if (sampledBitmap != null) {
-                                    callback(sampledBitmap.asImageBitmap())
-                                }
+                val textureView = TextureView(viewContext).apply {
+                    isOpaque = false
+                    surfaceTextureListener = object : TextureView.SurfaceTextureListener {
+                        override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+                            exoPlayer.setVideoTextureView(this@apply)
+                        }
+                        override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
+                        override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+                            frameSampler.reset()
+                            latestOnFrame?.invoke(null)
+                            exoPlayer.clearVideoTextureView(this@apply)
+                            return true
+                        }
+                        override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
+                            val callback = latestOnFrame ?: return
+                            if (!latestIsVideoReady) return
+                            val sample = frameSampler.sampleSize(
+                                nowMs = SystemClock.uptimeMillis(),
+                                width = this@apply.width,
+                                height = this@apply.height
+                            ) ?: return
+                            val sampledBitmap = runCatching {
+                                this@apply.getBitmap(sample.first, sample.second)
+                            }.getOrNull()
+                            if (sampledBitmap != null) {
+                                callback(sampledBitmap.asImageBitmap())
                             }
                         }
                     }
-                    addView(textureView)
-                    exoPlayer.setVideoTextureView(textureView)
                 }
+                addView(
+                    textureView,
+                    FrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT, Gravity.CENTER)
+                )
+                exoPlayer.setVideoTextureView(textureView)
             }
         },
-        modifier = modifier.graphicsLayer { this.alpha = alpha }
+        update = { layout ->
+            if (layout.resizeMode != resizeMode) {
+                layout.resizeMode = resizeMode
+            }
+            layout.setAspectRatio(videoAspectRatio)
+        },
+        modifier = modifier
+            .clipToBounds()
+            .graphicsLayer { this.alpha = alpha }
     )
 }

@@ -117,7 +117,8 @@ fun Controls(
     layout: PlayerPreferences.PlayerLayout = PlayerPreferences.playerLayout,
     hero: CoverHeroState? = null,
     onOpenLyricsMenu: (() -> Unit)? = null,
-    mediaInfoModifier: Modifier = Modifier
+    mediaInfoModifier: Modifier = Modifier,
+    isBleedMode: Boolean = false,
 ) {
     if (BuildConfig.DEBUG) {
         TrackRecomposition("Controls")
@@ -146,6 +147,7 @@ fun Controls(
             isShowingLyrics = isShowingLyrics,
             onToggleLyrics = onToggleLyrics,
             mediaInfoModifier = mediaInfoModifier,
+            isBleedMode = isBleedMode,
             modifier = modifier
         )
 
@@ -194,7 +196,8 @@ private fun ClassicControls(
     modifier: Modifier = Modifier,
     isShowingLyrics: Boolean = false,
     onToggleLyrics: (() -> Unit)? = null,
-    mediaInfoModifier: Modifier = Modifier
+    mediaInfoModifier: Modifier = Modifier,
+    isBleedMode: Boolean = false,
 ) = with(PlayerPreferences) {
     val (colorPalette) = LocalAppearance.current
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -323,12 +326,22 @@ private fun ClassicControls(
                                 }
                             }
                         )
-                        .background(if (isExpressiveTheme) colorPalette.accent else colorPalette.background2)
+                        .background(
+                            when {
+                                isExpressiveTheme -> colorPalette.accent
+                                isBleedMode -> colorPalette.accent
+                                else -> colorPalette.background2
+                            }
+                        )
                         .size(64.dp)
                 ) {
                     AnimatedPlayPauseButton(
                         playing = shouldBePlaying,
-                        color = if (isExpressiveTheme) colorPalette.onAccent else Color(0xff16171d),
+                        color = when {
+                            isExpressiveTheme -> colorPalette.onAccent
+                            isBleedMode -> colorPalette.onAccent
+                            else -> Color(0xff16171d)
+                        },
                         modifier = Modifier
                             .align(Alignment.Center)
                             .size(32.dp)

@@ -132,7 +132,9 @@ fun Queue(
         topEnd = 12.dp
     ),
     scrollConnection: NestedScrollConnection = remember(layoutState::preUpPostDownNestedScrollConnection),
-    windowInsets: WindowInsets = WindowInsets.systemBars
+    windowInsets: WindowInsets = WindowInsets.systemBars,
+    isTranslucentBar: Boolean = false,
+    customActionsContent: (@Composable RowScope.() -> Unit)? = null,
 ) {
     val [colorPalette, typography, _, thumbnailShape] = LocalAppearance.current
     val isExpressive = LocalIsExpressiveTheme.current
@@ -142,6 +144,13 @@ fun Queue(
     val horizontalBottomPaddingValues = windowInsets
         .only(WindowInsetsSides.Horizontal + WindowInsetsSides.Bottom)
         .asPaddingValues()
+
+    // Collapsed bar background: translucent frosted when over Bleed canvas, solid otherwise.
+    val collapsedBarBackground: Modifier = if (isTranslucentBar) {
+        Modifier.background(Color.White.copy(alpha = 0.14f))
+    } else {
+        Modifier.background(colorPalette.background2)
+    }
 
     var suggestions by persist<Result<List<MediaItem>?>?>(tag = "queue/suggestions")
 
@@ -230,25 +239,29 @@ fun Queue(
             Row(
                 modifier = Modifier
                     .clip(effectiveShape)
-                    .background(colorPalette.background2)
+                    .then(collapsedBarBackground)
                     .fillMaxSize()
                     .then(innerModifier)
                     .padding(horizontalBottomPaddingValues),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                beforeContent()
+                if (customActionsContent != null) {
+                    customActionsContent()
+                } else {
+                    beforeContent()
 
-                IconButton(
-                    icon = R.drawable.playlist,
-                    color = colorPalette.text,
-                    onClick = { layoutState.expandSoft() },
-                    modifier = Modifier
-                        .padding(vertical = 8.dp)
-                        .size(20.dp)
-                )
+                    IconButton(
+                        icon = R.drawable.playlist,
+                        color = colorPalette.text,
+                        onClick = { layoutState.expandSoft() },
+                        modifier = Modifier
+                            .padding(vertical = 8.dp)
+                            .size(20.dp)
+                    )
 
-                afterContent()
+                    afterContent()
+                }
             }
         }
     ) {

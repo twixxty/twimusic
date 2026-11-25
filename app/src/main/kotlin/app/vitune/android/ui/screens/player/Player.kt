@@ -1,6 +1,7 @@
 package app.vitune.android.ui.screens.player
 
 import android.content.Context
+import android.content.Intent
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.activity.compose.BackHandler
@@ -61,6 +62,7 @@ import app.vitune.android.canvas.validateMotionartworkMatch
 import app.vitune.android.lyrics.LyricsUtils
 import app.vitune.android.spotify.Spotify
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.net.UnknownHostException
@@ -74,10 +76,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -87,6 +91,7 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
 import androidx.compose.ui.draw.shadow
 import app.vitune.android.preferences.AppearancePreferences
@@ -102,6 +107,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.SnapshotMutationPolicy
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.neverEqualPolicy
 import androidx.compose.runtime.remember
@@ -141,6 +147,7 @@ import app.vitune.android.query
 import app.vitune.android.service.LoginRequiredException
 import app.vitune.android.service.PlayableFormatNotFoundException
 import app.vitune.android.service.PlayerService
+import app.vitune.android.service.PrecacheService
 import app.vitune.android.service.RestrictedVideoException
 import app.vitune.android.service.UnplayableException
 import app.vitune.android.service.VideoIdMismatchException
@@ -153,6 +160,7 @@ import app.vitune.android.ui.components.rememberBottomSheetState
 import app.vitune.android.ui.components.themed.BaseMediaItemMenu
 import app.vitune.android.ui.components.themed.IconButton
 import app.vitune.android.ui.components.themed.SecondaryTextButton
+import app.vitune.android.ui.components.themed.SleepTimerDialog
 import app.vitune.android.ui.components.themed.SliderDialog
 import app.vitune.android.ui.components.themed.SliderDialogBody
 import app.vitune.android.ui.modifiers.PinchDirection
@@ -166,6 +174,7 @@ import app.vitune.android.utils.positionAndDurationState
 import app.vitune.android.utils.rememberEqualizerLauncher
 import app.vitune.android.utils.rememberPipHandler
 import app.vitune.android.utils.seamlessPlay
+import app.vitune.android.utils.shuffleQueue
 import app.vitune.android.utils.bold
 import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.secondary
@@ -713,6 +722,7 @@ fun Player(
         val containerModifier = Modifier
             .padding(
                 windowInsets
+                    .union(WindowInsets.displayCutout)
                     .only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal)
                     .asPaddingValues()
             )
@@ -737,8 +747,8 @@ fun Player(
                 ) {
                     BackgroundVideoView(
                         videoUrl = videoUrl,
-                        isPlaying = !layoutState.collapsed && (!isShowingLyrics || isLandscape) && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
-                        // In portrait the cover -> canvas crossfade is driven by the hero morph,
+                        isPlaying = !layoutState.collapsed && !layoutState.dismissed && (!isShowingLyrics || isLandscape) && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
+                        // In portrait the cover -> canvas crossfade is driven by the hero morph / FullscreenThumbnailBackground,
                         // and in landscape it is driven by canvasLandscapeProgress / FullscreenThumbnailBackground.
                         fadeInDurationMillis = 0,
                         onVideoReady = { isVideoReady = it },
@@ -775,7 +785,7 @@ fun Player(
                     likedAt = likedAt,
                     setLikedAt = { likedAt = it },
                     squareCanvasUrl = if (isCanvasActive && isSquareCanvas) canvasVideoUrl else null,
-                    isPlaying = !layoutState.collapsed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
+                    isPlaying = !layoutState.collapsed && !layoutState.dismissed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                     squareCanvasAlpha = { hero.squareCanvasAlpha() },
                     coverScale = { staticCoverScale },
                     isCoverInteractive = isCoverInteractive,
@@ -803,18 +813,18 @@ fun Player(
 
         val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
         val appearance = LocalAppearance.current
-        val useWhiteFullscreenControls = isFullscreenArtworkStyle && !colorPalette.isDark && (!isShowingLyrics || isLandscape)
+        val useWhiteFullscreenControls = isFullscreenArtworkStyle && (!isShowingLyrics || isLandscape)
         val effectiveControlsAppearance = remember(appearance, useWhiteFullscreenControls) {
             if (!useWhiteFullscreenControls) {
                 appearance
             } else {
                 appearance.copy(
                     colorPalette = appearance.colorPalette.copy(
-                        background1 = Color.White.copy(alpha = 0.14f),
-                        background2 = Color.White.copy(alpha = 0.18f),
+                        background1 = Color.White.copy(alpha = 0.16f),
+                        background2 = Color.White.copy(alpha = 0.20f),
                         text = Color.White,
-                        textSecondary = Color.White.copy(alpha = 0.78f),
-                        textDisabled = Color.White.copy(alpha = 0.45f),
+                        textSecondary = Color.White.copy(alpha = 0.84f),
+                        textDisabled = Color.White.copy(alpha = 0.50f),
                         isDark = true
                     ),
                     typography = appearance.typography.copy(color = Color.White)
@@ -854,9 +864,10 @@ fun Player(
                             isShowingLyrics = true
                         }
                     },
-                    hero = if (isFullscreenArtworkStyle) null else hero,
+                    hero = hero,
                     onOpenLyricsMenu = openLyricsMenu,
                     mediaInfoModifier = mediaInfoBoundsModifier,
+                    isBleedMode = isFullscreenArtworkStyle,
                     modifier = innerModifier
                 )
             }
@@ -950,11 +961,14 @@ fun Player(
             }
 
             val fullscreenBgAlpha by animateFloatAsState(
-                targetValue = if (isFullscreenArtworkStyle && !isShowingLyrics) 1f else 0f,
-                animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
+                targetValue = if (isFullscreenArtworkStyle && (!isShowingLyrics || isLandscape)) 1f else 0f,
+                animationSpec = tween(durationMillis = if (isShowingLyrics && !isLandscape) 240 else 350, easing = FastOutSlowInEasing),
                 label = "fullscreenThumbnailBgAlpha"
             )
-            if (isFullscreenArtworkStyle && (!isShowingLyrics || fullscreenBgAlpha > 0f)) {
+            // Always keep FullscreenThumbnailBackground composed when bleed mode is active so the
+            // ExoPlayer inside BackgroundVideoView is never released — it only pauses instead.
+            // This prevents the "canvas unloads when opening lyrics / collapsing player" bug.
+            if (isFullscreenArtworkStyle && mediaItem != null) {
                 val currentArtworkUri = mediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.mediaMetadata?.artworkUri
@@ -975,6 +989,45 @@ fun Player(
                             null
                         }
                 )
+
+                // Portrait Bleed -> Lyrics hero morph: matches top 1:1 cover region and shrinks smoothly
+                // into Expressive's 52dp header thumbnail (and expands back when closing lyrics).
+                if (!isLandscape) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .align(Alignment.TopCenter)
+                            .heroCanvasSlot(hero)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .graphicsLayer {
+                                    val lp = lyricsProgress.value
+                                    if (lp <= 0.001f || !hero.hasHeader()) {
+                                        alpha = 0f
+                                        return@graphicsLayer
+                                    }
+                                    hero.applyCoverLayer(
+                                        scope = this,
+                                        lyricsProgress = lp,
+                                        canvasProgress = 0f,
+                                        coverRadius = 0f,
+                                        headerRadius = heroHeaderRadius
+                                    )
+                                    alpha *= (lp * 6f).coerceIn(0f, 1f)
+                                }
+                        ) {
+                            AsyncImage(
+                                model = currentArtworkUri?.thumbnail(512),
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize()
+                            )
+                        }
+                    }
+                }
             }
 
             if (isWideCanvasPresent) {
@@ -1030,7 +1083,7 @@ fun Player(
                 )
             }
 
-            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && (!isShowingLyrics || isLandscape) && !layoutState.collapsed) {
+            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && (!isShowingLyrics || isLandscape) && !layoutState.collapsed && !layoutState.dismissed) {
                 FullScreenState(
                     shown = false,
                     type = WindowInsetsCompat.Type.statusBars()
@@ -1422,7 +1475,25 @@ fun Player(
             }
         }
 
+        var sleepTimerDialogOpen by rememberSaveable { mutableStateOf(false) }
+        var sleepTimerMillisLeft by remember { mutableLongStateOf(0L) }
+
+        LaunchedEffect(binder, binder?.sleepTimerMillisLeft) {
+            binder?.sleepTimerMillisLeft?.collectLatest {
+                sleepTimerMillisLeft = it ?: 0L
+            } ?: run { sleepTimerMillisLeft = 0L }
+        }
+
+        if (sleepTimerDialogOpen) {
+            SleepTimerDialog(
+                binder = binder,
+                sleepTimerMillisLeft = sleepTimerMillisLeft,
+                onDismiss = { sleepTimerDialogOpen = false }
+            )
+        }
+
         if (binder != null) {
+            val launchEqualizer by rememberEqualizerLauncher(audioSessionId = { binder.player.audioSessionId })
             val queueModifier = if (isLandscape) {
                 Modifier
                     .padding(
@@ -1447,52 +1518,121 @@ fun Player(
                         fadeOut(animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)),
                 modifier = queueModifier
             ) {
-                Queue(
-                    layoutState = playerBottomSheetState,
-                    binder = binder,
-                    beforeContent = {
-                        IconButton(
-                            icon = R.drawable.lyrics,
-                            color = if (isShowingLyrics) colorPalette.accent else colorPalette.text,
-                            onClick = {
-                                if (isShowingLyrics) {
-                                    isLyricsFullscreen = false
-                                    isShowingLyrics = false
-                                } else {
-                                    isShowingLyrics = true
-                                }
-                            },
-                            modifier = Modifier
-                                .padding(vertical = 8.dp)
-                                .size(20.dp)
-                        )
-                        if (playerLayout != PlayerPreferences.PlayerLayout.Classic) {
-                            IconButton(
-                                onClick = { trackLoopEnabled = !trackLoopEnabled },
-                                icon = R.drawable.infinite,
-                                enabled = trackLoopEnabled,
-                                modifier = Modifier
-                                    .padding(vertical = 8.dp)
-                                    .size(20.dp)
-                            )
+                val activeActions = remember(playerBottomBarActions) {
+                    parsePlayerBottomActions(playerBottomBarActions)
+                }
+                val isBleedBarTranslucent = isFullscreenArtworkStyle && !isShowingLyrics
+                val barBaseColor = if (isBleedBarTranslucent) Color.White else colorPalette.text
+
+                // Build a custom collapsed bar row from the user's configured action list
+                val customActionsContent: @Composable RowScope.() -> Unit = {
+                    activeActions.forEach { action ->
+                        val iconColor = when (action) {
+                            PlayerPreferences.PlayerBottomAction.Lyrics ->
+                                if (isShowingLyrics) colorPalette.accent else barBaseColor
+                            PlayerPreferences.PlayerBottomAction.Repeat ->
+                                if (trackLoopEnabled) colorPalette.accent else barBaseColor
+                            PlayerPreferences.PlayerBottomAction.Like ->
+                                if (likedAt != null) colorPalette.favoritesIcon else barBaseColor
+                            PlayerPreferences.PlayerBottomAction.SleepTimer ->
+                                if (sleepTimerMillisLeft > 0L) colorPalette.accent else barBaseColor
+                            PlayerPreferences.PlayerBottomAction.StatsForNerds ->
+                                if (isShowingStatsForNerds) colorPalette.accent else barBaseColor
+                            PlayerPreferences.PlayerBottomAction.CanvasToggle ->
+                                if (enableCanvas) colorPalette.accent else barBaseColor
+                            else -> barBaseColor
                         }
-                    },
-                    afterContent = {
+                        val iconRes = when (action) {
+                            PlayerPreferences.PlayerBottomAction.Like ->
+                                if (likedAt != null) R.drawable.heart else R.drawable.heart_outline
+                            else -> action.icon
+                        }
                         IconButton(
-                            icon = R.drawable.ellipsis_horizontal,
-                            color = colorPalette.text,
+                            icon = iconRes,
+                            color = iconColor,
                             onClick = {
-                                mediaItem?.let {
-                                    menuState.display {
-                                        PlayerMenu(
-                                            onDismiss = menuState::hide,
-                                            mediaItem = it,
-                                            binder = binder,
-                                            onShowSpeedDialog = { audioDialogOpen = true },
-                                            onShowNormalizationDialog = {
-                                                boostDialogOpen = true
-                                            }.takeIf { volumeNormalization }
-                                        )
+                                when (action) {
+                                    PlayerPreferences.PlayerBottomAction.Lyrics -> {
+                                        if (isShowingLyrics) {
+                                            isLyricsFullscreen = false
+                                            isShowingLyrics = false
+                                        } else {
+                                            isShowingLyrics = true
+                                        }
+                                    }
+                                    PlayerPreferences.PlayerBottomAction.Repeat ->
+                                        trackLoopEnabled = !trackLoopEnabled
+                                    PlayerPreferences.PlayerBottomAction.Queue ->
+                                        playerBottomSheetState.expandSoft()
+                                    PlayerPreferences.PlayerBottomAction.Shuffle ->
+                                        binder.player.shuffleQueue()
+                                    PlayerPreferences.PlayerBottomAction.Like ->
+                                        likedAt = if (likedAt == null) System.currentTimeMillis() else null
+                                    PlayerPreferences.PlayerBottomAction.SleepTimer ->
+                                        sleepTimerDialogOpen = true
+                                    PlayerPreferences.PlayerBottomAction.AudioSettings ->
+                                        audioDialogOpen = true
+                                    PlayerPreferences.PlayerBottomAction.Equalizer ->
+                                        launchEqualizer()
+                                    PlayerPreferences.PlayerBottomAction.Radio -> {
+                                        mediaItem?.let { item ->
+                                            binder.stopRadio()
+                                            binder.player.seamlessPlay(item)
+                                            binder.setupRadio(
+                                                NavigationEndpoint.Endpoint.Watch(videoId = item.mediaId)
+                                            )
+                                        }
+                                    }
+                                    PlayerPreferences.PlayerBottomAction.Share -> {
+                                        mediaItem?.let { item ->
+                                            val sendIntent = Intent().apply {
+                                                action = Intent.ACTION_SEND
+                                                type = "text/plain"
+                                                putExtra(
+                                                    Intent.EXTRA_TEXT,
+                                                    "https://music.youtube.com/watch?v=${item.mediaId}"
+                                                )
+                                            }
+                                            context.startActivity(Intent.createChooser(sendIntent, null))
+                                        }
+                                    }
+                                    PlayerPreferences.PlayerBottomAction.PreCache -> {
+                                        mediaItem?.let { item ->
+                                            runCatching {
+                                                PrecacheService.scheduleCache(
+                                                    context = context.applicationContext,
+                                                    mediaItem = item
+                                                )
+                                            }
+                                        }
+                                    }
+                                    PlayerPreferences.PlayerBottomAction.StatsForNerds -> {
+                                        if (!isLandscape && isShowingLyrics && !isShowingStatsForNerds) {
+                                            isLyricsFullscreen = false
+                                            isShowingLyrics = false
+                                            isShowingStatsForNerds = true
+                                        } else {
+                                            isShowingStatsForNerds = !isShowingStatsForNerds
+                                        }
+                                    }
+                                    PlayerPreferences.PlayerBottomAction.VolumeBoost ->
+                                        boostDialogOpen = true
+                                    PlayerPreferences.PlayerBottomAction.CanvasToggle ->
+                                        enableCanvas = !enableCanvas
+                                    PlayerPreferences.PlayerBottomAction.MoreOptions -> {
+                                        mediaItem?.let {
+                                            menuState.display {
+                                                PlayerMenu(
+                                                    onDismiss = menuState::hide,
+                                                    mediaItem = it,
+                                                    binder = binder,
+                                                    onShowSpeedDialog = { audioDialogOpen = true },
+                                                    onShowNormalizationDialog = {
+                                                        boostDialogOpen = true
+                                                    }.takeIf { volumeNormalization }
+                                                )
+                                            }
+                                        }
                                     }
                                 }
                             },
@@ -1500,12 +1640,22 @@ fun Player(
                                 .padding(vertical = 8.dp)
                                 .size(20.dp)
                         )
-                    },
+                    }
+                }
+
+                Queue(
+                    layoutState = playerBottomSheetState,
+                    binder = binder,
+                    beforeContent = {},
+                    afterContent = {},
+                    customActionsContent = customActionsContent,
+                    isTranslucentBar = isBleedBarTranslucent,
                     shape = shape,
                     windowInsets = if (isLandscape) windowInsets.only(WindowInsetsSides.Top + WindowInsetsSides.Bottom) else windowInsets
                 )
             }
         }
+
     }
 }
 

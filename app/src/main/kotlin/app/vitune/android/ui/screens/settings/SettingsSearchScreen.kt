@@ -94,7 +94,12 @@ fun SettingsSearchScreen(
     var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(TextFieldValue())
     }
+    var showBottomBarEditor by rememberSaveable { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
+
+    if (showBottomBarEditor) {
+        BottomBarButtonsEditorDialog(onDismiss = { showBottomBarEditor = false })
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -114,6 +119,7 @@ fun SettingsSearchScreen(
         PlayerPreferences.hideStatusBarOnCanvas,
         PlayerPreferences.showStatusBarGradient,
         PlayerPreferences.canvasStyle,
+        PlayerPreferences.playerBottomBarActions,
         PlayerPreferences.persistentQueue,
         PlayerPreferences.resumePlaybackWhenDeviceConnected,
         PlayerPreferences.stopWhenClosed,
@@ -259,7 +265,7 @@ fun SettingsSearchScreen(
             ),
             SearchSettingEntry(
                 title = "Canvas Display Style",
-                description = "Switch between Cover Art, Wide/Fullscreen, and Metrolist Fullscreen Artwork",
+                description = "Switch between Cover Art, Wide/Fullscreen, and Bleed",
                 categoryName = "Appearance",
                 tabIndex = 0,
                 onInteract = {
@@ -270,6 +276,19 @@ fun SettingsSearchScreen(
                 trailingContent = {
                     BasicText(
                         text = PlayerPreferences.canvasStyle.displayName(),
+                        style = typography.xs.semiBold.copy(color = colorPalette.accent)
+                    )
+                }
+            ),
+            SearchSettingEntry(
+                title = "Bottom bar buttons",
+                description = "Customize, reorder, add, and remove player bottom bar buttons",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = { showBottomBarEditor = true },
+                trailingContent = {
+                    BasicText(
+                        text = PlayerPreferences.parsePlayerBottomActions().size.toString(),
                         style = typography.xs.semiBold.copy(color = colorPalette.accent)
                     )
                 }

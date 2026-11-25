@@ -117,6 +117,21 @@ fun PlayerSettings() = with(PlayerPreferences) {
             }
 
         }
+
+        SettingsGroup(title = stringResource(R.string.player_bottom_bar_buttons)) {
+            var showBottomBarEditor by rememberSaveable { mutableStateOf(false) }
+
+            SettingsEntry(
+                title = stringResource(R.string.player_bottom_bar_buttons),
+                text = stringResource(R.string.player_bottom_bar_buttons_description),
+                onClick = { showBottomBarEditor = true }
+            )
+
+            if (showBottomBarEditor) {
+                BottomBarButtonsEditorDialog(onDismiss = { showBottomBarEditor = false })
+            }
+        }
+
         SettingsGroup(title = stringResource(R.string.audio)) {
             AnimatedVisibility(visible = changed) {
                 RestartPlayerSettingsEntry(

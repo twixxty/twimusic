@@ -620,11 +620,24 @@
     <string name="canvas_style">Canvas display style</string>
     <string name="canvas_style_wide">Wide / Fullscreen</string>
     <string name="canvas_style_cover">Cover Art</string>
-    <string name="canvas_style_fullscreen_artwork">Fullscreen artwork (Metrolist)</string>
+    <string name="canvas_style_fullscreen_artwork">Bleed</string>
     <string name="pause_canvas_with_song">Pause canvas with song</string>
     <string name="pause_canvas_with_song_description">Slow down and pause video canvas when playback is paused</string>
     <string name="hide_status_bar_on_canvas">Hide status bar on canvas</string>
     <string name="hide_status_bar_on_canvas_description">Hide system status bar in player when canvas video is active</string>
     <string name="status_bar_gradient_contrast">Status bar contrast gradient</string>
     <string name="status_bar_gradient_contrast_description">Add a subtle gradient shadow below the status bar to improve contrast</string>
+    <string name="player_bottom_bar_buttons">Bottom bar buttons</string>
+    <string name="player_bottom_bar_buttons_description">Customize, reorder, add, and remove player bottom bar buttons</string>
+    <string name="player_bottom_bar_active">Active buttons</string>
+    <string name="player_bottom_bar_available">Available buttons</string>
+    <string name="player_bottom_bar_repeat">Repeat</string>
+    <string name="player_bottom_bar_queue">Queue</string>
+    <string name="player_bottom_bar_audio_settings">Speed &amp; pitch</string>
+    <string name="player_bottom_bar_radio">Start radio</string>
+    <string name="player_bottom_bar_share">Share</string>
+    <string name="player_bottom_bar_pre_cache">Download / cache</string>
+    <string name="player_bottom_bar_stats_for_nerds">Stats for nerds</string>
+    <string name="player_bottom_bar_canvas_toggle">Toggle canvas</string>
+    <string name="save">Save</string>
 </resources>

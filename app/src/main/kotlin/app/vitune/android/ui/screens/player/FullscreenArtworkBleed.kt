@@ -374,7 +374,7 @@ internal fun bleedTone(art: IntArray): Int {
             high == g -> 60f * ((b - r) / delta + 2f)
             else -> 60f * ((r - g) / delta + 4f)
         }
-    return Color.hsl(hue, min(saturation, 0.5f), (lightness * 1.15f).coerceIn(0.07f, 0.30f)).toArgb()
+    return Color.hsl(hue, min(saturation, 0.5f), (lightness * 1.10f).coerceIn(0.05f, 0.22f)).toArgb()
 }
 
 internal fun bleedCanvas(
