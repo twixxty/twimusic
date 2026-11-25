@@ -1582,7 +1582,7 @@ private fun FullscreenArtworkOverlay(
                 key = isShowingLyricsDialog,
                 direction = PinchDirection.In,
                 threshold = 0.95f,
-                onPinch = onEnterPip
+                onPinch = { onEnterPip() }
             )
             .onSwipe(
                 onSwipeLeft = { binder?.player?.forceSeekToNext() },
