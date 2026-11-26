@@ -681,15 +681,11 @@ fun Player(
             !isShowingLyrics &&
             !isShowingStatsForNerds &&
             !isWideReady &&
-            !isWideCanvasActive &&
-            !isSquareCanvasActive
+            !isWideCanvasActive
         var bleedArtHeightPx by remember { mutableFloatStateOf(0f) }
         val staticCoverScale by animateFloatAsState(
             targetValue = if (shouldShrinkStaticCover) 0.9f else 1f,
-            animationSpec = spring(
-                dampingRatio = 0.78f,
-                stiffness = 340f
-            ),
+            animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
             label = "staticCoverScale"
         )
         val lyricsProgress = animateFloatAsState(
@@ -703,6 +699,15 @@ fun Player(
             targetValue = if (isWideReady) 1f else 0f,
             animationSpec = if (isWideLayerPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
             label = "heroCanvasProgress"
+        )
+        // Portrait Bleed uses the very same hero morph as Wide: the canvas lives in a slot that has
+        // exactly the static Bleed cover's rectangle, fades in over the cover, and flies to the
+        // lyrics header together with it.
+        val isBleedCanvasPresent = isBleedActive && !isLandscape && isCanvasActive
+        val bleedCanvasProgress = animateFloatAsState(
+            targetValue = if (isBleedCanvasPresent && isVideoReady) 1f else 0f,
+            animationSpec = if (isBleedCanvasPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
+            label = "heroBleedCanvasProgress"
         )
         SideEffect { hero.lyricsProgress = { lyricsProgress.value } }
         val isCoverInteractive by remember { derivedStateOf { canvasProgress.value < 0.5f } }
@@ -776,7 +781,7 @@ fun Player(
                         isPlaying = !layoutState.collapsed && !layoutState.dismissed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph / FullscreenThumbnailBackground,
                         // and in landscape it is driven by canvasLandscapeProgress / FullscreenThumbnailBackground.
-                        fadeInDurationMillis = wideCanvasFadeMillis,
+                        fadeInDurationMillis = if (isBleedActive) 500 else wideCanvasFadeMillis,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -1033,28 +1038,64 @@ fun Player(
                     onArtworkVisibleHeight = { bleedArtHeightPx = it },
                     isBlurredBackgroundStyle = playerBackgroundStyle == PlayerPreferences.PlayerBackgroundStyle.Blur,
                     canvasContent =
-                        if (isCanvasActive) {
+                        if (isCanvasActive && isLandscape) {
                             { videoModifier, onFrame -> canvasContent(videoModifier, onFrame) }
                         } else {
                             null
                         }
                 )
 
-                // Portrait Bleed -> lyrics: an exact copy of the visible cover (or canvas) region flies
-                // into the 52dp lyrics header cover while the rest of the Bleed fades away.
                 if (!isLandscape) {
-                    val showsCanvas = isCanvasActive && isVideoReady
                     val artHeight = with(LocalDensity.current) { bleedArtHeightPx.toDp() }
+                    val slotSize: Modifier = Modifier
+                        .fillMaxWidth()
+                        .then(if (artHeight > 0.dp) Modifier.height(artHeight) else Modifier.aspectRatio(1f))
+
+                    // Canvas: same slot / layer / mask as the Wide canvas, so it moves with the cover.
+                    if (isBleedCanvasPresent) {
+                        Box(
+                            modifier = slotSize
+                                .align(Alignment.TopCenter)
+                                .heroCanvasSlot(hero)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        hero.applyCanvasLayer(
+                                            scope = this,
+                                            lyricsProgress = lyricsProgress.value,
+                                            canvasProgress = bleedCanvasProgress.value,
+                                            coverRadius = 0f,
+                                            headerRadius = heroHeaderRadius
+                                        )
+                                    }
+                                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                    .drawWithContent {
+                                        drawContent()
+                                        // The lower edge melts into the Bleed blur; it is a hard
+                                        // edge again once the canvas has become the header cover.
+                                        val keep = lyricsProgress.value
+                                        drawRect(
+                                            brush = Brush.verticalGradient(
+                                                0.0f to Color.Black,
+                                                0.78f to Color.Black,
+                                                0.90f to Color.Black.copy(alpha = 0.6f + 0.4f * keep),
+                                                1.0f to Color.Black.copy(alpha = keep)
+                                            ),
+                                            blendMode = BlendMode.DstIn
+                                        )
+                                    }
+                            ) {
+                                canvasContent(Modifier.fillMaxSize(), null)
+                            }
+                        }
+                    }
+
+                    // Static cover: an exact copy of the Bleed cover that flies into the lyrics
+                    // header, and fades in over the canvas as that leaves (the Wide behaviour).
                     Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .then(
-                                when {
-                                    showsCanvas -> Modifier.aspectRatio(if (isTallCanvasVideo) 3f / 4f else 1f)
-                                    artHeight > 0.dp -> Modifier.height(artHeight)
-                                    else -> Modifier.aspectRatio(1f)
-                                }
-                            )
+                        modifier = slotSize
                             .align(Alignment.TopCenter)
                             .heroCoverSlot(hero)
                     ) {
@@ -1070,13 +1111,10 @@ fun Player(
                                     hero.applyCoverLayer(
                                         scope = this,
                                         lyricsProgress = lp,
-                                        canvasProgress = 0f,
+                                        canvasProgress = bleedCanvasProgress.value,
                                         coverRadius = 0f,
                                         headerRadius = heroHeaderRadius
                                     )
-                                    // Over a playing canvas the static cover has to fade in; over the
-                                    // static Bleed cover it is identical, so it is just there.
-                                    if (showsCanvas) alpha *= (lp * 4f).coerceIn(0f, 1f)
                                 }
                         ) {
                             AsyncImage(
@@ -1226,17 +1264,17 @@ fun Player(
                         // Wide + "style for covers without canvas": the static cover already sits in the
                         // canvas' place, so a canvas just fades in over it.
                         val isWideLandscapeLayer = isWideStyle && staticUsesCanvasStyle
-                        val landscapeFadeMask = remember {
-                            Brush.horizontalGradient(
-                                0.55f to Color.Black,
-                                1.0f to Color.Transparent
-                            )
-                        }
                         val coverTargetPx = with(LocalDensity.current) { coverArtTargetSize.toPx() }
                         // The cover is the opaque bottom layer and grows to fill the canvas area while
                         // the canvas fades in on top of it; it leaves once the canvas is fully there.
                         val coverAlpha =
                             if (canvasLandscapeProgress >= 0.999f) 0f else artworkLandscapeAlpha
+                        // The right-hand fade is introduced gradually together with the canvas (cover
+                        // and canvas share the exact same mask), or is there from the start when the
+                        // static cover already lives in the wide layout.
+                        val landscapeMaskStrength: () -> Float = {
+                            if (isWideLandscapeLayer) 1f else canvasLandscapeProgress
+                        }
 
                         if (isBleedActive) {
                             if (artworkLandscapeAlpha > 0f) {
@@ -1272,7 +1310,13 @@ fun Player(
                                         }
                                         .drawWithContent {
                                             drawContent()
-                                            drawRect(brush = landscapeFadeMask, blendMode = BlendMode.DstIn)
+                                            drawRect(
+                                                brush = Brush.horizontalGradient(
+                                                    0.55f to Color.Black,
+                                                    1.0f to Color.Black.copy(alpha = 1f - landscapeMaskStrength())
+                                                ),
+                                                blendMode = BlendMode.DstIn
+                                            )
                                         }
                                         .clickable(
                                             enabled = !isShowingLyrics,
@@ -1297,6 +1341,7 @@ fun Player(
                             } else if (coverAlpha > 0f) {
                                 Box(
                                     modifier = Modifier.graphicsLayer {
+                                        compositingStrategy = CompositingStrategy.Offscreen
                                         alpha = coverAlpha
                                         val fill = if (leftBoxSize.width > 0 && coverTargetPx > 0f) {
                                             max(leftBoxSize.width, leftBoxSize.height) / coverTargetPx
@@ -1306,6 +1351,15 @@ fun Player(
                                         val scale = 1f + (fill - 1f) * canvasLandscapeProgress
                                         scaleX = scale
                                         scaleY = scale
+                                    }.drawWithContent {
+                                        drawContent()
+                                        drawRect(
+                                            brush = Brush.horizontalGradient(
+                                                0.55f to Color.Black,
+                                                1.0f to Color.Black.copy(alpha = 1f - landscapeMaskStrength())
+                                            ),
+                                            blendMode = BlendMode.DstIn
+                                        )
                                     }
                                 ) {
                                     thumbnailContent(Modifier.size(coverArtTargetSize))
@@ -1323,7 +1377,13 @@ fun Player(
                                         }
                                         .drawWithContent {
                                             drawContent()
-                                            drawRect(brush = landscapeFadeMask, blendMode = BlendMode.DstIn)
+                                            drawRect(
+                                                brush = Brush.horizontalGradient(
+                                                    0.55f to Color.Black,
+                                                    1.0f to Color.Black.copy(alpha = 1f - landscapeMaskStrength())
+                                                ),
+                                                blendMode = BlendMode.DstIn
+                                            )
                                         }
                                 ) {
                                     canvasContent(Modifier.fillMaxSize(), null)

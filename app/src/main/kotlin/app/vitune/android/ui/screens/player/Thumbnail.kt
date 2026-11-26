@@ -182,7 +182,7 @@ fun Thumbnail(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .graphicsLayer {
-                        val s = if (isInPip || !squareCanvasUrl.isNullOrBlank() || error != null) 1f else coverScale()
+                        val s = if (isInPip || error != null) 1f else coverScale()
                         scaleX = s
                         scaleY = s
                     }
