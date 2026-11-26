@@ -79,6 +79,8 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         FullscreenArtwork(displayName = { stringResource(R.string.canvas_style_fullscreen_artwork) })
     }
     var canvasStyle by enum(CanvasStyle.Cover)
+    // Wide / Bleed only: also show covers that have no canvas in the canvas style
+    var canvasStyleForStaticCovers by boolean(true)
     var pauseCanvasWithSong by boolean(true)
     var hideStatusBarOnCanvas by boolean(false)
     var showStatusBarGradient by boolean(true)

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -36,6 +37,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
@@ -73,7 +75,8 @@ internal data class FullscreenTransitionBounds(
 internal fun FullscreenThumbnailBackground(
     artworkUri: Uri?,
     fallbackBackgroundColor: Color,
-    alpha: Float,
+    // Lambdas so animating them only invalidates the draw phase, never a recomposition.
+    alpha: () -> Float,
     transitionBounds: FullscreenTransitionBounds?,
     isLandscape: Boolean,
     canvasVideoUrl: String? = null,
@@ -81,6 +84,11 @@ internal fun FullscreenThumbnailBackground(
     canvasTall: Boolean = false,
     isBlurredBackgroundStyle: Boolean = true,
     fallbackBackground: @Composable () -> Unit = {},
+    // Landscape: lyrics hide the canvas (it fades out, the static cover stays behind it).
+    canvasSuppressed: Boolean = false,
+    canvasFade: () -> Float = { 1f },
+    // Reports the height of the visible (zoomed) cover so the player can morph it elsewhere.
+    onArtworkVisibleHeight: (Float) -> Unit = {},
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
 ) {
     if (isLandscape) {
@@ -91,6 +99,8 @@ internal fun FullscreenThumbnailBackground(
             canvasVideoUrl = canvasVideoUrl,
             isVideoReady = isVideoReady,
             canvasTall = canvasTall,
+            canvasSuppressed = canvasSuppressed,
+            canvasFade = canvasFade,
             canvasContent = canvasContent,
         )
         return
@@ -138,7 +148,7 @@ internal fun FullscreenThumbnailBackground(
             Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .graphicsLayer { this.alpha = alpha },
+                .graphicsLayer { this.alpha = alpha() },
     ) {
         val density = LocalDensity.current
         val viewportWidthPx = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
@@ -149,11 +159,31 @@ internal fun FullscreenThumbnailBackground(
         val seamFadeStart = if (canvasTall) (seam - (mirrorSeam - fadeStart)).coerceAtLeast(0f) else fadeStart
         val currentArtworkBitmap = rememberFullscreenArtworkBitmap(artworkUri, viewport)
 
+        val visibleArtHeight = currentArtworkBitmap?.let {
+            fullscreenArtworkVisibleHeight(viewport.width, viewport.height, it.width, it.height)
+        } ?: 0f
+        SideEffect { if (visibleArtHeight > 0f) onArtworkVisibleHeight(visibleArtHeight) }
+
+        // The cover grows / shrinks to the exact size of the canvas while the canvas fades in over
+        // it (and back again), instead of two differently sized images cross-fading.
+        val canvasHeightPx = viewport.width * (if (canvasTall) 4f / 3f else 1f)
+        val coverToCanvasScale =
+            if (visibleArtHeight > 0f) (canvasHeightPx / visibleArtHeight).coerceIn(0.4f, 2f) else 1f
+
         // Keep Metrolist's uncropped top-pinned Bleed cover underneath until the video overlay
         // has finished fading in, eliminating any visual snap when canvasVideoUrl resolves.
         Crossfade(
             targetState = artworkUri,
-            modifier = Modifier.fillMaxSize(),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val progress = if (hasVideo) videoVisible else 0f
+                        val scale = 1f + (coverToCanvasScale - 1f) * progress
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(0.5f, 0f)
+                    },
             animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = LinearEasing),
             label = "fullscreenPortraitArtworkCrossfade",
         ) { currentUri ->
@@ -212,13 +242,11 @@ internal fun FullscreenThumbnailBackground(
                         fadeStart = seamFadeStart,
                     )
                 } else {
-                    val backdropBitmap = canvasFrame ?: currentArtworkBitmap
-                    if (backdropBitmap != null) {
-                        FullscreenBlurredBackdropCanvas(
-                            artwork = backdropBitmap,
-                            scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-                        )
-                    }
+                    // Read the sampled frame in its own scope: every new frame only recomposes this.
+                    CanvasFrameBackdrop(
+                        frame = { canvasFrame },
+                        fallback = currentArtworkBitmap,
+                    )
                 }
 
                 Box(
@@ -264,6 +292,8 @@ private fun LandscapeFullscreenThumbnailBackground(
     canvasVideoUrl: String? = null,
     isVideoReady: Boolean = false,
     canvasTall: Boolean = false,
+    canvasSuppressed: Boolean = false,
+    canvasFade: () -> Float = { 1f },
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
 ) {
     var canvasFrame by remember(canvasVideoUrl, canvasContent != null) { mutableStateOf<ImageBitmap?>(null) }
@@ -281,7 +311,7 @@ private fun LandscapeFullscreenThumbnailBackground(
             Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .graphicsLayer { this.alpha = alpha }
+                .graphicsLayer { this.alpha = alpha() }
                 .background(fallbackBackgroundColor),
     ) {
         val density = LocalDensity.current
@@ -301,7 +331,7 @@ private fun LandscapeFullscreenThumbnailBackground(
             label = "landscapeFullscreenBackdropCrossfade",
         ) { currentUri ->
             val artworkBitmap = rememberFullscreenArtworkBitmap(currentUri, artworkSize)
-            val backdropBitmap = canvasFrame ?: artworkBitmap
+            val backdropBitmap = if (canvasSuppressed) artworkBitmap else canvasFrame ?: artworkBitmap
             if (backdropBitmap != null) {
                 val bw = backdropBitmap.width.toFloat()
                 val bh = backdropBitmap.height.toFloat()
@@ -409,7 +439,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                 label = "landscapeFullscreenArtCrossfade",
             ) { currentUri ->
                 val coverAlpha = if (!hasVideo || currentUri != artworkUri) 1f else (1f - videoVisible).coerceIn(0f, 1f)
-                if (coverAlpha > 0f) {
+                if (coverAlpha > 0f || hasVideo) {
                     AsyncImage(
                         model = currentUri?.thumbnail(max(fullWidthPx, fullHeightPx).coerceAtLeast(1080)),
                         contentDescription = null,
@@ -417,7 +447,14 @@ private fun LandscapeFullscreenThumbnailBackground(
                             Modifier
                                 .fillMaxSize()
                                 .graphicsLayer {
-                                    this.alpha = coverAlpha
+                                    // The cover is the opaque bottom layer: it only goes away once the
+                                    // canvas is fully visible, and comes back as lyrics hide the canvas.
+                                    this.alpha =
+                                        if (!hasVideo || currentUri != artworkUri) {
+                                            1f
+                                        } else {
+                                            (1f - videoVisible * canvasFade()).coerceIn(0f, 1f)
+                                        }
                                     compositingStrategy = CompositingStrategy.Offscreen
                                 }
                                 .drawWithContent {
@@ -438,7 +475,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                             .width(videoWidth)
                             .align(Alignment.CenterStart)
                             .graphicsLayer {
-                                this.alpha = videoVisible
+                                this.alpha = videoVisible * canvasFade()
                                 compositingStrategy = CompositingStrategy.Offscreen
                             }.drawWithContent {
                                 drawContent()
@@ -513,6 +550,18 @@ private fun FullscreenBlurredBackdropCanvas(
         blurRadiusPx = with(LocalDensity.current) { blurRadius.toPx() },
         scrimAlpha = if (supportsNativeBlur()) scrimAlpha else max(scrimAlpha, 0.34f),
         cropOverride = cropOverride,
+    )
+}
+
+@Composable
+private fun CanvasFrameBackdrop(
+    frame: () -> ImageBitmap?,
+    fallback: ImageBitmap?,
+) {
+    val bitmap = frame() ?: fallback ?: return
+    FullscreenBlurredBackdropCanvas(
+        artwork = bitmap,
+        scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
     )
 }
 

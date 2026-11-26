@@ -47,7 +47,7 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.AspectRatioFrameLayout
 
 private class CanvasFrameSampler(
-    private val intervalMs: Long = 50L,
+    private val intervalMs: Long = 100L,
     private val maxSide: Int = 48
 ) {
     private var lastSampleMs: Long? = null

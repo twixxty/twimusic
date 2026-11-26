@@ -10,6 +10,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SeekableTransitionState
@@ -180,6 +181,7 @@ import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.secondary
 import app.vitune.android.utils.semiBold
 import app.vitune.android.utils.shouldBePlaying
+import app.vitune.android.ui.components.PlayerScrubState
 import app.vitune.android.utils.thumbnail
 import app.vitune.android.utils.windowState
 import app.vitune.compose.persist.PersistMapCleanup
@@ -631,6 +633,12 @@ fun Player(
         val isCanvasActive = !canvasVideoUrl.isNullOrBlank()
         var isVideoReady by remember(canvasVideoUrl) { mutableStateOf(false) }
 
+        // Wide / Bleed also show covers that have no canvas in their own style, unless the user
+        // turned that off: then those covers use the normal cover box.
+        val staticUsesCanvasStyle = PlayerPreferences.canvasStyleForStaticCovers
+        val isBleedActive = isFullscreenArtworkStyle && (isCanvasActive || staticUsesCanvasStyle)
+        val isWideStyle = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Wide
+
         val shouldShowInCover = !isFullscreenArtworkStyle && (
             preferCover || (!artworkSquareVideo.isNullOrBlank() && artworkTallVideo.isNullOrBlank() && canvasVideoUrl == artworkSquareVideo)
         )
@@ -649,15 +657,28 @@ fun Player(
         // progress values are only ever read in the draw phase, so animating them is free of
         // recomposition and layout work.
         val hero = remember { CoverHeroState() }
-        val isWideCanvasPresent = !isFullscreenArtworkStyle && !isLandscape && isCanvasActive && !isSquareCanvas
-        val isWideCanvasActive = !isFullscreenArtworkStyle && isCanvasActive && !isSquareCanvas && isVideoReady
-        val isSquareCanvasActive = !isFullscreenArtworkStyle && isCanvasActive && isSquareCanvas
-        val shouldShrinkStaticCover = !isFullscreenArtworkStyle &&
-            !isPlayingState &&
+        val isWideCanvasPresent = !isBleedActive && !isLandscape && isCanvasActive && !isSquareCanvas
+        val isWideCanvasActive = !isBleedActive && isCanvasActive && !isSquareCanvas && isVideoReady
+        val isSquareCanvasActive = !isBleedActive && isCanvasActive && isSquareCanvas
+        // Wide + "canvas style for covers without canvas": the wide layer also exists for static
+        // covers (and sits under a canvas that is still loading, so nothing shrinks back and forth).
+        val isWideStaticLayer = isWideStyle && staticUsesCanvasStyle && !isLandscape &&
+            (!isCanvasActive || !isSquareCanvas)
+        val isWideLayerPresent = isWideCanvasPresent || isWideStaticLayer
+        val isWideReady = if (isWideStaticLayer) true else isWideCanvasPresent && isVideoReady
+        val wideCanvasFadeMillis = if (isWideStaticLayer) 400 else 0
+
+        // The box cover shrinks whenever playback isn't actually running: paused, buffering /
+        // loading, or while the position is being scrubbed.
+        val isCoverPlaybackStalled = !isPlayingState || PlayerScrubState.isScrubbing
+        val shouldShrinkStaticCover = !isBleedActive &&
+            isCoverPlaybackStalled &&
             !isShowingLyrics &&
             !isShowingStatsForNerds &&
+            !isWideReady &&
             !isWideCanvasActive &&
             !isSquareCanvasActive
+        var bleedArtHeightPx by remember { mutableFloatStateOf(0f) }
         val staticCoverScale by animateFloatAsState(
             targetValue = if (shouldShrinkStaticCover) 0.9f else 1f,
             animationSpec = spring(
@@ -674,8 +695,8 @@ fun Player(
         // Grows the cover into the canvas once its first frame is ready. If the canvas goes away
         // (e.g. next track without one) there is nothing left to animate, so snap back.
         val canvasProgress = animateFloatAsState(
-            targetValue = if (isWideCanvasPresent && isVideoReady) 1f else 0f,
-            animationSpec = if (isWideCanvasPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
+            targetValue = if (isWideReady) 1f else 0f,
+            animationSpec = if (isWideLayerPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
             label = "heroCanvasProgress"
         )
         SideEffect { hero.lyricsProgress = { lyricsProgress.value } }
@@ -738,7 +759,7 @@ fun Player(
                     modifier = innerModifier
                         .fillMaxSize()
                         .clickable(
-                            enabled = !isShowingLyrics && !isFullscreenArtworkStyle,
+                            enabled = !isShowingLyrics && !isBleedActive,
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
                         ) {
@@ -747,10 +768,10 @@ fun Player(
                 ) {
                     BackgroundVideoView(
                         videoUrl = videoUrl,
-                        isPlaying = !layoutState.collapsed && !layoutState.dismissed && (!isShowingLyrics || isLandscape) && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
+                        isPlaying = !layoutState.collapsed && !layoutState.dismissed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph / FullscreenThumbnailBackground,
                         // and in landscape it is driven by canvasLandscapeProgress / FullscreenThumbnailBackground.
-                        fadeInDurationMillis = 0,
+                        fadeInDurationMillis = wideCanvasFadeMillis,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -813,7 +834,7 @@ fun Player(
 
         val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
         val appearance = LocalAppearance.current
-        val useWhiteFullscreenControls = isFullscreenArtworkStyle && (!isShowingLyrics || isLandscape)
+        val useWhiteFullscreenControls = isBleedActive && (!isShowingLyrics || isLandscape)
         val effectiveControlsAppearance = remember(appearance, useWhiteFullscreenControls) {
             if (!useWhiteFullscreenControls) {
                 appearance
@@ -832,7 +853,7 @@ fun Player(
             }
         }
         val mediaInfoBoundsModifier =
-            if (isFullscreenArtworkStyle && !isLandscape && !isShowingLyrics) {
+            if (isBleedActive && !isLandscape && !isShowingLyrics) {
                 Modifier.onGloballyPositioned { coordinates ->
                     val root = playerRootCoordinates
                     if (root != null && root.isAttached && coordinates.isAttached) {
@@ -867,7 +888,7 @@ fun Player(
                     hero = hero,
                     onOpenLyricsMenu = openLyricsMenu,
                     mediaInfoModifier = mediaInfoBoundsModifier,
-                    isBleedMode = isFullscreenArtworkStyle,
+                    isBleedMode = isBleedActive,
                     modifier = innerModifier
                 )
             }
@@ -913,6 +934,23 @@ fun Player(
                 label = "coverArtOverlayAlpha"
             )
 
+            val fullscreenBgAlpha = animateFloatAsState(
+                targetValue = if (isBleedActive && (!isShowingLyrics || isLandscape)) 1f else 0f,
+                animationSpec = tween(durationMillis = if (isShowingLyrics && !isLandscape) 240 else 350, easing = FastOutSlowInEasing),
+                label = "fullscreenThumbnailBgAlpha"
+            )
+            val canvasHiddenByLyrics by remember { derivedStateOf { lyricsProgress.value > 0.5f } }
+
+            // The Bleed background is fully opaque, so while it is shown the (animated, shader
+            // based) player background underneath would only burn GPU time: hide it, but keep it
+            // composed so there is no hitch when the lyrics open.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        alpha = if (isBleedActive && fullscreenBgAlpha.value >= 0.999f) 0f else 1f
+                    }
+            ) {
             when (playerBackgroundStyle) {
                 PlayerPreferences.PlayerBackgroundStyle.Liquid -> {
                     LiquidBackground(
@@ -959,28 +997,27 @@ fun Player(
                     )
                 }
             }
+            }
 
-            val fullscreenBgAlpha by animateFloatAsState(
-                targetValue = if (isFullscreenArtworkStyle && (!isShowingLyrics || isLandscape)) 1f else 0f,
-                animationSpec = tween(durationMillis = if (isShowingLyrics && !isLandscape) 240 else 350, easing = FastOutSlowInEasing),
-                label = "fullscreenThumbnailBgAlpha"
-            )
             // Always keep FullscreenThumbnailBackground composed when bleed mode is active so the
             // ExoPlayer inside BackgroundVideoView is never released — it only pauses instead.
             // This prevents the "canvas unloads when opening lyrics / collapsing player" bug.
-            if (isFullscreenArtworkStyle && mediaItem != null) {
+            if (isBleedActive && mediaItem != null) {
                 val currentArtworkUri = mediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.mediaMetadata?.artworkUri
                 FullscreenThumbnailBackground(
                     artworkUri = currentArtworkUri,
                     fallbackBackgroundColor = colorPalette.background0,
-                    alpha = fullscreenBgAlpha,
+                    alpha = { fullscreenBgAlpha.value },
                     transitionBounds = fullscreenTransitionBounds,
                     isLandscape = isLandscape,
                     canvasVideoUrl = canvasVideoUrl,
                     isVideoReady = isVideoReady,
                     canvasTall = isTallCanvasVideo,
+                    canvasSuppressed = canvasHiddenByLyrics,
+                    canvasFade = { (1f - lyricsProgress.value).coerceIn(0f, 1f) },
+                    onArtworkVisibleHeight = { bleedArtHeightPx = it },
                     isBlurredBackgroundStyle = playerBackgroundStyle == PlayerPreferences.PlayerBackgroundStyle.Blur,
                     canvasContent =
                         if (isCanvasActive) {
@@ -990,15 +1027,23 @@ fun Player(
                         }
                 )
 
-                // Portrait Bleed -> Lyrics hero morph: matches top 1:1 cover region and shrinks smoothly
-                // into Expressive's 52dp header thumbnail (and expands back when closing lyrics).
+                // Portrait Bleed -> lyrics: an exact copy of the visible cover (or canvas) region flies
+                // into the 52dp lyrics header cover while the rest of the Bleed fades away.
                 if (!isLandscape) {
+                    val showsCanvas = isCanvasActive && isVideoReady
+                    val artHeight = with(LocalDensity.current) { bleedArtHeightPx.toDp() }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .aspectRatio(1f)
+                            .then(
+                                when {
+                                    showsCanvas -> Modifier.aspectRatio(if (isTallCanvasVideo) 3f / 4f else 1f)
+                                    artHeight > 0.dp -> Modifier.height(artHeight)
+                                    else -> Modifier.aspectRatio(1f)
+                                }
+                            )
                             .align(Alignment.TopCenter)
-                            .heroCanvasSlot(hero)
+                            .heroCoverSlot(hero)
                     ) {
                         Box(
                             modifier = Modifier
@@ -1016,11 +1061,13 @@ fun Player(
                                         coverRadius = 0f,
                                         headerRadius = heroHeaderRadius
                                     )
-                                    alpha *= (lp * 6f).coerceIn(0f, 1f)
+                                    // Over a playing canvas the static cover has to fade in; over the
+                                    // static Bleed cover it is identical, so it is just there.
+                                    if (showsCanvas) alpha *= (lp * 4f).coerceIn(0f, 1f)
                                 }
                         ) {
                             AsyncImage(
-                                model = currentArtworkUri?.thumbnail(512),
+                                model = currentArtworkUri?.thumbnail(1080),
                                 contentDescription = null,
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize()
@@ -1030,7 +1077,7 @@ fun Player(
                 }
             }
 
-            if (isWideCanvasPresent) {
+            if (isWideLayerPresent) {
                 Box(modifier = Modifier.fillMaxSize()) {
                     // The slot itself never moves, only the layer inside it does: that keeps the
                     // measured "natural" bounds stable while the video is morphing.
@@ -1054,14 +1101,31 @@ fun Player(
                                     )
                                 }
                         ) {
-                            canvasContent(Modifier.fillMaxSize(), null)
+                            if (isWideStaticLayer) {
+                                // Static cover in the wide style; a canvas fades in over it.
+                                val wideArtworkUri = mediaItem?.mediaMetadata?.artworkUri
+                                Crossfade(
+                                    targetState = wideArtworkUri,
+                                    animationSpec = tween(350),
+                                    label = "wideStaticArtwork",
+                                    modifier = Modifier.fillMaxSize()
+                                ) { uri ->
+                                    AsyncImage(
+                                        model = uri?.thumbnail(1280),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize()
+                                    )
+                                }
+                            }
+                            if (isCanvasActive) canvasContent(Modifier.fillMaxSize(), null)
                         }
                     }
                 }
 
                 // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
                 val gradientAlpha by animateFloatAsState(
-                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isVideoReady) 1f else 0f,
+                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isWideReady) 1f else 0f,
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "playerCanvasGradientAlpha"
                 )
@@ -1083,7 +1147,7 @@ fun Player(
                 )
             }
 
-            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && (!isShowingLyrics || isLandscape) && !layoutState.collapsed && !layoutState.dismissed) {
+            if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && !isShowingLyrics && !layoutState.collapsed && !layoutState.dismissed) {
                 FullScreenState(
                     shown = false,
                     type = WindowInsetsCompat.Type.statusBars()
@@ -1147,7 +1211,7 @@ fun Player(
                         val coverScale = 1f + 0.12f * canvasLandscapeProgress
                         val coverAlpha = artworkLandscapeAlpha * (1f - canvasLandscapeProgress).coerceIn(0f, 1f)
 
-                        if (isFullscreenArtworkStyle) {
+                        if (isBleedActive) {
                             if (artworkLandscapeAlpha > 0f) {
                                 Box(
                                     modifier = Modifier
@@ -1293,7 +1357,7 @@ fun Player(
                             label = "LyricsAlpha"
                         )
 
-                        if (isFullscreenArtworkStyle) {
+                        if (isBleedActive) {
                             if (!isShowingLyrics) {
                                 FullscreenArtworkOverlay(
                                     binder = binder,
@@ -1521,7 +1585,7 @@ fun Player(
                 val activeActions = remember(playerBottomBarActions) {
                     parsePlayerBottomActions(playerBottomBarActions)
                 }
-                val isBleedBarTranslucent = isFullscreenArtworkStyle && !isShowingLyrics
+                val isBleedBarTranslucent = isBleedActive && !isShowingLyrics
                 val barBaseColor = if (isBleedBarTranslucent) Color.White else colorPalette.text
                 val landscapeMode = isLandscape
 

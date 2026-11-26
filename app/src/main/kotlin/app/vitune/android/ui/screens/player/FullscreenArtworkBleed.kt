@@ -206,6 +206,19 @@ internal fun FullscreenArtworkBleed(
     }
 }
 
+/** Height the (zoomed, top-pinned) cover occupies at the top of the Bleed layout. */
+internal fun fullscreenArtworkVisibleHeight(
+    viewportWidth: Int,
+    viewportHeight: Int,
+    artWidth: Int,
+    artHeight: Int,
+): Float {
+    if (viewportWidth <= 0 || viewportHeight <= 0 || artWidth <= 0 || artHeight <= 0) return 0f
+    val coverHeight = viewportWidth * artHeight / artWidth.toFloat()
+    val zoom = (viewportHeight * COVER_HEIGHT_FRACTION / coverHeight).coerceIn(1f, MAX_COVER_ZOOM)
+    return coverHeight * zoom
+}
+
 internal fun fullscreenArtworkDetailTop(
     width: Int,
     artHeight: Int,

@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.BasicText
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +64,14 @@ import app.vitune.core.ui.utils.roundedShape
 import kotlin.math.PI
 import kotlin.math.sin
 
+/**
+ * `true` while the user is dragging / tapping a seek bar. The player artwork listens to this to
+ * shrink the cover while the position is being changed.
+ */
+object PlayerScrubState {
+    var isScrubbing by mutableStateOf(false)
+}
+
 // TODO: de-couple from binder
 
 @Composable
@@ -91,6 +100,12 @@ fun SeekBar(
     val onSeekEnd = {
         scrubbingPosition?.let(binder.player::seekTo)
         scrubbingPosition = null
+    }
+
+    val isScrubbing = scrubbingPosition != null || isDragging
+    DisposableEffect(isScrubbing) {
+        if (isScrubbing) PlayerScrubState.isScrubbing = true
+        onDispose { if (isScrubbing) PlayerScrubState.isScrubbing = false }
     }
 
     val isGuestLocked = binder.listenTogether.isGuestPlaybackLocked
@@ -194,8 +209,14 @@ private fun SquigglySeekBarBody(
 
     SquigglySlider(
         value = localPosition,
-        onValueChange = { localPosition = it },
-        onValueChangeFinished = { onSeek(localPosition.toLong()) },
+        onValueChange = {
+            localPosition = it
+            PlayerScrubState.isScrubbing = true
+        },
+        onValueChangeFinished = {
+            PlayerScrubState.isScrubbing = false
+            onSeek(localPosition.toLong())
+        },
         valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
         activeColor = color,
         inactiveColor = backgroundColor.copy(alpha = 0.35f),
@@ -225,8 +246,14 @@ private fun TaperedWaveSeekBarBody(
 
     TaperedWaveSlider(
         value = localPosition,
-        onValueChange = { localPosition = it },
-        onValueChangeFinished = { onSeek(localPosition.toLong()) },
+        onValueChange = {
+            localPosition = it
+            PlayerScrubState.isScrubbing = true
+        },
+        onValueChangeFinished = {
+            PlayerScrubState.isScrubbing = false
+            onSeek(localPosition.toLong())
+        },
         valueRange = 0f..duration.toFloat().coerceAtLeast(1f),
         activeColor = color,
         inactiveColor = backgroundColor.copy(alpha = 0.35f),

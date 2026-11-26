@@ -275,6 +275,15 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 valueText = { it.displayName() }
             )
 
+            AnimatedVisibility(visible = PlayerPreferences.canvasStyle != PlayerPreferences.CanvasStyle.Cover) {
+                SwitchSettingsEntry(
+                    title = stringResource(R.string.canvas_style_for_static_covers),
+                    text = stringResource(R.string.canvas_style_for_static_covers_description),
+                    isChecked = PlayerPreferences.canvasStyleForStaticCovers,
+                    onCheckedChange = { PlayerPreferences.canvasStyleForStaticCovers = it }
+                )
+            }
+
             SwitchSettingsEntry(
                 title = "Canvas & Motion Artwork",
                 text = "Show animated video canvases and Motion Artwork in player",
