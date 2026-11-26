@@ -880,7 +880,7 @@ fun Player(
                         isDark = if (t > 0.5f) true else palette.isDark
                     ),
                     typography = appearance.typography.copy(
-                        color = lerpColor(appearance.typography.color, Color.White, t)
+                        color = lerpColor(appearance.typography.s.color, Color.White, t)
                     )
                 )
             }
