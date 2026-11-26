@@ -198,6 +198,8 @@ import app.vitune.providers.innertube.models.NavigationEndpoint
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.absoluteValue
+import kotlin.math.max
+import androidx.compose.ui.unit.IntSize
 
 private fun Context.isMobileData(): Boolean {
     val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
@@ -639,11 +641,14 @@ fun Player(
         val isBleedActive = isFullscreenArtworkStyle && (isCanvasActive || staticUsesCanvasStyle)
         val isWideStyle = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Wide
 
-        val shouldShowInCover = !isFullscreenArtworkStyle && (
+        // Wide + "style for covers without canvas": every canvas (also square ones, e.g. when a track
+        // only has a square loop) is shown in the wide style instead of inside the cover box.
+        val wideShowsEveryCanvas = isWideStyle && staticUsesCanvasStyle
+        val shouldShowInCover = !isFullscreenArtworkStyle && !wideShowsEveryCanvas && (
             preferCover || (!artworkSquareVideo.isNullOrBlank() && artworkTallVideo.isNullOrBlank() && canvasVideoUrl == artworkSquareVideo)
         )
 
-        var isSquareCanvas by remember(canvasVideoUrl, shouldShowInCover) {
+        var isSquareCanvas by remember(canvasVideoUrl, shouldShowInCover, wideShowsEveryCanvas) {
             mutableStateOf(shouldShowInCover)
         }
         var isTallCanvasVideo by remember(canvasVideoUrl, artworkTallVideo, spotifyCanvasUrl) {
@@ -776,7 +781,13 @@ fun Player(
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
                                 val aspectRatio = width.toFloat() / height.toFloat()
-                                isSquareCanvas = !isFullscreenArtworkStyle && (aspectRatio in 0.82f..1.22f)
+                                // Cover style always keeps the canvas inside the cover square (it is cropped
+                                // to fill it, whatever the video's proportions are).
+                                isSquareCanvas = when {
+                                    isFullscreenArtworkStyle || wideShowsEveryCanvas -> false
+                                    preferCover -> true
+                                    else -> aspectRatio in 0.82f..1.22f
+                                }
                                 isTallCanvasVideo = aspectRatio < 0.85f
                             }
                         },
@@ -834,7 +845,7 @@ fun Player(
 
         val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
         val appearance = LocalAppearance.current
-        val useWhiteFullscreenControls = isBleedActive && (!isShowingLyrics || isLandscape)
+        val useWhiteFullscreenControls = isBleedActive && !isShowingLyrics
         val effectiveControlsAppearance = remember(appearance, useWhiteFullscreenControls) {
             if (!useWhiteFullscreenControls) {
                 appearance
@@ -934,23 +945,25 @@ fun Player(
                 label = "coverArtOverlayAlpha"
             )
 
-            val fullscreenBgAlpha = animateFloatAsState(
-                targetValue = if (isBleedActive && (!isShowingLyrics || isLandscape)) 1f else 0f,
-                animationSpec = tween(durationMillis = if (isShowingLyrics && !isLandscape) 240 else 350, easing = FastOutSlowInEasing),
+            // The Bleed layer follows the lyrics morph itself (portrait and landscape): it clears
+            // out quickly when the lyrics open and fades back in at the same pace as the cover
+            // flies home, so the blur never shows up after the cover has already arrived.
+            val bleedPresence = animateFloatAsState(
+                targetValue = if (isBleedActive) 1f else 0f,
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
                 label = "fullscreenThumbnailBgAlpha"
             )
+            val fullscreenBgAlpha: () -> Float = {
+                val lp = lyricsProgress.value
+                val lyricsFactor = if (isShowingLyrics) (1f - lp * 2.5f) else (1f - lp)
+                bleedPresence.value * lyricsFactor.coerceIn(0f, 1f)
+            }
             val canvasHiddenByLyrics by remember { derivedStateOf { lyricsProgress.value > 0.5f } }
 
             // The Bleed background is fully opaque, so while it is shown the (animated, shader
             // based) player background underneath would only burn GPU time: hide it, but keep it
             // composed so there is no hitch when the lyrics open.
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        alpha = if (isBleedActive && fullscreenBgAlpha.value >= 0.999f) 0f else 1f
-                    }
-            ) {
+            Box(modifier = Modifier.fillMaxSize()) {
             when (playerBackgroundStyle) {
                 PlayerPreferences.PlayerBackgroundStyle.Liquid -> {
                     LiquidBackground(
@@ -1009,7 +1022,7 @@ fun Player(
                 FullscreenThumbnailBackground(
                     artworkUri = currentArtworkUri,
                     fallbackBackgroundColor = colorPalette.background0,
-                    alpha = { fullscreenBgAlpha.value },
+                    alpha = fullscreenBgAlpha,
                     transitionBounds = fullscreenTransitionBounds,
                     isLandscape = isLandscape,
                     canvasVideoUrl = canvasVideoUrl,
@@ -1181,6 +1194,7 @@ fun Player(
                     animationSpec = tween(350, easing = FastOutSlowInEasing),
                     label = "playerLandscapeRightWeight"
                 )
+                var leftBoxSize by remember { mutableStateOf(IntSize.Zero) }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -1191,6 +1205,7 @@ fun Player(
                         modifier = Modifier
                             .weight(leftWeight)
                             .fillMaxHeight()
+                            .onSizeChanged { leftBoxSize = it }
                     ) {
                         val artworkLandscapeAlpha by animateFloatAsState(
                             targetValue = if (!isShowingLyrics) 1f else 0f,
@@ -1208,8 +1223,20 @@ fun Player(
                             label = "canvasLandscapeProgress"
                         )
 
-                        val coverScale = 1f + 0.12f * canvasLandscapeProgress
-                        val coverAlpha = artworkLandscapeAlpha * (1f - canvasLandscapeProgress).coerceIn(0f, 1f)
+                        // Wide + "style for covers without canvas": the static cover already sits in the
+                        // canvas' place, so a canvas just fades in over it.
+                        val isWideLandscapeLayer = isWideStyle && staticUsesCanvasStyle
+                        val landscapeFadeMask = remember {
+                            Brush.horizontalGradient(
+                                0.55f to Color.Black,
+                                1.0f to Color.Transparent
+                            )
+                        }
+                        val coverTargetPx = with(LocalDensity.current) { coverArtTargetSize.toPx() }
+                        // The cover is the opaque bottom layer and grows to fill the canvas area while
+                        // the canvas fades in on top of it; it leaves once the canvas is fully there.
+                        val coverAlpha =
+                            if (canvasLandscapeProgress >= 0.999f) 0f else artworkLandscapeAlpha
 
                         if (isBleedActive) {
                             if (artworkLandscapeAlpha > 0f) {
@@ -1235,12 +1262,50 @@ fun Player(
                                 }
                             }
                         } else {
-                            if (coverAlpha > 0f) {
+                            if (isWideLandscapeLayer) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .graphicsLayer {
+                                            alpha = artworkLandscapeAlpha
+                                            compositingStrategy = CompositingStrategy.Offscreen
+                                        }
+                                        .drawWithContent {
+                                            drawContent()
+                                            drawRect(brush = landscapeFadeMask, blendMode = BlendMode.DstIn)
+                                        }
+                                        .clickable(
+                                            enabled = !isShowingLyrics,
+                                            indication = null,
+                                            interactionSource = remember { MutableInteractionSource() }
+                                        ) { isShowingLyrics = true }
+                                ) {
+                                    Crossfade(
+                                        targetState = mediaItem?.mediaMetadata?.artworkUri,
+                                        animationSpec = tween(350),
+                                        label = "wideLandscapeStaticArtwork",
+                                        modifier = Modifier.fillMaxSize()
+                                    ) { uri ->
+                                        AsyncImage(
+                                            model = uri?.thumbnail(1280),
+                                            contentDescription = null,
+                                            contentScale = ContentScale.Crop,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    }
+                                }
+                            } else if (coverAlpha > 0f) {
                                 Box(
                                     modifier = Modifier.graphicsLayer {
                                         alpha = coverAlpha
-                                        scaleX = coverScale
-                                        scaleY = coverScale
+                                        val fill = if (leftBoxSize.width > 0 && coverTargetPx > 0f) {
+                                            max(leftBoxSize.width, leftBoxSize.height) / coverTargetPx
+                                        } else {
+                                            1f
+                                        }
+                                        val scale = 1f + (fill - 1f) * canvasLandscapeProgress
+                                        scaleX = scale
+                                        scaleY = scale
                                     }
                                 ) {
                                     thumbnailContent(Modifier.size(coverArtTargetSize))
@@ -1248,26 +1313,17 @@ fun Player(
                             }
 
                             if (isCanvasActive && !isSquareCanvas) {
-                                val canvasScale = 1.06f - 0.06f * canvasLandscapeProgress
                                 val canvasAlpha = artworkLandscapeAlpha * canvasLandscapeProgress
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
                                         .graphicsLayer {
                                             alpha = canvasAlpha
-                                            scaleX = canvasScale
-                                            scaleY = canvasScale
                                             compositingStrategy = CompositingStrategy.Offscreen
                                         }
                                         .drawWithContent {
                                             drawContent()
-                                            drawRect(
-                                                brush = Brush.horizontalGradient(
-                                                    0.55f to Color.Black,
-                                                    1.0f to Color.Transparent
-                                                ),
-                                                blendMode = BlendMode.DstIn
-                                            )
+                                            drawRect(brush = landscapeFadeMask, blendMode = BlendMode.DstIn)
                                         }
                                 ) {
                                     canvasContent(Modifier.fillMaxSize(), null)

@@ -148,7 +148,8 @@ internal fun FullscreenThumbnailBackground(
             Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .graphicsLayer { this.alpha = alpha() },
+                .graphicsLayer { this.alpha = alpha() }
+                .background(fallbackBackgroundColor),
     ) {
         val density = LocalDensity.current
         val viewportWidthPx = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
@@ -170,8 +171,24 @@ internal fun FullscreenThumbnailBackground(
         val coverToCanvasScale =
             if (visibleArtHeight > 0f) (canvasHeightPx / visibleArtHeight).coerceIn(0.4f, 2f) else 1f
 
-        // Keep Metrolist's uncropped top-pinned Bleed cover underneath until the video overlay
-        // has finished fading in, eliminating any visual snap when canvasVideoUrl resolves.
+        // While the cover squashes to the canvas height the area it uncovers shows the same backdrop
+        // the canvas overlay uses, so the morph never exposes anything transparent.
+        if (hasVideo && videoVisible > 0.001f && videoVisible < 0.999f) {
+            PortraitCanvasBackdrop(
+                canvasTall = canvasTall,
+                isBlurredBackgroundStyle = isBlurredBackgroundStyle,
+                fallbackBackground = fallbackBackground,
+                artwork = currentArtworkBitmap,
+                seam = seam,
+                seamFadeStart = seamFadeStart,
+                frame = { canvasFrame },
+                clipAlpha = { clipBleedAlpha },
+            )
+        }
+
+        // Metrolist's top-pinned Bleed cover stays underneath until the canvas is fully visible.
+        // Only its height changes (same width as the canvas), so cover -> canvas is a morph into
+        // the canvas' exact rectangle instead of two differently sized layers cross-fading.
         Crossfade(
             targetState = artworkUri,
             modifier =
@@ -179,9 +196,7 @@ internal fun FullscreenThumbnailBackground(
                     .fillMaxSize()
                     .graphicsLayer {
                         val progress = if (hasVideo) videoVisible else 0f
-                        val scale = 1f + (coverToCanvasScale - 1f) * progress
-                        scaleX = scale
-                        scaleY = scale
+                        scaleY = 1f + (coverToCanvasScale - 1f) * progress
                         transformOrigin = TransformOrigin(0.5f, 0f)
                     },
             animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = LinearEasing),
@@ -215,39 +230,22 @@ internal fun FullscreenThumbnailBackground(
         }
 
         if (hasVideo) {
-            // Single fade-in overlay containing backdrop + appropriately sized video so Cover -> Canvas
-            // crossfades smoothly with zero sudden backdrop/seam swap while video prepares.
             Box(
                 modifier =
                     Modifier
                         .fillMaxSize()
                         .graphicsLayer { this.alpha = videoVisible },
             ) {
-                if (!isBlurredBackgroundStyle) {
-                    fallbackBackground()
-                }
-                if (canvasTall) {
-                    if (currentArtworkBitmap != null) {
-                        FullscreenMirroredBlurCanvas(
-                            artwork = currentArtworkBitmap,
-                            mirrorSeamFraction = seam,
-                            mirrorFadeStart = seamFadeStart,
-                            scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-                        )
-                    }
-                    ClipFrameBleed(
-                        frame = { canvasFrame },
-                        alpha = { clipBleedAlpha },
-                        seam = seam,
-                        fadeStart = seamFadeStart,
-                    )
-                } else {
-                    // Read the sampled frame in its own scope: every new frame only recomposes this.
-                    CanvasFrameBackdrop(
-                        frame = { canvasFrame },
-                        fallback = currentArtworkBitmap,
-                    )
-                }
+                PortraitCanvasBackdrop(
+                    canvasTall = canvasTall,
+                    isBlurredBackgroundStyle = isBlurredBackgroundStyle,
+                    fallbackBackground = fallbackBackground,
+                    artwork = currentArtworkBitmap,
+                    seam = seam,
+                    seamFadeStart = seamFadeStart,
+                    frame = { canvasFrame },
+                    clipAlpha = { clipBleedAlpha },
+                )
 
                 Box(
                     Modifier
@@ -486,7 +484,7 @@ private fun LandscapeFullscreenThumbnailBackground(
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.6f)))
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.22f)))
     }
 }
 
@@ -551,6 +549,35 @@ private fun FullscreenBlurredBackdropCanvas(
         scrimAlpha = if (supportsNativeBlur()) scrimAlpha else max(scrimAlpha, 0.34f),
         cropOverride = cropOverride,
     )
+}
+
+@Composable
+private fun PortraitCanvasBackdrop(
+    canvasTall: Boolean,
+    isBlurredBackgroundStyle: Boolean,
+    fallbackBackground: @Composable () -> Unit,
+    artwork: ImageBitmap?,
+    seam: Float,
+    seamFadeStart: Float,
+    frame: () -> ImageBitmap?,
+    clipAlpha: () -> Float,
+) {
+    Box(Modifier.fillMaxSize()) {
+        if (!isBlurredBackgroundStyle) fallbackBackground()
+        if (canvasTall) {
+            if (artwork != null) {
+                FullscreenMirroredBlurCanvas(
+                    artwork = artwork,
+                    mirrorSeamFraction = seam,
+                    mirrorFadeStart = seamFadeStart,
+                    scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+                )
+            }
+            ClipFrameBleed(frame = frame, alpha = clipAlpha, seam = seam, fadeStart = seamFadeStart)
+        } else {
+            CanvasFrameBackdrop(frame = frame, fallback = artwork)
+        }
+    }
 }
 
 @Composable
