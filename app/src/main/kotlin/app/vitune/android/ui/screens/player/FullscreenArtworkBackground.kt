@@ -340,10 +340,6 @@ private fun LandscapeFullscreenThumbnailBackground(
                                     // canvas is fully visible, and comes back as lyrics hide the canvas.
                                     val zoomProgress =
                                         if (!hasVideo || currentUri != shownUri) 0f else videoVisible * canvasFade()
-                                    // The cover grows towards the canvas while it fades into it.
-                                    val zoom = 1f + 0.10f * zoomProgress
-                                    scaleX = zoom
-                                    scaleY = zoom
                                     this.alpha = (1f - zoomProgress).coerceIn(0f, 1f)
                                     compositingStrategy = CompositingStrategy.Offscreen
                                 }
@@ -366,9 +362,6 @@ private fun LandscapeFullscreenThumbnailBackground(
                             .align(Alignment.CenterStart)
                             .graphicsLayer {
                                 val shown = videoVisible * canvasFade()
-                                val zoom = 1.10f - 0.10f * shown
-                                scaleX = zoom
-                                scaleY = zoom
                                 this.alpha = shown
                                 compositingStrategy = CompositingStrategy.Offscreen
                             }.drawWithContent {
@@ -477,35 +470,6 @@ private fun FullscreenBlurredBackdropCanvas(
 }
 
 @Composable
-private fun PortraitCanvasBackdrop(
-    canvasTall: Boolean,
-    isBlurredBackgroundStyle: Boolean,
-    fallbackBackground: @Composable () -> Unit,
-    artwork: ImageBitmap?,
-    seam: Float,
-    seamFadeStart: Float,
-    frame: () -> ImageBitmap?,
-    clipAlpha: () -> Float,
-) {
-    Box(Modifier.fillMaxSize()) {
-        if (!isBlurredBackgroundStyle) fallbackBackground()
-        if (canvasTall) {
-            if (artwork != null) {
-                FullscreenMirroredBlurCanvas(
-                    artwork = artwork,
-                    mirrorSeamFraction = seam,
-                    mirrorFadeStart = seamFadeStart,
-                    scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-                )
-            }
-            ClipFrameBleed(frame = frame, alpha = clipAlpha, seam = seam, fadeStart = seamFadeStart)
-        } else {
-            CanvasFrameBackdrop(frame = frame, fallback = artwork)
-        }
-    }
-}
-
-@Composable
 private fun LandscapeBackdrop(
     bitmap: ImageBitmap,
     fullWidthPx: Int,
@@ -533,52 +497,4 @@ private fun LandscapeBackdrop(
         scrimAlpha = 0.10f,
         cropOverride = cropOverride,
     )
-}
-
-@Composable
-private fun CanvasFrameBackdrop(
-    frame: () -> ImageBitmap?,
-    fallback: ImageBitmap?,
-) {
-    val bitmap = frame() ?: fallback ?: return
-    FullscreenBlurredBackdropCanvas(
-        artwork = bitmap,
-        scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-    )
-}
-
-@Composable
-private fun FullscreenMirroredBlurCanvas(
-    artwork: ImageBitmap,
-    mirrorSeamFraction: Float,
-    mirrorFadeStart: Float,
-    blurRadius: Dp = FullscreenBottomBlurRadius,
-    scrimAlpha: Float = 0f,
-) {
-    MetrolistBlurredArtworkBackground(
-        artwork = artwork,
-        modifier = Modifier.fillMaxSize(),
-        blurRadiusPx = with(LocalDensity.current) { blurRadius.toPx() },
-        scrimAlpha = if (supportsNativeBlur()) scrimAlpha else max(scrimAlpha, 0.24f),
-        mirrorSeam = mirrorSeamFraction,
-        mirrorFadeStart = mirrorFadeStart,
-    )
-}
-
-@Composable
-private fun ClipFrameBleed(
-    frame: () -> ImageBitmap?,
-    alpha: () -> Float,
-    seam: Float,
-    fadeStart: Float,
-) {
-    val bitmap = frame() ?: return
-    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha() }) {
-        FullscreenMirroredBlurCanvas(
-            artwork = bitmap,
-            mirrorSeamFraction = seam,
-            mirrorFadeStart = fadeStart,
-            scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-        )
-    }
 }

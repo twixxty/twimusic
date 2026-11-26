@@ -199,6 +199,7 @@ import coil3.compose.AsyncImage
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlin.math.absoluteValue
 import kotlin.math.max
+import androidx.compose.ui.graphics.lerp as lerpColor
 import androidx.compose.ui.unit.IntSize
 
 private fun Context.isMobileData(): Boolean {
@@ -683,6 +684,7 @@ fun Player(
             !isWideReady &&
             !isWideCanvasActive
         var bleedArtHeightPx by remember { mutableFloatStateOf(0f) }
+        var wideArtHeightPx by remember { mutableFloatStateOf(0f) }
         val staticCoverScale by animateFloatAsState(
             targetValue = if (shouldShrinkStaticCover) 0.9f else 1f,
             animationSpec = tween(durationMillis = 700, easing = FastOutSlowInEasing),
@@ -706,7 +708,10 @@ fun Player(
         val isBleedCanvasPresent = isBleedActive && !isLandscape && isCanvasActive
         val bleedCanvasProgress = animateFloatAsState(
             targetValue = if (isBleedCanvasPresent && isVideoReady) 1f else 0f,
-            animationSpec = if (isBleedCanvasPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
+            // No cover -> canvas morph in Bleed: the canvas simply fades in over the cover (the
+            // video's own fade) in the very same rectangle. The layer only exists so the canvas
+            // flies to the lyrics header together with the cover.
+            animationSpec = snap(),
             label = "heroBleedCanvasProgress"
         )
         SideEffect { hero.lyricsProgress = { lyricsProgress.value } }
@@ -781,7 +786,7 @@ fun Player(
                         isPlaying = !layoutState.collapsed && !layoutState.dismissed && !isShowingLyrics && (!PlayerPreferences.pauseCanvasWithSong || isPlayingState),
                         // In portrait the cover -> canvas crossfade is driven by the hero morph / FullscreenThumbnailBackground,
                         // and in landscape it is driven by canvasLandscapeProgress / FullscreenThumbnailBackground.
-                        fadeInDurationMillis = wideCanvasFadeMillis,
+                        fadeInDurationMillis = if (isBleedActive) 500 else wideCanvasFadeMillis,
                         onVideoReady = { isVideoReady = it },
                         onVideoSizeChanged = { width, height ->
                             if (width > 0 && height > 0) {
@@ -850,21 +855,33 @@ fun Player(
 
         val sampleBitmap = binder.collectProvidedBitmapAsState(mediaItem?.mediaId ?: Unit)
         val appearance = LocalAppearance.current
-        val useWhiteFullscreenControls = isBleedActive && !isShowingLyrics
-        val effectiveControlsAppearance = remember(appearance, useWhiteFullscreenControls) {
-            if (!useWhiteFullscreenControls) {
+        // Bleed and the portrait wide canvas use translucent white controls; they cross-fade
+        // to / from the normal palette (e.g. when lyrics open) instead of switching abruptly.
+        val useWhiteFullscreenControls =
+            (isBleedActive || (!isLandscape && isWideReady)) && !isShowingLyrics
+        val whiteControlsProgress by animateFloatAsState(
+            targetValue = if (useWhiteFullscreenControls) 1f else 0f,
+            animationSpec = tween(350, easing = FastOutSlowInEasing),
+            label = "whiteControlsProgress"
+        )
+        val effectiveControlsAppearance = remember(appearance, whiteControlsProgress) {
+            val t = whiteControlsProgress
+            if (t <= 0.001f) {
                 appearance
             } else {
+                val palette = appearance.colorPalette
                 appearance.copy(
-                    colorPalette = appearance.colorPalette.copy(
-                        background1 = Color.White.copy(alpha = 0.16f),
-                        background2 = Color.White.copy(alpha = 0.20f),
-                        text = Color.White,
-                        textSecondary = Color.White.copy(alpha = 0.84f),
-                        textDisabled = Color.White.copy(alpha = 0.50f),
-                        isDark = true
+                    colorPalette = palette.copy(
+                        background1 = lerpColor(palette.background1, Color.White.copy(alpha = 0.16f), t),
+                        background2 = lerpColor(palette.background2, Color.White.copy(alpha = 0.20f), t),
+                        text = lerpColor(palette.text, Color.White, t),
+                        textSecondary = lerpColor(palette.textSecondary, Color.White.copy(alpha = 0.84f), t),
+                        textDisabled = lerpColor(palette.textDisabled, Color.White.copy(alpha = 0.50f), t),
+                        isDark = if (t > 0.5f) true else palette.isDark
                     ),
-                    typography = appearance.typography.copy(color = Color.White)
+                    typography = appearance.typography.copy(
+                        color = lerpColor(appearance.typography.color, Color.White, t)
+                    )
                 )
             }
         }
@@ -1024,14 +1041,6 @@ fun Player(
                 val currentArtworkUri = mediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.currentMediaItem?.mediaMetadata?.artworkUri
                     ?: binder?.player?.mediaMetadata?.artworkUri
-                val bleedMaxWidthPx = constraints.maxWidth.toFloat()
-                val bleedMaxHeightPx = constraints.maxHeight.toFloat()
-                // Where the canvas lives: same width as the cover, a bit taller (up to 3:4), so the
-                // cover zooms into it and the blur is pushed down below it.
-                val canvasHeightPx = max(
-                    bleedArtHeightPx,
-                    (bleedMaxWidthPx * 4f / 3f).coerceAtMost(bleedMaxHeightPx * 0.78f)
-                )
                 FullscreenThumbnailBackground(
                     artworkUri = currentArtworkUri,
                     fallbackBackgroundColor = colorPalette.background0,
@@ -1044,11 +1053,6 @@ fun Player(
                     canvasSuppressed = canvasHiddenByLyrics,
                     canvasFade = { (1f - lyricsProgress.value).coerceIn(0f, 1f) },
                     onArtworkVisibleHeight = { bleedArtHeightPx = it },
-                    // The blur is pushed down from under the cover while it grows into the canvas.
-                    contentOffsetY = {
-                        (canvasHeightPx - bleedArtHeightPx).coerceAtLeast(0f) *
-                            bleedCanvasProgress.value * (1f - lyricsProgress.value)
-                    },
                     isBlurredBackgroundStyle = playerBackgroundStyle == PlayerPreferences.PlayerBackgroundStyle.Blur,
                     canvasContent =
                         if (isCanvasActive && isLandscape) {
@@ -1060,7 +1064,6 @@ fun Player(
 
                 if (!isLandscape) {
                     val artHeight = with(LocalDensity.current) { bleedArtHeightPx.toDp() }
-                    val canvasHeight = with(LocalDensity.current) { canvasHeightPx.toDp() }
                     val coverSlotSize: Modifier = Modifier
                         .fillMaxWidth()
                         .then(if (artHeight > 0.dp) Modifier.height(artHeight) else Modifier.aspectRatio(1f))
@@ -1070,7 +1073,7 @@ fun Player(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(canvasHeight)
+                                .then(if (artHeight > 0.dp) Modifier.height(artHeight) else Modifier.aspectRatio(1f))
                                 .align(Alignment.TopCenter)
                                 .heroCanvasSlot(hero)
                         ) {
@@ -1108,9 +1111,8 @@ fun Player(
                         }
                     }
 
-                    // Static cover: an exact copy of the Bleed cover. It zooms into the canvas and
-                    // fades into it (cover on top of the canvas, exactly like Wide), and it is what
-                    // flies into the lyrics header.
+                    // Static cover: an exact copy of the Bleed cover; it is what flies into the
+                    // lyrics header and fades in over the canvas as that leaves.
                     Box(
                         modifier = coverSlotSize
                             .align(Alignment.TopCenter)
@@ -1147,6 +1149,26 @@ fun Player(
             }
 
             if (isWideLayerPresent) {
+                // Behind the wide canvas: a Bleed version of the cover (cover + blur), so the lower
+                // edge of the canvas melts into a blurred extension of itself instead of a flat fill.
+                val wideBgAlpha by animateFloatAsState(
+                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isWideReady) 1f else 0f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerWideBleedAlpha"
+                )
+                if (wideBgAlpha > 0.001f && mediaItem != null) {
+                    FullscreenThumbnailBackground(
+                        artworkUri = mediaItem?.mediaMetadata?.artworkUri,
+                        fallbackBackgroundColor = colorPalette.background0,
+                        alpha = { wideBgAlpha },
+                        transitionBounds = null,
+                        isLandscape = false,
+                        onArtworkVisibleHeight = { wideArtHeightPx = it },
+                        // The Bleed's cover edge sits where the canvas starts to fade out.
+                        contentOffsetY = { (playerRootHeightPx * 0.66f - wideArtHeightPx).coerceAtLeast(0f) },
+                        isBlurredBackgroundStyle = true
+                    )
+                }
                 Box(modifier = Modifier.fillMaxSize()) {
                     // The slot itself never moves, only the layer inside it does: that keeps the
                     // measured "natural" bounds stable while the video is morphing.
@@ -1167,6 +1189,22 @@ fun Player(
                                         canvasProgress = canvasProgress.value,
                                         coverRadius = heroCoverRadius,
                                         headerRadius = heroHeaderRadius
+                                    )
+                                }
+                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                                .drawWithContent {
+                                    drawContent()
+                                    // Lower edge melts into the Bleed blur; hard edge again once the
+                                    // canvas has turned into the lyrics header cover.
+                                    val keep = lyricsProgress.value
+                                    drawRect(
+                                        brush = Brush.verticalGradient(
+                                            0.0f to Color.Black,
+                                            0.72f to Color.Black,
+                                            0.88f to Color.Black.copy(alpha = 0.55f + 0.45f * keep),
+                                            1.0f to Color.Black.copy(alpha = keep)
+                                        ),
+                                        blendMode = BlendMode.DstIn
                                     )
                                 }
                         ) {
@@ -1192,28 +1230,6 @@ fun Player(
                     }
                 }
 
-                // Fading gradient background behind controls to protect contrast and seamlessly blend canvas bottom
-                val gradientAlpha by animateFloatAsState(
-                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isWideReady) 1f else 0f,
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "playerCanvasGradientAlpha"
-                )
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .fillMaxHeight(0.65f)
-                        .align(Alignment.BottomCenter)
-                        .graphicsLayer { alpha = gradientAlpha }
-                        .background(
-                            Brush.verticalGradient(
-                                0.0f to Color.Transparent,
-                                0.25f to colorPalette.background0.copy(alpha = 0.50f),
-                                0.50f to colorPalette.background0.copy(alpha = 0.95f),
-                                0.65f to colorPalette.background0,
-                                1.0f to colorPalette.background0
-                            )
-                        )
-                )
             }
 
             if (PlayerPreferences.hideStatusBarOnCanvas && isCanvasActive && !isSquareCanvas && !isShowingLyrics && !layoutState.collapsed && !layoutState.dismissed) {
@@ -1364,7 +1380,7 @@ fun Player(
 
                             if (isCanvasActive && !isSquareCanvas) {
                                 val canvasAlpha = artworkLandscapeAlpha * canvasLandscapeProgress
-                                val canvasScale = 1.06f - 0.06f * canvasLandscapeProgress
+                                val canvasScale = 1.10f - 0.10f * canvasLandscapeProgress
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
