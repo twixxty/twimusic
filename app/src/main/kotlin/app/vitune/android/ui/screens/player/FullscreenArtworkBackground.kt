@@ -288,7 +288,7 @@ internal fun FullscreenThumbnailBackground(
 private fun LandscapeFullscreenThumbnailBackground(
     artworkUri: Uri?,
     fallbackBackgroundColor: Color,
-    alpha: Float,
+    alpha: () -> Float,
     canvasVideoUrl: String? = null,
     isVideoReady: Boolean = false,
     canvasTall: Boolean = false,
