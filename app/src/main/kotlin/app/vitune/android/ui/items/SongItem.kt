@@ -227,28 +227,6 @@ private fun SongItem(
         )
 
         ItemInfoContainer {
-            trailingContent?.let {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    BasicText(
-                        text = title.orEmpty(),
-                        style = typography.xs.semiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-
-                    it()
-                }
-            } ?: BasicText(
-                text = title.orEmpty(),
-                style = typography.xs.semiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -256,6 +234,36 @@ private fun SongItem(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    BasicText(
+                        text = title.orEmpty(),
+                        style = typography.xs.semiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(
+                            weight = 1f,
+                            fill = false
+                        )
+                    )
+
+                    if (explicit) Image(
+                        painter = painterResource(R.drawable.explicit),
+                        contentDescription = "Explicit",
+                        colorFilter = ColorFilter.tint(colorPalette.text),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
+
+                trailingContent?.invoke()
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
                     modifier = Modifier.weight(1f)
                 ) {
                     authors?.let {
@@ -270,13 +278,6 @@ private fun SongItem(
                             )
                         )
                     }
-
-                    if (explicit) Image(
-                        painter = painterResource(R.drawable.explicit),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.text),
-                        modifier = Modifier.size(15.dp)
-                    )
                 }
 
                 if (showDuration) duration?.let {

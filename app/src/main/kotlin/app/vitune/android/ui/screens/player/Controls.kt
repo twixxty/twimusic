@@ -1183,20 +1183,32 @@ private fun MediaInfo(
         modifier = modifier
     ) {
         AnimatedContent(
-            targetState = media.title,
+            targetState = media.title to media.explicit,
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             contentAlignment = contentAlignment,
             label = "mediaTitle"
-        ) { title ->
+        ) { (title, explicit) ->
             FadingRow(
                 modifier = rowModifier,
-                horizontalArrangement = arrangement
+                horizontalArrangement = arrangement,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 BasicText(
                     text = title,
                     style = typography.xl.bold,
                     maxLines = 1
                 )
+
+                if (explicit) {
+                    Spacer(Modifier.width(4.dp))
+
+                    Image(
+                        painter = painterResource(R.drawable.explicit),
+                        contentDescription = "Explicit",
+                        colorFilter = ColorFilter.tint(colorPalette.text),
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
             }
         }
 
@@ -1205,7 +1217,7 @@ private fun MediaInfo(
             transitionSpec = { fadeIn() togetherWith fadeOut() },
             contentAlignment = contentAlignment,
             label = "mediaArtist"
-        ) { [media, state] ->
+        ) { (media, state) ->
             state?.let { artists ->
                 FadingRow(
                     modifier = rowModifier
@@ -1218,24 +1230,18 @@ private fun MediaInfo(
                             text = " & ",
                             style = typography.s.semiBold.secondary
                         )
+
                         BasicText(
                             text = artist.name.orEmpty(),
                             style = typography.s.bold.secondary,
-                            modifier = Modifier.clickable { artistRoute.global(artist.id) }
+                            modifier = Modifier.clickable {
+                                artistRoute.global(artist.id)
+                            }
                         )
+
                         if (i != artists.lastIndex && i + 1 != artists.lastIndex) BasicText(
                             text = ", ",
                             style = typography.s.semiBold.secondary
-                        )
-                    }
-                    if (media.explicit) {
-                        Spacer(Modifier.width(4.dp))
-
-                        Image(
-                            painter = painterResource(R.drawable.explicit),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.text),
-                            modifier = Modifier.size(15.dp)
                         )
                     }
                 }
@@ -1248,18 +1254,10 @@ private fun MediaInfo(
                     text = media.artist,
                     style = typography.s.semiBold.secondary,
                     maxLines = 1,
-                    modifier = Modifier.onGloballyPositioned { maxHeight = it.size.height }
+                    modifier = Modifier.onGloballyPositioned {
+                        maxHeight = it.size.height
+                    }
                 )
-                if (media.explicit) {
-                    Spacer(Modifier.width(4.dp))
-
-                    Image(
-                        painter = painterResource(R.drawable.explicit),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.text),
-                        modifier = Modifier.size(15.dp)
-                    )
-                }
             }
         }
     }
