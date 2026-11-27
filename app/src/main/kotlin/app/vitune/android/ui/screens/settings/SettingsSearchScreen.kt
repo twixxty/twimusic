@@ -53,14 +53,18 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import app.vitune.android.LocalPlayerAwareWindowInsets
 import app.vitune.android.R
 import app.vitune.android.preferences.AppearancePreferences
 import app.vitune.android.preferences.PlayerPreferences
 import app.vitune.android.ui.components.themed.FloatingActionsContainerWithScrollToTop
+import app.vitune.android.ui.components.themed.Header
+import app.vitune.android.ui.components.themed.SecondaryTextButton
 import app.vitune.android.ui.components.themed.Switch
 import app.vitune.android.ui.theme.LocalIsExpressiveTheme
+import app.vitune.android.utils.align
 import app.vitune.android.utils.getAppIcon
 import app.vitune.android.utils.medium
 import app.vitune.android.utils.secondary
@@ -687,13 +691,24 @@ fun SettingsSearchScreen(
         }
     }
 
-    // Insets for proper edge-to-edge padding
-    val topInsets = LocalPlayerAwareWindowInsets.current
-        .only(WindowInsetsSides.Top)
-        .asPaddingValues()
-    val bottomInsets = LocalPlayerAwareWindowInsets.current
-        .only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)
-        .asPaddingValues()
+    val decorationBox: @Composable (@Composable () -> Unit) -> Unit = { innerTextField ->
+        Box {
+            AnimatedVisibility(
+                visible = textFieldValue.text.isEmpty(),
+                enter = fadeIn(tween(300)),
+                exit = fadeOut(tween(300)),
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                BasicText(
+                    text = stringResource(R.string.search_settings),
+                    maxLines = 1,
+                    style = typography.xxl.secondary
+                )
+            }
+
+            innerTextField()
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -704,104 +719,58 @@ fun SettingsSearchScreen(
 
         LazyColumn(
             state = lazyListState,
-            contentPadding = bottomInsets,
+            contentPadding = LocalPlayerAwareWindowInsets.current
+                .only(WindowInsetsSides.Vertical + WindowInsetsSides.Horizontal)
+                .asPaddingValues(),
             modifier = Modifier.fillMaxSize()
         ) {
-            // ── Top bar: back button + search pill ─────────────────────────────────
-            item(key = "topbar", contentType = 0) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(topInsets)
-                        .padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 4.dp)
-                ) {
-                    // Back button
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onBack)
-                    ) {
-                        Image(
-                            painter = painterResource(getAppIcon(R.drawable.chevron_back)),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.text),
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    Spacer(Modifier.width(4.dp))
-
-                    // Search pill
-                    val pillShape = RoundedCornerShape(if (isExpressive) 28.dp else 16.dp)
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(pillShape)
-                            .background(colorPalette.background1)
-                            .padding(horizontal = 14.dp, vertical = 12.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(getAppIcon(R.drawable.search)),
-                            contentDescription = null,
-                            colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                            modifier = Modifier.size(18.dp)
-                        )
-
-                        Spacer(Modifier.width(10.dp))
-
-                        Box(modifier = Modifier.weight(1f)) {
-                            androidx.compose.animation.AnimatedVisibility(
-                                visible = textFieldValue.text.isEmpty(),
-                                enter = fadeIn(tween(200)),
-                                exit = fadeOut(tween(200))
-                            ) {
-                                BasicText(
-                                    text = stringResource(R.string.search_settings),
-                                    maxLines = 1,
-                                    style = typography.s.secondary
-                                )
-                            }
+            // ── Header: matches Songs Search (circular back button + right-aligned Header) ─
+            item(key = "header", contentType = 0) {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    Header(
+                        titleContent = {
                             BasicTextField(
                                 value = textFieldValue,
                                 onValueChange = { textFieldValue = it },
-                                textStyle = typography.s.medium.copy(color = colorPalette.text),
+                                textStyle = typography.xxl.medium.align(TextAlign.End),
                                 singleLine = true,
                                 maxLines = 1,
                                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                                 cursorBrush = SolidColor(colorPalette.text),
+                                decorationBox = decorationBox,
                                 modifier = Modifier
-                                    .fillMaxWidth()
+                                    .padding(start = 64.dp)
                                     .focusRequester(focusRequester)
                             )
-                        }
+                        },
+                        actionsContent = {
+                            Spacer(modifier = Modifier.weight(1f))
 
-                        AnimatedVisibility(
-                            visible = textFieldValue.text.isNotEmpty(),
-                            enter = fadeIn(tween(200)),
-                            exit = fadeOut(tween(200))
-                        ) {
-                            Box(
-                                contentAlignment = Alignment.Center,
-                                modifier = Modifier
-                                    .padding(start = 8.dp)
-                                    .size(24.dp)
-                                    .clip(CircleShape)
-                                    .background(colorPalette.textDisabled.copy(alpha = 0.18f))
-                                    .clickable { textFieldValue = TextFieldValue() }
-                            ) {
-                                Image(
-                                    painter = painterResource(getAppIcon(R.drawable.close)),
-                                    contentDescription = null,
-                                    colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                                    modifier = Modifier.size(12.dp)
+                            if (textFieldValue.text.isNotEmpty()) {
+                                SecondaryTextButton(
+                                    text = stringResource(R.string.clear),
+                                    onClick = { textFieldValue = TextFieldValue() }
                                 )
                             }
                         }
-                    }
+                    )
+
+                    Image(
+                        painter = painterResource(getAppIcon(R.drawable.chevron_back)),
+                        contentDescription = null,
+                        colorFilter = ColorFilter.tint(colorPalette.textSecondary),
+                        modifier = Modifier
+                            .align(Alignment.TopStart)
+                            .padding(start = 16.dp, top = 16.dp)
+                            .let {
+                                if (isExpressive) it.background(colorPalette.background1, CircleShape)
+                                else it
+                            }
+                            .clip(CircleShape)
+                            .clickable(onClick = onBack)
+                            .padding(all = 12.dp)
+                            .size(22.dp)
+                    )
                 }
             }
 
@@ -811,25 +780,20 @@ fun SettingsSearchScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 6.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
+                            .padding(horizontal = 16.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         BasicText(
-                            text = "Tap to change • Long-press to open section",
-                            style = typography.xxs.secondary
+                            text = "Tap to change • Hold to open section",
+                            style = typography.xxs.secondary,
+                            modifier = Modifier.weight(1f)
                         )
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(colorPalette.accent.copy(alpha = 0.15f))
-                                .padding(horizontal = 8.dp, vertical = 3.dp)
-                        ) {
-                            BasicText(
-                                text = "${filteredSettings.size} results",
-                                style = typography.xxs.semiBold.copy(color = colorPalette.accent)
-                            )
-                        }
+                        BasicText(
+                            text = "${filteredSettings.size} ${if (filteredSettings.size == 1) "result" else "results"}",
+                            style = typography.xxs.semiBold.copy(color = colorPalette.accent),
+                            maxLines = 1
+                        )
                     }
                 }
             }
