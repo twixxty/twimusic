@@ -74,6 +74,7 @@ object YouTubeSync {
 
     /** Ensure both Metrolist YouTube client and Innertube have auth credentials from preferences. */
     fun ensureAuth() {
+        AccountPreferences.sanitizeStoredCredentials()
         if (AccountPreferences.innerTubeCookie.isNotBlank()) {
             YouTube.cookie = AccountPreferences.innerTubeCookie
             Innertube.cookie = AccountPreferences.innerTubeCookie

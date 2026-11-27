@@ -68,18 +68,22 @@ fun AccountSettings(
     var showTokenDialog by rememberSaveable { mutableStateOf(false) }
 
     fun processTokenLogin(token: String) {
-        val cleanToken = token.trim()
-        val cookie = if (!cleanToken.contains("=") && !cleanToken.contains(";")) {
-            "SAPISID=$cleanToken"
-        } else {
-            cleanToken
-        }
+        val cookie = AccountPreferences.applyTokenInput(token)
         coroutineScope.launch(Dispatchers.IO) {
             YouTube.cookie = cookie
             app.vitune.providers.innertube.Innertube.cookie = cookie
+            if (AccountPreferences.visitorData.isNotBlank()) {
+                YouTube.visitorData = AccountPreferences.visitorData
+                app.vitune.providers.innertube.Innertube.visitorData = AccountPreferences.visitorData
+            }
+            if (AccountPreferences.dataSyncId.isNotBlank()) {
+                YouTube.dataSyncId = AccountPreferences.dataSyncId
+                app.vitune.providers.innertube.Innertube.dataSyncId = AccountPreferences.dataSyncId
+            }
+            YouTube.authUser = AccountPreferences.innerTubeAuthUser
+            app.vitune.providers.innertube.Innertube.authUser = AccountPreferences.innerTubeAuthUser
             val accountInfo = runCatching { YouTube.accountInfo().getOrNull() }.getOrNull()
             withContext(Dispatchers.Main) {
-                AccountPreferences.innerTubeCookie = cookie
                 if (accountInfo != null) {
                     AccountPreferences.accountName = accountInfo.name
                     AccountPreferences.accountEmail = accountInfo.email.orEmpty()
@@ -87,10 +91,14 @@ fun AccountSettings(
                     accountName = accountInfo.name
                     accountHandle = accountInfo.channelHandle.orEmpty()
                     accountEmail = accountInfo.email.orEmpty()
-                } else {
+                } else if (AccountPreferences.accountName.isBlank()) {
                     val fallbackName = "YouTube Account"
                     AccountPreferences.accountName = fallbackName
                     accountName = fallbackName
+                } else {
+                    accountName = AccountPreferences.accountName
+                    accountHandle = AccountPreferences.accountChannelHandle
+                    accountEmail = AccountPreferences.accountEmail
                 }
                 isLoggedIn = true
                 Toast.makeText(context, "Account token saved", Toast.LENGTH_SHORT).show()

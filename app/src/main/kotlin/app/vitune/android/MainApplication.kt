@@ -654,6 +654,7 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
         Dependencies.init(this)
         InnerTubeXPlayer.initialize(this)
 
+        AccountPreferences.sanitizeStoredCredentials()
         if (AccountPreferences.innerTubeCookie.isNotBlank()) {
             YouTube.cookie = AccountPreferences.innerTubeCookie
             app.vitune.providers.innertube.Innertube.cookie = AccountPreferences.innerTubeCookie
