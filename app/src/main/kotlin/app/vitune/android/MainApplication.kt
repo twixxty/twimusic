@@ -149,6 +149,7 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import timber.log.Timber
 import java.io.File
 
 private const val TAG = "MainActivity"
@@ -635,6 +636,21 @@ class MainApplication : Application(), SingletonImageLoader.Factory, Configurati
                 .penaltyDeath()
                 .build()
         )
+        if (Timber.treeCount == 0) {
+            Timber.plant(
+                if (BuildConfig.DEBUG) {
+                    Timber.DebugTree()
+                } else {
+                    object : Timber.Tree() {
+                        override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                            if (priority >= Log.WARN) {
+                                Log.println(priority, tag ?: "TwiMusic", message)
+                            }
+                        }
+                    }
+                }
+            )
+        }
         Dependencies.init(this)
         InnerTubeXPlayer.initialize(this)
 
