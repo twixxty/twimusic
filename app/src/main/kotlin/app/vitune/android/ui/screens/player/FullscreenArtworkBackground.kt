@@ -97,6 +97,9 @@ internal fun FullscreenThumbnailBackground(
     onBleedGeometry: (containerWidth: Float, detailTop: Float) -> Unit = { _, _ -> },
     // Portrait: rows (px) at the top that are drawn by a hero overlay instead (0 = nothing hidden).
     hiddenTopPx: () -> Float = { 0f },
+    // Portrait: drawn ABOVE a canvas; only the lower part (the blur behind the controls) is
+    // visible and it melts into the canvas above it.
+    overlayMode: Boolean = false,
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
 ) {
     if (isLandscape) {
@@ -119,7 +122,24 @@ internal fun FullscreenThumbnailBackground(
             Modifier
                 .fillMaxSize()
                 .clipToBounds()
-                .graphicsLayer { this.alpha = alpha() }
+                .graphicsLayer {
+                    this.alpha = alpha()
+                    if (overlayMode) compositingStrategy = CompositingStrategy.Offscreen
+                }
+                .drawWithContent {
+                    drawContent()
+                    if (overlayMode) {
+                        drawRect(
+                            brush = Brush.verticalGradient(
+                                0.0f to Color.Transparent,
+                                0.46f to Color.Transparent,
+                                0.74f to Color.Black,
+                                1.0f to Color.Black,
+                            ),
+                            blendMode = BlendMode.DstIn,
+                        )
+                    }
+                }
                 .background(fallbackBackgroundColor),
     ) {
         val density = LocalDensity.current

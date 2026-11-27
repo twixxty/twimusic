@@ -642,8 +642,11 @@ fun Player(
         // Wide / Bleed also show covers that have no canvas in their own style, unless the user
         // turned that off: then those covers use the normal cover box.
         val staticUsesCanvasStyle = PlayerPreferences.canvasStyleForStaticCovers
-        val isBleedActive = isFullscreenArtworkStyle && (isCanvasActive || staticUsesCanvasStyle)
-        val isWideStyle = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Wide
+        // Bleed layout only when the option is on; with it off, Bleed behaves exactly like Wide (box cover
+        // that morphs into the canvas) so there is no layout jump when a canvas loads.
+        val isBleedActive = isFullscreenArtworkStyle && staticUsesCanvasStyle
+        val isWideStyle = PlayerPreferences.canvasStyle == PlayerPreferences.CanvasStyle.Wide ||
+            (isFullscreenArtworkStyle && !staticUsesCanvasStyle)
 
         // Wide + "style for covers without canvas": every canvas (also square ones, e.g. when a track
         // only has a square loop) is shown in the wide style instead of inside the cover box.
@@ -1101,26 +1104,23 @@ fun Player(
                                             headerRadius = heroHeaderRadius
                                         )
                                     }
-                                    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                                    .drawWithContent {
-                                        drawContent()
-                                        // The lower edge melts into the Bleed blur; it is a hard
-                                        // edge again once the canvas has become the header cover.
-                                        val keep = lyricsProgress.value
-                                        drawRect(
-                                            brush = Brush.verticalGradient(
-                                                0.0f to Color.Black,
-                                                0.72f to Color.Black,
-                                                0.88f to Color.Black.copy(alpha = 0.55f + 0.45f * keep),
-                                                1.0f to Color.Black.copy(alpha = keep)
-                                            ),
-                                            blendMode = BlendMode.DstIn
-                                        )
-                                    }
                             ) {
                                 canvasContent(Modifier.fillMaxSize(), null)
                             }
                         }
+                    }
+
+                    // Blur behind the controls, above the canvas (the canvas melts into it).
+                    if (isBleedCanvasPresent && mediaItem != null) {
+                        FullscreenThumbnailBackground(
+                            artworkUri = currentArtworkUri,
+                            fallbackBackgroundColor = colorPalette.background0,
+                            alpha = { fullscreenBgAlpha() * bleedCanvasProgress.value },
+                            transitionBounds = null,
+                            isLandscape = false,
+                            isBlurredBackgroundStyle = true,
+                            overlayMode = true
+                        )
                     }
 
                     // Static cover: an exact copy of the Bleed cover; it is what flies into the
@@ -1189,23 +1189,6 @@ fun Player(
             }
 
             if (isWideLayerPresent) {
-                // Bleed background behind the controls: the cover's blurred extension fills the lower
-                // part of the screen, and the canvas melts into it. Nothing is pushed under the canvas.
-                val wideBgAlpha by animateFloatAsState(
-                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isWideReady) 1f else 0f,
-                    animationSpec = tween(350, easing = FastOutSlowInEasing),
-                    label = "playerWideBleedAlpha"
-                )
-                if (wideBgAlpha > 0.001f && mediaItem != null) {
-                    FullscreenThumbnailBackground(
-                        artworkUri = mediaItem?.mediaMetadata?.artworkUri,
-                        fallbackBackgroundColor = colorPalette.background0,
-                        alpha = { wideBgAlpha },
-                        transitionBounds = null,
-                        isLandscape = false,
-                        isBlurredBackgroundStyle = true
-                    )
-                }
                 Box(modifier = Modifier.fillMaxSize()) {
                     // The slot itself never moves, only the layer inside it does: that keeps the
                     // measured "natural" bounds stable while the video is morphing.
@@ -1226,22 +1209,6 @@ fun Player(
                                         canvasProgress = canvasProgress.value,
                                         coverRadius = heroCoverRadius,
                                         headerRadius = heroHeaderRadius
-                                    )
-                                }
-                                .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                                .drawWithContent {
-                                    drawContent()
-                                    // Lower part melts into the Bleed blur; hard edge again once the
-                                    // canvas has turned into the lyrics header cover.
-                                    val keep = lyricsProgress.value
-                                    drawRect(
-                                        brush = Brush.verticalGradient(
-                                            0.0f to Color.Black,
-                                            0.55f to Color.Black,
-                                            0.85f to Color.Black.copy(alpha = 0.35f + 0.65f * keep),
-                                            1.0f to Color.Black.copy(alpha = keep)
-                                        ),
-                                        blendMode = BlendMode.DstIn
                                     )
                                 }
                         ) {
@@ -1265,6 +1232,25 @@ fun Player(
                             if (isCanvasActive) canvasContent(Modifier.fillMaxSize(), null)
                         }
                     }
+                }
+
+                // Bleed background behind the controls: the cover's blurred extension fills the lower
+                // part of the screen, and the canvas melts into it. Nothing is pushed under the canvas.
+                val wideBgAlpha by animateFloatAsState(
+                    targetValue = if (!isShowingLyrics && !isLyricsFullscreen && isWideReady) 1f else 0f,
+                    animationSpec = tween(350, easing = FastOutSlowInEasing),
+                    label = "playerWideBleedAlpha"
+                )
+                if (wideBgAlpha > 0.001f && mediaItem != null) {
+                    FullscreenThumbnailBackground(
+                        artworkUri = mediaItem?.mediaMetadata?.artworkUri,
+                        fallbackBackgroundColor = colorPalette.background0,
+                        alpha = { wideBgAlpha },
+                        transitionBounds = null,
+                        isLandscape = false,
+                        isBlurredBackgroundStyle = true,
+                        overlayMode = true
+                    )
                 }
             }
 
@@ -1323,6 +1309,7 @@ fun Player(
                             animationSpec = tween(350, easing = FastOutSlowInEasing),
                             label = "lyricsLandscapeAlpha"
                         )
+                        val isWideLandscapeLayer = isWideStyle && staticUsesCanvasStyle
                         val canvasLandscapeProgress by animateFloatAsState(
                             targetValue = if (isCanvasActive && !isSquareCanvas && isVideoReady) 1f else 0f,
                             animationSpec = tween(durationMillis = 550, easing = FastOutSlowInEasing),
@@ -1331,7 +1318,6 @@ fun Player(
 
                         // Wide + "style for covers without canvas": the static cover already sits in the
                         // canvas' place, so a canvas just fades in over it.
-                        val isWideLandscapeLayer = isWideStyle && staticUsesCanvasStyle
                         val coverScale = 1f + 0.12f * canvasLandscapeProgress
                         val coverAlpha = artworkLandscapeAlpha * (1f - canvasLandscapeProgress).coerceIn(0f, 1f)
                         // The right-hand fade comes in together with the canvas instead of popping in
