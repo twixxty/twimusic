@@ -724,54 +724,29 @@ fun SettingsSearchScreen(
                 .asPaddingValues(),
             modifier = Modifier.fillMaxSize()
         ) {
-            // ── Header: matches Songs Search (circular back button + right-aligned Header) ─
+            // Header: identical to the song search (right-aligned field + Clear action)
             item(key = "header", contentType = 0) {
-                Box(modifier = Modifier.fillMaxWidth()) {
-                    Header(
-                        titleContent = {
-                            BasicTextField(
-                                value = textFieldValue,
-                                onValueChange = { textFieldValue = it },
-                                textStyle = typography.xxl.medium.align(TextAlign.End),
-                                singleLine = true,
-                                maxLines = 1,
-                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                                cursorBrush = SolidColor(colorPalette.text),
-                                decorationBox = decorationBox,
-                                modifier = Modifier
-                                    .padding(start = 64.dp)
-                                    .focusRequester(focusRequester)
-                            )
-                        },
-                        actionsContent = {
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            if (textFieldValue.text.isNotEmpty()) {
-                                SecondaryTextButton(
-                                    text = stringResource(R.string.clear),
-                                    onClick = { textFieldValue = TextFieldValue() }
-                                )
-                            }
-                        }
-                    )
-
-                    Image(
-                        painter = painterResource(getAppIcon(R.drawable.chevron_back)),
-                        contentDescription = null,
-                        colorFilter = ColorFilter.tint(colorPalette.textSecondary),
-                        modifier = Modifier
-                            .align(Alignment.TopStart)
-                            .padding(start = 16.dp, top = 16.dp)
-                            .let {
-                                if (isExpressive) it.background(colorPalette.background1, CircleShape)
-                                else it
-                            }
-                            .clip(CircleShape)
-                            .clickable(onClick = onBack)
-                            .padding(all = 12.dp)
-                            .size(22.dp)
-                    )
-                }
+                Header(
+                    titleContent = {
+                        BasicTextField(
+                            value = textFieldValue,
+                            onValueChange = { textFieldValue = it },
+                            textStyle = typography.xxl.medium.align(TextAlign.End),
+                            singleLine = true,
+                            maxLines = 1,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                            cursorBrush = SolidColor(colorPalette.text),
+                            decorationBox = decorationBox,
+                            modifier = Modifier.focusRequester(focusRequester)
+                        )
+                    },
+                    actionsContent = {
+                        if (textFieldValue.text.isNotEmpty()) SecondaryTextButton(
+                            text = stringResource(R.string.clear),
+                            onClick = { textFieldValue = TextFieldValue() }
+                        )
+                    }
+                )
             }
 
             // ── Results count / hint row ──────────────────────────────────────
