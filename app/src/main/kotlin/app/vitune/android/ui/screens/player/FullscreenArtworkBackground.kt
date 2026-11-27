@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -12,12 +13,12 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,7 +33,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -91,15 +91,13 @@ internal fun FullscreenThumbnailBackground(
     canvasFade: () -> Float = { 1f },
     // Reports the height of the visible (zoomed) cover so the player can morph it elsewhere.
     onArtworkVisibleHeight: (Float) -> Unit = {},
-    // Portrait: pushes the Bleed (cover + blur) down while the cover grows into the canvas.
+    // Portrait: pushes the Bleed (cover + blur) down while fading out.
     contentOffsetY: () -> Float = { 0f },
-    // Portrait: (container width, blur start row) of the Bleed, so overlays can mirror the cover exactly.
-    onBleedGeometry: (containerWidth: Float, detailTop: Float) -> Unit = { _, _ -> },
-    // Portrait: rows (px) at the top that are drawn by a hero overlay instead (0 = nothing hidden).
-    hiddenTopPx: () -> Float = { 0f },
-    // Portrait: drawn ABOVE a canvas; only the lower part (the blur behind the controls) is
+    // Portrait: drawn ABOVE a Wide canvas; only the lower part (the blur behind the controls) is
     // visible and it melts into the canvas above it.
     overlayMode: Boolean = false,
+    // Portrait: draw the Bleed cover art underneath while waiting for / crossfading into the canvas.
+    showStaticBleed: Boolean = true,
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
 ) {
     if (isLandscape) {
@@ -115,6 +113,34 @@ internal fun FullscreenThumbnailBackground(
             canvasContent = canvasContent,
         )
         return
+    }
+
+    var canvasFrame by remember(canvasVideoUrl, canvasContent != null) { mutableStateOf<ImageBitmap?>(null) }
+    val hasClipFrame by remember(canvasVideoUrl, canvasContent != null) { derivedStateOf { canvasFrame != null } }
+    val clipBleedAlpha by animateFloatAsState(
+        targetValue = if (hasClipFrame) 1f else 0f,
+        animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = FastOutSlowInEasing),
+        label = "fullscreenClipBleedAlpha",
+    )
+    val animatedVideoVisible by key(artworkUri, canvasVideoUrl) {
+        animateFloatAsState(
+            targetValue = if (isVideoReady) 1f else 0f,
+            animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = FastOutSlowInEasing),
+            label = "fullscreenVideoVisible",
+        )
+    }
+    val videoVisible = if (showStaticBleed) animatedVideoVisible else if (isVideoReady) 1f else 0f
+    val hasVideo = !overlayMode && !canvasVideoUrl.isNullOrBlank() && canvasContent != null
+    val videoBottomMask = remember {
+        Brush.verticalGradient(
+            colorStops =
+                arrayOf(
+                    0.0f to Color.Black,
+                    0.66f to Color.Black,
+                    0.84f to Color.Black.copy(alpha = 0.55f),
+                    1.0f to Color.Transparent,
+                ),
+        )
     }
 
     BoxWithConstraints(
@@ -155,71 +181,142 @@ internal fun FullscreenThumbnailBackground(
         val visibleArtHeight = shownBitmap?.let {
             fullscreenArtworkVisibleHeight(viewport.width, viewport.height, it.width, it.height)
         } ?: 0f
-        val geometry = shownBitmap?.let {
-            fullscreenArtworkBleedGeometry(viewport.width, viewport.height, it.width, it.height)
-        }
         SideEffect {
             if (visibleArtHeight > 0f) onArtworkVisibleHeight(visibleArtHeight)
-            if (geometry != null) onBleedGeometry(geometry.first, geometry.second)
         }
 
-        Box(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer { translationY = contentOffsetY() }
-                .drawWithContent {
-                    // While a hero overlay carries the cover, the cover rows are not drawn here (the
-                    // overlay is pixel-identical), so no second copy fades in place behind it.
-                    val cut = hiddenTopPx()
-                    if (cut > 0f) {
-                        clipRect(top = cut) { this@drawWithContent.drawContent() }
-                    } else {
-                        drawContent()
-                    }
-                },
-        ) {
-            Crossfade(
-                targetState = shownUri,
-                modifier = Modifier.fillMaxSize(),
-                animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = LinearEasing),
-                label = "fullscreenPortraitArtworkCrossfade",
-            ) { currentUri ->
-                val artworkBitmap = currentUri?.let { loadedArtworkCache[it] }
-                if (artworkBitmap != null) {
-                    FullscreenArtworkBleed(
-                        url = currentUri.toString(),
-                        artwork = artworkBitmap,
-                        viewport = viewport,
-                    )
-                } else {
-                    Box(Modifier.fillMaxSize().background(fallbackBackgroundColor)) {
-                        AsyncImage(
-                            model = currentUri,
-                            contentDescription = null,
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize(),
-                        )
+        val titleEndFraction = transitionBounds?.bottomTransitionEndFraction?.coerceIn(0.54f, 0.66f) ?: 0.62f
+        val bleedCanvasHeightPx = if (visibleArtHeight > 0f) {
+            max(visibleArtHeight, viewportHeightPx * titleEndFraction)
+                .coerceIn(viewportHeightPx * 0.54f, viewportHeightPx * 0.65f)
+        } else {
+            viewportHeightPx * 0.60f
+        }
+        val bleedCanvasHeightDp = with(density) { bleedCanvasHeightPx.toDp() }
+        val seam = (bleedCanvasHeightPx / viewportHeightPx.toFloat()).coerceIn(0.48f, 0.66f)
+        val seamFadeStart = (seam - 0.16f).coerceAtLeast(0.30f)
+        val coverToCanvasScale = if (hasVideo && visibleArtHeight > 0f) {
+            (bleedCanvasHeightPx / visibleArtHeight).coerceIn(1f, 1.35f)
+        } else {
+            1f
+        }
+
+        if (showStaticBleed) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        translationY = contentOffsetY()
+                        if (coverToCanvasScale != 1f) {
+                            val scale = 1f + (coverToCanvasScale - 1f) * videoVisible
+                            scaleX = scale
+                            scaleY = scale
+                            transformOrigin = TransformOrigin(0.5f, 0f)
+                        }
+                    },
+            ) {
+                Crossfade(
+                    targetState = shownUri,
+                    modifier = Modifier.fillMaxSize(),
+                    animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = LinearEasing),
+                    label = "fullscreenPortraitArtworkCrossfade",
+                ) { currentUri ->
+                    val showBleedCover = !hasVideo || videoVisible < 0.999f || currentUri != shownUri
+                    if (showBleedCover) {
+                        val artworkBitmap = if (currentUri == shownUri) {
+                            shownBitmap ?: currentUri?.let { loadedArtworkCache[it] }
+                        } else {
+                            currentUri?.let { loadedArtworkCache[it] }
+                        }
+                        if (artworkBitmap != null) {
+                            FullscreenArtworkBleed(
+                                url = currentUri.toString(),
+                                artwork = artworkBitmap,
+                                viewport = viewport,
+                            )
+                        } else {
+                            Box(Modifier.fillMaxSize().background(fallbackBackgroundColor)) {
+                                AsyncImage(
+                                    model = currentUri,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
 
-        // Protective bottom contrast gradient so title/controls stay readable on bright covers.
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(
-                    Brush.verticalGradient(
-                        colorStops = arrayOf(
-                            0.0f to Color.Transparent,
-                            0.48f to Color.Transparent,
-                            0.62f to Color.Black.copy(alpha = 0.24f),
-                            0.78f to Color.Black.copy(alpha = 0.52f),
-                            1.0f to Color.Black.copy(alpha = 0.72f),
+        if (hasVideo) {
+            // Keep BackgroundVideoView composed even when videoVisible == 0f so ExoPlayer prepares
+            // and remains cached across lyrics toggles, fading in smoothly once the first frame arrives.
+            Box(
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { this.alpha = videoVisible },
+            ) {
+                if (!isBlurredBackgroundStyle) {
+                    fallbackBackground()
+                }
+                CanvasFrameBackdrop(
+                    frame = { if (supportsNativeBlur()) canvasFrame else null },
+                    fallback = shownBitmap,
+                )
+                if (shownBitmap != null) {
+                    FullscreenMirroredBlurCanvas(
+                        artwork = shownBitmap,
+                        mirrorSeamFraction = seam,
+                        mirrorFadeStart = seamFadeStart,
+                        scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+                    )
+                }
+                if (supportsNativeBlur()) {
+                    ClipFrameBleed(
+                        frame = { canvasFrame },
+                        alpha = { clipBleedAlpha },
+                        seam = seam,
+                        fadeStart = seamFadeStart,
+                    )
+                }
+
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(bleedCanvasHeightDp)
+                        .align(Alignment.TopCenter)
+                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                        .drawWithContent {
+                            drawContent()
+                            drawRect(brush = videoBottomMask, blendMode = BlendMode.DstIn)
+                        },
+                ) {
+                    canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                }
+            }
+        }
+
+        if (!overlayMode) {
+            // Protective bottom contrast gradient so title/controls stay readable on bright covers & canvases.
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0.0f to Color.Transparent,
+                                0.44f to Color.Transparent,
+                                0.58f to Color.Black.copy(alpha = 0.26f),
+                                0.70f to Color.Black.copy(alpha = 0.48f),
+                                0.85f to Color.Black.copy(alpha = 0.68f),
+                                1.0f to Color.Black.copy(alpha = 0.80f),
+                            ),
                         ),
                     ),
-                ),
-        )
+            )
+        }
     }
 }
 
@@ -287,23 +384,6 @@ private fun LandscapeFullscreenThumbnailBackground(
                 if (frame != null) LandscapeBackdrop(frame, fullWidthPx, fullHeightPx)
             }
         }
-
-        Box(
-            modifier =
-                Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.horizontalGradient(
-                            colorStops =
-                                arrayOf(
-                                    0.0f to Color.Transparent,
-                                    0.50f to Color.Transparent,
-                                    0.78f to Color.Black.copy(alpha = 0.12f),
-                                    1.0f to Color.Black.copy(alpha = 0.22f),
-                                ),
-                        ),
-                    ),
-        )
 
         val leftTransitionWidth = if (cutoutStart > 0.dp) maxOf(cutoutStart + 48.dp, artWidth * 0.18f) else 0.dp
         val leftProgressiveFraction =
@@ -422,7 +502,23 @@ private fun LandscapeFullscreenThumbnailBackground(
                 }
             }
         }
-        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.22f)))
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.16f))
+                .background(
+                    Brush.horizontalGradient(
+                        colorStops =
+                            arrayOf(
+                                0.0f to Color.Transparent,
+                                0.42f to Color.Transparent,
+                                0.62f to Color.Black.copy(alpha = 0.22f),
+                                0.82f to Color.Black.copy(alpha = 0.42f),
+                                1.0f to Color.Black.copy(alpha = 0.56f),
+                            ),
+                    ),
+                ),
+        )
     }
 }
 
@@ -546,4 +642,52 @@ private fun LandscapeBackdrop(
         scrimAlpha = 0.10f,
         cropOverride = cropOverride,
     )
+}
+
+@Composable
+private fun CanvasFrameBackdrop(
+    frame: () -> ImageBitmap?,
+    fallback: ImageBitmap?,
+) {
+    val bitmap = frame() ?: fallback ?: return
+    FullscreenBlurredBackdropCanvas(
+        artwork = bitmap,
+        scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+    )
+}
+
+@Composable
+private fun FullscreenMirroredBlurCanvas(
+    artwork: ImageBitmap,
+    mirrorSeamFraction: Float,
+    mirrorFadeStart: Float,
+    blurRadius: Dp = FullscreenBottomBlurRadius,
+    scrimAlpha: Float = 0f,
+) {
+    MetrolistBlurredArtworkBackground(
+        artwork = artwork,
+        modifier = Modifier.fillMaxSize(),
+        blurRadiusPx = with(LocalDensity.current) { blurRadius.toPx() },
+        scrimAlpha = if (supportsNativeBlur()) scrimAlpha else max(scrimAlpha, 0.24f),
+        mirrorSeam = mirrorSeamFraction,
+        mirrorFadeStart = mirrorFadeStart,
+    )
+}
+
+@Composable
+private fun ClipFrameBleed(
+    frame: () -> ImageBitmap?,
+    alpha: () -> Float,
+    seam: Float,
+    fadeStart: Float,
+) {
+    val bitmap = frame() ?: return
+    Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = alpha() }) {
+        FullscreenMirroredBlurCanvas(
+            artwork = bitmap,
+            mirrorSeamFraction = seam,
+            mirrorFadeStart = fadeStart,
+            scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+        )
+    }
 }
