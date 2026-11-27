@@ -219,6 +219,21 @@ internal fun fullscreenArtworkVisibleHeight(
     return coverHeight * zoom
 }
 
+/** Width of the zoomed cover container and the row where the blur starts (both in px). */
+internal fun fullscreenArtworkBleedGeometry(
+    viewportWidth: Int,
+    viewportHeight: Int,
+    artWidth: Int,
+    artHeight: Int,
+): Pair<Float, Float> {
+    if (viewportWidth <= 0 || viewportHeight <= 0 || artWidth <= 0 || artHeight <= 0) return 0f to 0f
+    val coverHeight = viewportWidth * artHeight / artWidth.toFloat()
+    val zoom = (viewportHeight * COVER_HEIGHT_FRACTION / coverHeight).coerceIn(1f, MAX_COVER_ZOOM)
+    val containerWidth = (viewportWidth * zoom).roundToInt().coerceAtLeast(1)
+    val visibleHeight = (containerWidth * artHeight / artWidth.toFloat()).roundToInt().coerceAtLeast(1)
+    return containerWidth.toFloat() to fullscreenArtworkDetailTop(containerWidth, visibleHeight).toFloat()
+}
+
 internal fun fullscreenArtworkDetailTop(
     width: Int,
     artHeight: Int,

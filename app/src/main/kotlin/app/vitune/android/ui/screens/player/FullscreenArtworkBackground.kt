@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -92,6 +93,10 @@ internal fun FullscreenThumbnailBackground(
     onArtworkVisibleHeight: (Float) -> Unit = {},
     // Portrait: pushes the Bleed (cover + blur) down while the cover grows into the canvas.
     contentOffsetY: () -> Float = { 0f },
+    // Portrait: (container width, blur start row) of the Bleed, so overlays can mirror the cover exactly.
+    onBleedGeometry: (containerWidth: Float, detailTop: Float) -> Unit = { _, _ -> },
+    // Portrait: rows (px) at the top that are drawn by a hero overlay instead (0 = nothing hidden).
+    hiddenTopPx: () -> Float = { 0f },
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
 ) {
     if (isLandscape) {
@@ -130,12 +135,28 @@ internal fun FullscreenThumbnailBackground(
         val visibleArtHeight = shownBitmap?.let {
             fullscreenArtworkVisibleHeight(viewport.width, viewport.height, it.width, it.height)
         } ?: 0f
-        SideEffect { if (visibleArtHeight > 0f) onArtworkVisibleHeight(visibleArtHeight) }
+        val geometry = shownBitmap?.let {
+            fullscreenArtworkBleedGeometry(viewport.width, viewport.height, it.width, it.height)
+        }
+        SideEffect {
+            if (visibleArtHeight > 0f) onArtworkVisibleHeight(visibleArtHeight)
+            if (geometry != null) onBleedGeometry(geometry.first, geometry.second)
+        }
 
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationY = contentOffsetY() },
+                .graphicsLayer { translationY = contentOffsetY() }
+                .drawWithContent {
+                    // While a hero overlay carries the cover, the cover rows are not drawn here (the
+                    // overlay is pixel-identical), so no second copy fades in place behind it.
+                    val cut = hiddenTopPx()
+                    if (cut > 0f) {
+                        clipRect(top = cut) { this@drawWithContent.drawContent() }
+                    } else {
+                        drawContent()
+                    }
+                },
         ) {
             Crossfade(
                 targetState = shownUri,
@@ -340,6 +361,10 @@ private fun LandscapeFullscreenThumbnailBackground(
                                     // canvas is fully visible, and comes back as lyrics hide the canvas.
                                     val zoomProgress =
                                         if (!hasVideo || currentUri != shownUri) 0f else videoVisible * canvasFade()
+                                    // The cover zooms towards the canvas while it fades into it.
+                                    val zoom = 1f + 0.10f * zoomProgress
+                                    scaleX = zoom
+                                    scaleY = zoom
                                     this.alpha = (1f - zoomProgress).coerceIn(0f, 1f)
                                     compositingStrategy = CompositingStrategy.Offscreen
                                 }
@@ -362,6 +387,10 @@ private fun LandscapeFullscreenThumbnailBackground(
                             .align(Alignment.CenterStart)
                             .graphicsLayer {
                                 val shown = videoVisible * canvasFade()
+                                // ...and the canvas settles in from a slight zoom (zoom-out).
+                                val zoom = 1.10f - 0.10f * shown
+                                scaleX = zoom
+                                scaleY = zoom
                                 this.alpha = shown
                                 compositingStrategy = CompositingStrategy.Offscreen
                             }.drawWithContent {
