@@ -319,7 +319,6 @@ fun TaperedWaveSlider(
             // 1. Draw played tapered wave segment
             if (totalProgressPx > 0f) {
                 cachedPath.reset()
-                cachedPath.moveTo(0f, centerY)
 
                 val freqMultiplier = PlayerPreferences.taperedWaveFrequency.multiplier
                 val wavelengthPx = (32.dp.toPx() / (freqMultiplier / 2.5f)).coerceAtLeast(14.dp.toPx())
@@ -329,40 +328,32 @@ fun TaperedWaveSlider(
                 } else {
                     (wavelengthPx * waveLengthPref.cycles).coerceAtLeast(waveLengthPref.minDp.dp.toPx())
                 }
-                val startWaveX = (totalProgressPx - waveReach).coerceAtLeast(0f)
 
-                // Flat straight line up to where the wave begins near scrubber
-                if (startWaveX > 0f) {
-                    cachedPath.lineTo(startWaveX, centerY)
-                }
-
-                // Smooth scaling when near progress start so it never spikes vertically
-                val rampReach = if (waveLengthPref.cycles.isInfinite()) {
-                    110.dp.toPx()
-                } else {
-                    waveReach.coerceAtMost(120.dp.toPx())
-                }
-                val progressScale = (totalProgressPx / rampReach.coerceAtLeast(1f)).coerceIn(0f, 1f)
+                // Gentle ramp-in right at 0:00 so very small progress never spikes vertically
+                val progressScale = (totalProgressPx / 24.dp.toPx()).coerceIn(0f, 1f)
                 val smoothScale = progressScale * progressScale * (3f - 2f * progressScale)
 
-                val waveSpan = (totalProgressPx - startWaveX).coerceAtLeast(1f)
                 val step = (wavelengthPx / 20f).coerceIn(4f, 10f)
-                var x = startWaveX
                 val k = (2f * Math.PI.toFloat()) / wavelengthPx
+                val minEnvelope = 0.08f
 
-                while (x <= totalProgressPx) {
-                    val progressInWave = ((x - startWaveX) / waveSpan).coerceIn(0f, 1f)
-                    // Hanning envelope: 0 at startWaveX, 0 at totalProgressPx, smooth peak in between
-                    val envelope = 0.5f * (1f - kotlin.math.cos(progressInWave * 2f * Math.PI.toFloat()))
-
-                    // Angle uses constant spatial wavelength, preventing horizontal compression into vertical line
-                    val angle = ((x - totalProgressPx) * k) - phaseOffset.value
+                fun waveY(xPos: Float): Float {
+                    val distanceFromScrubber = (totalProgressPx - xPos).coerceAtLeast(0f)
+                    val taperFraction = (distanceFromScrubber / waveReach).coerceIn(0f, 1f)
+                    val decay = 0.5f * (1f + kotlin.math.cos(taperFraction * Math.PI.toFloat()))
+                    val envelope = minEnvelope + (1f - minEnvelope) * decay
+                    val angle = ((xPos - totalProgressPx) * k) - phaseOffset.value
                     val amp = maxAmpPx * envelope * smoothScale * heightFraction
-                    val y = centerY + kotlin.math.sin(angle) * amp
-                    cachedPath.lineTo(x, y)
+                    return centerY + kotlin.math.sin(angle) * amp
+                }
+
+                cachedPath.moveTo(0f, waveY(0f))
+                var x = step
+                while (x < totalProgressPx) {
+                    cachedPath.lineTo(x, waveY(x))
                     x += step
                 }
-                cachedPath.lineTo(totalProgressPx, centerY)
+                cachedPath.lineTo(totalProgressPx, waveY(totalProgressPx))
 
                 drawPath(
                     path = cachedPath,
