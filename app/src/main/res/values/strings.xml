@@ -346,6 +346,12 @@
     <string name="tapered_frequency_normal">Normal (2.5x)</string>
     <string name="tapered_frequency_high">High (3.5x)</string>
     <string name="tapered_frequency_very_high">Very High (5.0x)</string>
+    <string name="tapered_wave_length">Tapered wave length</string>
+    <string name="tapered_length_short">Short (3.5x)</string>
+    <string name="tapered_length_normal">Normal (5.0x)</string>
+    <string name="tapered_length_long">Long (7.5x)</string>
+    <string name="tapered_length_very_long">Very Long (10.0x)</string>
+    <string name="tapered_length_full">Full</string>
     <string name="remove_from_blacklist">Remove from blacklist</string>
     <string name="add_to_blacklist">Add to blacklist</string>
     <string name="reset_blacklist">Reset blacklist</string>

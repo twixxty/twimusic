@@ -130,6 +130,8 @@ fun SettingsSearchScreen(
         PlayerPreferences.handleAudioFocus,
         PlayerPreferences.playerLayout,
         PlayerPreferences.seekBarStyle,
+        PlayerPreferences.taperedWaveFrequency,
+        PlayerPreferences.taperedWaveLength,
         PlayerPreferences.showSeekBarOnTop,
         PlayerPreferences.showLike,
         PlayerPreferences.showRemaining,
@@ -408,6 +410,23 @@ fun SettingsSearchScreen(
                 trailingContent = {
                     BasicText(
                         text = PlayerPreferences.taperedWaveFrequency.name,
+                        style = typography.xs.semiBold.copy(color = colorPalette.accent)
+                    )
+                }
+            ),
+            SearchSettingEntry(
+                title = "Tapered Wave Length",
+                description = "Choose how long the tapered wave keeps decreasing behind the scrubber",
+                categoryName = "Player",
+                tabIndex = 1,
+                onInteract = {
+                    val lengths = PlayerPreferences.TaperedWaveLength.entries
+                    val next = (PlayerPreferences.taperedWaveLength.ordinal + 1) % lengths.size
+                    PlayerPreferences.taperedWaveLength = lengths[next]
+                },
+                trailingContent = {
+                    BasicText(
+                        text = PlayerPreferences.taperedWaveLength.displayName(),
                         style = typography.xs.semiBold.copy(color = colorPalette.accent)
                     )
                 }

@@ -323,7 +323,12 @@ fun TaperedWaveSlider(
 
                 val freqMultiplier = PlayerPreferences.taperedWaveFrequency.multiplier
                 val wavelengthPx = (32.dp.toPx() / (freqMultiplier / 2.5f)).coerceAtLeast(14.dp.toPx())
-                val waveReach = (wavelengthPx * 3.5f).coerceAtLeast(70.dp.toPx())
+                val waveLengthPref = PlayerPreferences.taperedWaveLength
+                val waveReach = if (waveLengthPref.cycles.isInfinite()) {
+                    totalProgressPx.coerceAtLeast(1f)
+                } else {
+                    (wavelengthPx * waveLengthPref.cycles).coerceAtLeast(waveLengthPref.minDp.dp.toPx())
+                }
                 val startWaveX = (totalProgressPx - waveReach).coerceAtLeast(0f)
 
                 // Flat straight line up to where the wave begins near scrubber
@@ -332,7 +337,12 @@ fun TaperedWaveSlider(
                 }
 
                 // Smooth scaling when near progress start so it never spikes vertically
-                val progressScale = (totalProgressPx / waveReach).coerceIn(0f, 1f)
+                val rampReach = if (waveLengthPref.cycles.isInfinite()) {
+                    110.dp.toPx()
+                } else {
+                    waveReach.coerceAtMost(120.dp.toPx())
+                }
+                val progressScale = (totalProgressPx / rampReach.coerceAtLeast(1f)).coerceIn(0f, 1f)
                 val smoothScale = progressScale * progressScale * (3f - 2f * progressScale)
 
                 val waveSpan = (totalProgressPx - startWaveX).coerceAtLeast(1f)

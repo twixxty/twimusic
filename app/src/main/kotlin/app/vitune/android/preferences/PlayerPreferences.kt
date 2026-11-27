@@ -48,6 +48,7 @@ object PlayerPreferences : GlobalPreferencesHolder() {
     var seekBarStyle by enum(SeekBarStyle.TaperedWave)
     var wavySeekBarQuality by enum(WavySeekBarQuality.Great)
     var taperedWaveFrequency by enum(TaperedWaveFrequency.Normal)
+    var taperedWaveLength by enum(TaperedWaveLength.Normal)
     var showSeekBarOnTop by boolean(false)
     var showLike by boolean(false)
     var showRemaining by boolean(false)
@@ -78,9 +79,9 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         Wide(displayName = { stringResource(R.string.canvas_style_wide) }),
         FullscreenArtwork(displayName = { stringResource(R.string.canvas_style_fullscreen_artwork) })
     }
-    var canvasStyle by enum(CanvasStyle.Cover)
+    var canvasStyle by enum(CanvasStyle.Wide)
     // Wide / Bleed only: also show covers that have no canvas in the canvas style
-    var canvasStyleForStaticCovers by boolean(true)
+    var canvasStyleForStaticCovers by boolean(false)
     var pauseCanvasWithSong by boolean(true)
     var hideStatusBarOnCanvas by boolean(false)
     var showStatusBarGradient by boolean(true)
@@ -208,6 +209,18 @@ object PlayerPreferences : GlobalPreferencesHolder() {
         Normal(multiplier = 2.5f, displayName = { stringResource(R.string.tapered_frequency_normal) }),
         High(multiplier = 3.5f, displayName = { stringResource(R.string.tapered_frequency_high) }),
         VeryHigh(multiplier = 5.0f, displayName = { stringResource(R.string.tapered_frequency_very_high) })
+    }
+
+    enum class TaperedWaveLength(
+        val cycles: Float,
+        val minDp: Float,
+        val displayName: @Composable () -> String
+    ) {
+        Short(cycles = 3.5f, minDp = 70f, displayName = { stringResource(R.string.tapered_length_short) }),
+        Normal(cycles = 5.0f, minDp = 100f, displayName = { stringResource(R.string.tapered_length_normal) }),
+        Long(cycles = 7.5f, minDp = 150f, displayName = { stringResource(R.string.tapered_length_long) }),
+        VeryLong(cycles = 10.0f, minDp = 200f, displayName = { stringResource(R.string.tapered_length_very_long) }),
+        Full(cycles = Float.POSITIVE_INFINITY, minDp = 0f, displayName = { stringResource(R.string.tapered_length_full) })
     }
 
     @Suppress("unused")

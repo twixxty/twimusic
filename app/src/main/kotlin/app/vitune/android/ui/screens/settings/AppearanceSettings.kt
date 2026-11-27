@@ -213,12 +213,20 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 visible = PlayerPreferences.seekBarStyle == PlayerPreferences.SeekBarStyle.TaperedWave,
                 label = ""
             ) {
-                EnumValueSelectorSettingsEntry(
-                    title = stringResource(R.string.tapered_wave_frequency),
-                    selectedValue = PlayerPreferences.taperedWaveFrequency,
-                    onValueSelect = { PlayerPreferences.taperedWaveFrequency = it },
-                    valueText = { it.displayName() }
-                )
+                Column {
+                    EnumValueSelectorSettingsEntry(
+                        title = stringResource(R.string.tapered_wave_frequency),
+                        selectedValue = PlayerPreferences.taperedWaveFrequency,
+                        onValueSelect = { PlayerPreferences.taperedWaveFrequency = it },
+                        valueText = { it.displayName() }
+                    )
+                    EnumValueSelectorSettingsEntry(
+                        title = stringResource(R.string.tapered_wave_length),
+                        selectedValue = PlayerPreferences.taperedWaveLength,
+                        onValueSelect = { PlayerPreferences.taperedWaveLength = it },
+                        valueText = { it.displayName() }
+                    )
+                }
             }
 
             AnimatedVisibility(
