@@ -754,7 +754,7 @@ fun SettingsSearchScreen(
                         Spacer(Modifier.width(10.dp))
 
                         Box(modifier = Modifier.weight(1f)) {
-                            AnimatedVisibility(
+                            androidx.compose.animation.AnimatedVisibility(
                                 visible = textFieldValue.text.isEmpty(),
                                 enter = fadeIn(tween(200)),
                                 exit = fadeOut(tween(200))
