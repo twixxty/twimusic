@@ -405,13 +405,31 @@ internal fun FullscreenThumbnailBackground(
                                         .graphicsLayer {
                                             transformOrigin = TransformOrigin(0.5f, 0f)
                                             val progress = lyricsProgress()
-                                            val scale = 1f + (coverToCanvasScale - 1f) * videoVisible
-                                            scaleX = scale
-                                            scaleY = scale
-                                            // Same as the Wide static cover: the window simply cover-fills it.
-                                            // Opaque from the first moment of the flight; only the last
-                                            // sliver on the way back fades into the backdrop's own cover.
-                                            this.alpha = (progress * 30f).coerceIn(0f, 1f)
+                                            val k0 = 1f + (coverToCanvasScale - 1f) * videoVisible
+                                            var k = k0
+                                            var ty = 0f
+                                            val side = hero.headerSidePx()
+                                            if (side != null && progress > 0f && size.width > 0f) {
+                                                // Morph the artwork inside the flying window so that it
+                                                // lands as the exact, un-zoomed square cover of the lyrics
+                                                // header (no swap pop, no zoomed-in crop).
+                                                val slotW = size.width
+                                                val slotH = slotHeightPx
+                                                val layerScale = max(side / slotW, side / slotH)
+                                                val windowSide = side / layerScale
+                                                val artSide = min(slotW, size.height)
+                                                val kFit = windowSide / artSide
+                                                k = k0 + (kFit - k0) * progress
+                                                ty = progress * (slotH / 2f - size.height * k / 2f)
+                                            }
+                                            scaleX = k
+                                            scaleY = k
+                                            translationY = ty
+                                            // Opaque from the first moment of the flight when there is no
+                                            // video underneath; with a canvas the art fades in over it.
+                                            this.alpha =
+                                                if (hasVideo) (progress * 4f).coerceIn(0f, 1f)
+                                                else (progress * 30f).coerceIn(0f, 1f)
                                         },
                             )
                         }

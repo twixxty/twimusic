@@ -162,11 +162,27 @@ private fun relatedPageToSections(
     return list
 }
 
-private suspend fun fetchYouTubeMusicHomeSections(): List<DynamicHomeSection>? = withContext(Dispatchers.IO) {
+private suspend fun fetchYouTubeMusicHomeSections(): List<DynamicHomeSection>? {
+    repeat(3) { attempt ->
+        val sections = fetchYouTubeMusicHomeSectionsOnce()
+        if (!sections.isNullOrEmpty()) return sections
+        android.util.Log.w("HomeQuickPicks", "YT home attempt ${attempt + 1} returned no sections")
+        kotlinx.coroutines.delay(800L * (attempt + 1))
+    }
+    return null
+}
+
+private suspend fun fetchYouTubeMusicHomeSectionsOnce(): List<DynamicHomeSection>? = withContext(Dispatchers.IO) {
     runCatching {
-        YouTubeSync.ensureAuth()
-        val homeResult = YouTube.home().getOrNull() ?: return@runCatching null
-        if (homeResult.sections.isEmpty()) return@runCatching null
+        runCatching { YouTubeSync.ensureAuth() }
+            .onFailure { android.util.Log.w("HomeQuickPicks", "ensureAuth failed", it) }
+        val homeResult = YouTube.home().onFailure {
+            android.util.Log.w("HomeQuickPicks", "YouTube.home() failed", it)
+        }.getOrNull() ?: return@runCatching null
+        if (homeResult.sections.isEmpty()) {
+            android.util.Log.w("HomeQuickPicks", "YouTube.home() returned 0 sections")
+            return@runCatching null
+        }
 
         homeResult.sections.mapIndexedNotNull { index, sec ->
             val items = sec.items.mapNotNull { ytItem ->
@@ -250,7 +266,7 @@ private suspend fun fetchYouTubeMusicHomeSections(): List<DynamicHomeSection>? =
                 items = items
             )
         }
-    }.getOrNull()
+    }.onFailure { android.util.Log.w("HomeQuickPicks", "home mapping failed", it) }.getOrNull()
 }
 
 @Route
@@ -318,7 +334,8 @@ fun QuickPicks(
             )
         }
 
-        if (AccountPreferences.isLoggedIn) {
+        // Also try the (anonymous) YT Music home when not logged in; fall back to related picks.
+        run {
             val sections = fetchYouTubeMusicHomeSections()
             if (!sections.isNullOrEmpty()) {
                 dynamicSectionsResult = Result.success(sections)

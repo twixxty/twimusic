@@ -147,6 +147,9 @@ class CoverHeroState {
      */
     var lyricsProgress: () -> Float = { 0f }
 
+    /** Side of the (square) lyrics header cover in px, or null when there is none. */
+    fun headerSidePx(): Float? = headerRect()?.let { min(it.width, it.height) }
+
     /** `true` when there is a lyrics header cover to fly to. */
     fun hasHeader() = headerRect() != null
 

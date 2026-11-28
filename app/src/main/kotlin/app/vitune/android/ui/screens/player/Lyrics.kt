@@ -800,12 +800,14 @@ fun Lyrics(
 
                         // The lyric text styles derive from LocalTextStyle, i.e. the system font, unless
                         // the user asked them to follow the app font.
-                        CompositionLocalProvider(
-                            LocalTextStyle provides
-                                if (PlayerPreferences.lyricsUseAppFont)
-                                    LocalTextStyle.current.copy(fontFamily = typography.m.fontFamily)
-                                else LocalTextStyle.current
-                        ) {
+                        val baseLyricsTextStyle = LocalTextStyle.current
+                        val lyricsAppFont = PlayerPreferences.lyricsUseAppFont
+                        val lyricsFontFamily = typography.m.fontFamily
+                        val lyricsTextStyle = remember(baseLyricsTextStyle, lyricsAppFont, lyricsFontFamily) {
+                            if (lyricsAppFont) baseLyricsTextStyle.copy(fontFamily = lyricsFontFamily)
+                            else baseLyricsTextStyle
+                        }
+                        CompositionLocalProvider(LocalTextStyle provides lyricsTextStyle) {
                             KaraokeLyricsView(
                                 listState = accompanistListState,
                                 lyrics = syncedLyrics,

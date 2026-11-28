@@ -153,27 +153,43 @@ internal class TextLayer(val source: IntOffset, val dimensions: IntSize, val pad
     /** Blurred copies by blur bucket, built on first use. Only used before Android 12. */
     private var blurredCopies: HashMap<Int, ImageBitmap>? = null
 
+    private val pendingBuckets = HashSet<Int>()
+
     private fun blurredCopy(blurPx: Float): ImageBitmap? {
         // Tiles only reserve [padding] pixels for the blur to spill into, so cap the radius.
         val sigma = minOf(blurPx, maxOf(2f, padding * 0.6f))
         val bucket = (sigma / LEGACY_BLUR_STEP_PX).roundToInt().coerceAtLeast(1)
         val copies = blurredCopies ?: HashMap<Int, ImageBitmap>().also { blurredCopies = it }
         copies[bucket]?.let { return it }
-        val bitmap =
-            blurAtlasRegion(
-                image.asAndroidBitmap(),
-                source.x,
-                source.y,
-                dimensions.width,
-                dimensions.height,
-                bucket * LEGACY_BLUR_STEP_PX,
-            ) ?: return null
-        if (copies.size >= 4) copies.clear()
-        return bitmap.asImageBitmap().also { copies[bucket] = it }
+        // Never blur on the main thread (it stalls frames for 30-60ms): compute on a worker and
+        // draw the sharp tile until the result lands, then invalidate draws via a tick.
+        if (pendingBuckets.add(bucket)) {
+            val atlas = image.asAndroidBitmap()
+            val sx = source.x
+            val sy = source.y
+            val w = dimensions.width
+            val h = dimensions.height
+            BlurWorker.executor.execute {
+                val result =
+                    runCatching {
+                        blurAtlasRegion(atlas, sx, sy, w, h, bucket * LEGACY_BLUR_STEP_PX)
+                    }.getOrNull()
+                BlurWorker.mainHandler.post {
+                    pendingBuckets.remove(bucket)
+                    if (result != null) {
+                        if (copies.size >= 4) copies.clear()
+                        copies[bucket] = result.asImageBitmap()
+                        BlurWorker.tick.intValue++
+                    }
+                }
+            }
+        }
+        return null
     }
 
     fun DrawScope.draw(alpha: Float = 1f, blurPx: Float = 0f) {
         paint.alpha = alpha
+        BlurWorker.tick.intValue
         if (blurPx >= LEGACY_BLUR_STEP_PX / 2f && tileBlurActive()) {
             val blurred = blurredCopy(blurPx)
             if (blurred != null) {
@@ -414,4 +430,13 @@ internal fun prepareLineRaster(
     return PreparedLineRaster(
         line.rows.map { PreparedRowLayers(density, direction, it, color, paints, tileCache) },
     )
+}
+
+private object BlurWorker {
+    val executor: java.util.concurrent.ExecutorService =
+        java.util.concurrent.Executors.newSingleThreadExecutor { r ->
+            Thread(r, "lyrics-blur").apply { priority = Thread.MIN_PRIORITY + 1; isDaemon = true }
+        }
+    val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    val tick = androidx.compose.runtime.mutableIntStateOf(0)
 }
