@@ -454,43 +454,46 @@ fun Player(
                         .weight(1f)
                 ) {
                     AnimatedContent(
-                        targetState = metadata?.title?.toString().orEmpty(),
+                        targetState = metadata?.title?.toString().orEmpty() to
+                            (extras?.explicit == true),
                         label = "",
                         transitionSpec = { fadeIn() togetherWith fadeOut() }
-                    ) { text ->
-                        BasicText(
-                            text = text,
-                            style = typography.xs.semiBold,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
+                    ) { (text, explicit) ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            BasicText(
+                                text = text,
+                                style = typography.xs.semiBold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+
+                            if (explicit) {
+                                Image(
+                                    painter = painterResource(R.drawable.explicit),
+                                    contentDescription = "Explicit",
+                                    colorFilter = ColorFilter.tint(colorPalette.text),
+                                    modifier = Modifier.size(15.dp)
+                                )
+                            }
+                        }
                     }
+
                     AnimatedVisibility(visible = metadata?.artist != null) {
                         AnimatedContent(
                             targetState = metadata?.artist?.toString().orEmpty(),
                             label = "",
                             transitionSpec = { fadeIn() togetherWith fadeOut() }
                         ) { text ->
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                BasicText(
-                                    text = text,
-                                    style = typography.xs.semiBold.secondary,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-
-                                AnimatedVisibility(visible = extras?.explicit == true) {
-                                    Image(
-                                        painter = painterResource(R.drawable.explicit),
-                                        contentDescription = null,
-                                        colorFilter = ColorFilter.tint(colorPalette.text),
-                                        modifier = Modifier.size(15.dp)
-                                    )
-                                }
-                            }
+                            BasicText(
+                                text = text,
+                                style = typography.xs.semiBold.secondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
