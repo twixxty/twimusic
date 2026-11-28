@@ -211,7 +211,7 @@ fun SettingsSearchScreen(
                 tabIndex = 0,
                 onInteract = {
                     AppearancePreferences.fontFamily = if (AppearancePreferences.fontFamily == BuiltInFontFamily.System) {
-                        BuiltInFontFamily.Poppins
+                        BuiltInFontFamily.GoogleSansFlex
                     } else {
                         BuiltInFontFamily.System
                     }

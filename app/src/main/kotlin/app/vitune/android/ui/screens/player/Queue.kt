@@ -49,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
@@ -146,10 +147,21 @@ fun Queue(
         .asPaddingValues()
 
     // Collapsed bar background: translucent frosted when over Bleed canvas, solid otherwise.
-    val collapsedBarBackground: Modifier = if (isTranslucentBar) {
-        Modifier.background(Color.White.copy(alpha = 0.14f))
-    } else {
-        Modifier.background(colorPalette.background2)
+    // Cross-fades between the two instead of switching (read in the draw phase only).
+    val barTranslucency by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isTranslucentBar) 1f else 0f,
+        animationSpec = tween(350),
+        label = "queueBarTranslucency"
+    )
+    val solidBarColor = colorPalette.background2
+    val collapsedBarBackground: Modifier = Modifier.drawBehind {
+        drawRect(
+            androidx.compose.ui.graphics.lerp(
+                solidBarColor,
+                Color.White.copy(alpha = 0.14f),
+                barTranslucency
+            )
+        )
     }
 
     var suggestions by persist<Result<List<MediaItem>?>?>(tag = "queue/suggestions")

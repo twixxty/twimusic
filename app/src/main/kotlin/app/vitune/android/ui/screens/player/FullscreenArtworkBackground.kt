@@ -8,6 +8,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -99,6 +100,12 @@ internal fun FullscreenThumbnailBackground(
     // Portrait: draw the Bleed cover art underneath while waiting for / crossfading into the canvas.
     showStaticBleed: Boolean = true,
     canvasContent: (@Composable (Modifier, ((ImageBitmap?) -> Unit)?) -> Unit)? = null,
+    // Portrait Bleed: the cover / canvas lives in a hero layer that morphs cover rect -> full bleed
+    // window -> lyrics header exactly like the Wide canvas (see PlayerHero.kt). `alpha` then only
+    // drives the blurred backdrop behind it. All lambdas are read in the draw phase only.
+    hero: CoverHeroState? = null,
+    lyricsProgress: () -> Float = { 0f },
+    heroProgress: () -> Float = { 1f },
 ) {
     if (isLandscape) {
         LandscapeFullscreenThumbnailBackground(
@@ -143,31 +150,9 @@ internal fun FullscreenThumbnailBackground(
         )
     }
 
-    BoxWithConstraints(
-        modifier =
-            Modifier
-                .fillMaxSize()
-                .clipToBounds()
-                .graphicsLayer {
-                    this.alpha = alpha()
-                    if (overlayMode) compositingStrategy = CompositingStrategy.Offscreen
-                }
-                .drawWithContent {
-                    drawContent()
-                    if (overlayMode) {
-                        drawRect(
-                            brush = Brush.verticalGradient(
-                                0.0f to Color.Transparent,
-                                0.46f to Color.Transparent,
-                                0.74f to Color.Black,
-                                1.0f to Color.Black,
-                            ),
-                            blendMode = BlendMode.DstIn,
-                        )
-                    }
-                }
-                .background(fallbackBackgroundColor),
-    ) {
+    val heroMorph = hero != null && !overlayMode
+
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val density = LocalDensity.current
         val viewportWidthPx = with(density) { maxWidth.roundToPx().coerceAtLeast(1) }
         val viewportHeightPx = with(density) { maxHeight.roundToPx().coerceAtLeast(1) }
@@ -201,6 +186,32 @@ internal fun FullscreenThumbnailBackground(
             1f
         }
 
+        // Everything that is not the cover / canvas itself: fades with `alpha`.
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .graphicsLayer {
+                        this.alpha = alpha()
+                        if (overlayMode) compositingStrategy = CompositingStrategy.Offscreen
+                    }
+                    .drawWithContent {
+                        drawContent()
+                        if (overlayMode) {
+                            drawRect(
+                                brush = Brush.verticalGradient(
+                                    0.0f to Color.Transparent,
+                                    0.46f to Color.Transparent,
+                                    0.74f to Color.Black,
+                                    1.0f to Color.Black,
+                                ),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                    }
+                    .background(fallbackBackgroundColor),
+        ) {
         if (showStaticBleed) {
             Box(
                 Modifier
@@ -282,18 +293,94 @@ internal fun FullscreenThumbnailBackground(
                     )
                 }
 
+                if (!heroMorph) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(bleedCanvasHeightDp)
+                            .align(Alignment.TopCenter)
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                drawRect(brush = videoBottomMask, blendMode = BlendMode.DstIn)
+                            },
+                    ) {
+                        canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                    }
+                }
+            }
+        }
+        } // backdrop
+
+        if (hero != null && heroMorph) {
+            val slotHeightPx = if (hasVideo) bleedCanvasHeightPx else visibleArtHeight
+            val slotHeightDp = with(density) { slotHeightPx.toDp() }
+            val artHeightDp = with(density) { visibleArtHeight.toDp() }
+            val headerRadiusPx = with(density) { 12.dp.toPx() }
+            // The slot never moves; only the layer inside it does, so the measured natural bounds stay
+            // stable while the morph runs.
+            Box(
+                Modifier
+                    .fillMaxWidth()
+                    .height(slotHeightDp)
+                    .align(Alignment.TopCenter)
+                    .heroCanvasSlot(hero),
+            ) {
                 Box(
                     Modifier
-                        .fillMaxWidth()
-                        .height(bleedCanvasHeightDp)
-                        .align(Alignment.TopCenter)
-                        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
-                        .drawWithContent {
-                            drawContent()
-                            drawRect(brush = videoBottomMask, blendMode = BlendMode.DstIn)
+                        .fillMaxSize()
+                        .graphicsLayer {
+                            hero.applyCanvasLayer(
+                                scope = this,
+                                lyricsProgress = lyricsProgress(),
+                                canvasProgress = heroProgress(),
+                                coverRadius = 0f,
+                                headerRadius = headerRadiusPx,
+                            )
                         },
                 ) {
-                    canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+                            .drawWithContent {
+                                drawContent()
+                                // The soft bottom edge turns solid as the artwork lands in the lyrics header.
+                                val progress = lyricsProgress()
+                                drawRect(
+                                    brush = if (progress <= 0.001f) videoBottomMask else heroLandingMask(progress),
+                                    blendMode = BlendMode.DstIn,
+                                )
+                            },
+                    ) {
+                        // Static Bleed: the cover only joins in once the morph starts (at rest the
+                        // backdrop already draws it with its progressive blur).
+                        val cover = shownBitmap
+                        if (showStaticBleed && cover != null && visibleArtHeight > 0f) {
+                            Image(
+                                bitmap = cover,
+                                contentDescription = null,
+                                contentScale = ContentScale.Crop,
+                                alignment = Alignment.TopCenter,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(artHeightDp)
+                                        .graphicsLayer {
+                                            transformOrigin = TransformOrigin(0.5f, 0f)
+                                            val scale = 1f + (coverToCanvasScale - 1f) * videoVisible
+                                            scaleX = scale
+                                            scaleY = scale
+                                            this.alpha = (lyricsProgress() * 10f).coerceIn(0f, 1f)
+                                        },
+                            )
+                        }
+                        if (hasVideo) {
+                            Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = videoVisible }) {
+                                canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -303,6 +390,7 @@ internal fun FullscreenThumbnailBackground(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
+                    .graphicsLayer { this.alpha = alpha() }
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
@@ -319,6 +407,17 @@ internal fun FullscreenThumbnailBackground(
         }
     }
 }
+
+private fun heroLandingMask(progress: Float): Brush =
+    Brush.verticalGradient(
+        colorStops =
+            arrayOf(
+                0.0f to Color.Black,
+                0.66f to Color.Black,
+                0.84f to Color.Black.copy(alpha = 0.55f + 0.45f * progress),
+                1.0f to Color.Black.copy(alpha = progress),
+            ),
+    )
 
 @Composable
 private fun LandscapeFullscreenThumbnailBackground(

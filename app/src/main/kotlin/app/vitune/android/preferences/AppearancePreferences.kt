@@ -69,7 +69,7 @@ object AppearancePreferences : GlobalPreferencesHolder() {
         }
     )
     var thumbnailRoundness by enum(ThumbnailRoundness.Medium)
-    var fontFamily by enum(BuiltInFontFamily.Poppins)
+    var fontFamily by enum(BuiltInFontFamily.GoogleSansFlex)
     var applyFontPadding by boolean(false)
     val isShowingThumbnailInLockscreenProperty = boolean(true)
     var isShowingThumbnailInLockscreen by isShowingThumbnailInLockscreenProperty

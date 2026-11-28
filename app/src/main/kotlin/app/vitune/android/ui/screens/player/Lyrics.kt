@@ -651,8 +651,12 @@ fun Lyrics(
                     }
                 }
 
+                // Counts our own animated scrolls. `isScrollInProgress` is also true for those, and
+                // treating them as the user scrolling is what un-synced the lyrics after one line.
+                val programmaticScrolls = remember { java.util.concurrent.atomic.AtomicInteger(0) }
+
                 LaunchedEffect(lazyListState.isScrollInProgress) {
-                    if (lazyListState.isScrollInProgress) {
+                    if (lazyListState.isScrollInProgress && programmaticScrolls.get() == 0) {
                         isAutoScrollEnabled = false
                         interactionNonce++
                         onSetFullscreen?.invoke(false)
@@ -681,20 +685,28 @@ fun Lyrics(
                         val itemCenter = itemInfo.offset + itemInfo.size / 2
                         val offset = itemCenter - center
                         if (kotlin.math.abs(offset) > 4) {
+                            programmaticScrolls.incrementAndGet()
                             try {
                                 lazyListState.animateScrollBy(
                                     value = offset.toFloat(),
                                     animationSpec = tween(durationMillis = duration, easing = FastOutSlowInEasing)
                                 )
-                            } catch (_: Throwable) {}
+                            } catch (_: Throwable) {
+                            } finally {
+                                programmaticScrolls.decrementAndGet()
+                            }
                         }
                     } else {
+                        programmaticScrolls.incrementAndGet()
                         try {
                             lazyListState.animateScrollToItem(
                                 index = listTargetIndex,
                                 scrollOffset = -((viewportHeight * centerFraction).toInt() - (itemHeight / 2))
                             )
-                        } catch (_: Throwable) {}
+                        } catch (_: Throwable) {
+                        } finally {
+                            programmaticScrolls.decrementAndGet()
+                        }
                     }
                 }
 

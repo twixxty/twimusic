@@ -697,9 +697,16 @@ fun Player(
         )
         // Grows the cover into the canvas once its first frame is ready. If the canvas goes away
         // (e.g. next track without one) there is nothing left to animate, so snap back.
+        // Portrait Bleed uses the very same morph: the cover box grows into the Bleed window once the
+        // canvas is ready (or is already there when static covers use the Bleed style too).
+        val isBleedHero = isFullscreenArtworkStyle && !isLandscape
         val canvasProgress = animateFloatAsState(
-            targetValue = if (isWideReady) 1f else 0f,
-            animationSpec = if (isWideLayerPresent) tween(HeroCanvasDurationMillis, easing = HeroEasing) else snap(),
+            targetValue = if (isWideReady || (isBleedHero && isBleedVisible)) 1f else 0f,
+            animationSpec = if (isWideLayerPresent || (isBleedHero && isBleedActive)) {
+                tween(HeroCanvasDurationMillis, easing = HeroEasing)
+            } else {
+                snap()
+            },
             label = "heroCanvasProgress"
         )
         // Bleed and the portrait Wide canvas share the translucent controls + bottom bar styling.
@@ -907,7 +914,7 @@ fun Player(
                             isShowingLyrics = true
                         }
                     },
-                    hero = if (isBleedVisible) null else hero,
+                    hero = hero,
                     onOpenLyricsMenu = openLyricsMenu,
                     mediaInfoModifier = mediaInfoBoundsModifier,
                     isBleedMode = usesTranslucentUi,
@@ -963,13 +970,28 @@ fun Player(
                 animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
                 label = "fullscreenThumbnailBgAlpha"
             )
-            val fullscreenBgAlpha: () -> Float = { bleedPresence.value }
+            // Portrait Bleed: the blurred backdrop follows the hero morph and is gone before the
+            // artwork has landed in the lyrics header. Landscape keeps the plain fade.
+            val fullscreenBgAlpha: () -> Float = {
+                if (isBleedHero) {
+                    canvasProgress.value * (1f - (lyricsProgress.value / 0.6f).coerceIn(0f, 1f))
+                } else {
+                    bleedPresence.value
+                }
+            }
             val canvasHiddenByLyrics by remember { derivedStateOf { isShowingLyrics } }
 
             // The Bleed background is fully opaque, so while it is shown the (animated, shader
             // based) player background underneath would only burn GPU time: hide it, but keep it
             // composed so there is no hitch when the lyrics open.
-            Box(modifier = Modifier.fillMaxSize()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        // Alpha 0 layers are skipped by the renderer, so this costs no GPU time at all.
+                        alpha = if (isBleedVisible && fullscreenBgAlpha() >= 0.999f) 0f else 1f
+                    }
+            ) {
             when (playerBackgroundStyle) {
                 PlayerPreferences.PlayerBackgroundStyle.Liquid -> {
                     LiquidBackground(
@@ -1036,6 +1058,9 @@ fun Player(
                     canvasTall = isTallCanvasVideo,
                     canvasSuppressed = canvasHiddenByLyrics,
                     showStaticBleed = staticUsesCanvasStyle,
+                    hero = if (isBleedHero) hero else null,
+                    lyricsProgress = { lyricsProgress.value },
+                    heroProgress = { canvasProgress.value },
                     isBlurredBackgroundStyle = playerBackgroundStyle == PlayerPreferences.PlayerBackgroundStyle.Blur,
                     canvasContent =
                         if (isCanvasActive) {
@@ -1388,24 +1413,10 @@ fun Player(
                             label = "LyricsAlpha"
                         )
 
-                        if (isBleedVisible) {
-                            if (!isShowingLyrics) {
-                                FullscreenArtworkOverlay(
-                                    binder = binder,
-                                    isShowingLyrics = isShowingLyrics,
-                                    onShowLyrics = { isShowingLyrics = it },
-                                    isShowingStatsForNerds = isShowingStatsForNerds,
-                                    onShowStatsForNerds = { isShowingStatsForNerds = it },
-                                    likedAt = likedAt,
-                                    setLikedAt = { likedAt = it },
-                                    nestedScrollConnection = layoutState.preUpPostDownNestedScrollConnection,
-                                    isShowingLyricsDialog = isShowingLyricsDialog,
-                                    onShowLyricsDialog = { isShowingLyricsDialog = true },
-                                    onEnterPip = { pipHandler.enterPictureInPictureMode() },
-                                    modifier = Modifier.fillMaxSize()
-                                )
-                            }
-                        } else {
+                        // The cover box stays composed in Bleed too (unless static covers already use the
+                        // Bleed style): it is what grows into the Bleed window and what flies to the
+                        // lyrics header, exactly like in Wide.
+                        if (!isBleedVisible || (isBleedHero && !staticUsesCanvasStyle)) {
                             // The cover is always composed (so its image, swipe handling and square
                             // canvas stay alive) and is moved / faded purely in the graphics layer.
                             // This slot is measured un-transformed, the layer inside it is the
@@ -1429,6 +1440,24 @@ fun Player(
                                     thumbnailContent(Modifier)
                                 }
                             }
+                        }
+
+                        if (isBleedVisible && !isShowingLyrics) {
+                            // Gesture surface above the (now invisible) cover box.
+                            FullscreenArtworkOverlay(
+                                binder = binder,
+                                isShowingLyrics = isShowingLyrics,
+                                onShowLyrics = { isShowingLyrics = it },
+                                isShowingStatsForNerds = isShowingStatsForNerds,
+                                onShowStatsForNerds = { isShowingStatsForNerds = it },
+                                likedAt = likedAt,
+                                setLikedAt = { likedAt = it },
+                                nestedScrollConnection = layoutState.preUpPostDownNestedScrollConnection,
+                                isShowingLyricsDialog = isShowingLyricsDialog,
+                                onShowLyricsDialog = { isShowingLyricsDialog = true },
+                                onEnterPip = { pipHandler.enterPictureInPictureMode() },
+                                modifier = Modifier.fillMaxSize()
+                            )
                         }
 
                         if (isShowingLyrics || lyricsAlpha > 0f) {
@@ -1617,7 +1646,7 @@ fun Player(
                     parsePlayerBottomActions(playerBottomBarActions)
                 }
                 val isBleedBarTranslucent = usesTranslucentUi && !isShowingLyrics
-                val barBaseColor = if (isBleedBarTranslucent) Color.White else colorPalette.text
+                val barBaseColor = lerpColor(colorPalette.text, Color.White, whiteControlsProgress)
                 val landscapeMode = isLandscape
 
                 // Build a custom collapsed bar row from the user's configured action list

@@ -137,7 +137,7 @@ fun AppearanceSettings() = with(AppearancePreferences) {
                 text = stringResource(R.string.use_system_font_description),
                 isChecked = fontFamily == BuiltInFontFamily.System,
                 onCheckedChange = {
-                    fontFamily = if (it) BuiltInFontFamily.System else BuiltInFontFamily.Poppins
+                    fontFamily = if (it) BuiltInFontFamily.System else BuiltInFontFamily.GoogleSansFlex
                 }
             )
 
