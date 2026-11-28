@@ -61,6 +61,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.max
+import kotlin.math.min
 
 internal const val FULLSCREEN_TITLE_TRANSITION_OFFSET_FRACTION = 0.08f
 internal const val FULLSCREEN_MIN_FADE_SPAN_FRACTION = 0.18f
@@ -106,6 +107,8 @@ internal fun FullscreenThumbnailBackground(
     hero: CoverHeroState? = null,
     lyricsProgress: () -> Float = { 0f },
     heroProgress: () -> Float = { 1f },
+    // Wide overlay: first frame of the canvas; the bottom blur is built from it instead of the cover.
+    blurFrame: ImageBitmap? = null,
 ) {
     if (isLandscape) {
         LandscapeFullscreenThumbnailBackground(
@@ -122,8 +125,16 @@ internal fun FullscreenThumbnailBackground(
         return
     }
 
+    // The bottom blur is built from the FIRST frame of the canvas (kept for as long as this canvas
+    // lives), so it matches the video instead of the cover art. Sampling stops once it is captured.
     var canvasFrame by remember(canvasVideoUrl, canvasContent != null) { mutableStateOf<ImageBitmap?>(null) }
     val hasClipFrame by remember(canvasVideoUrl, canvasContent != null) { derivedStateOf { canvasFrame != null } }
+    val frameSink: ((ImageBitmap?) -> Unit)? =
+        if (canvasFrame == null) {
+            { frame: ImageBitmap? -> if (frame != null && canvasFrame == null) canvasFrame = frame }
+        } else {
+            null
+        }
     val clipBleedAlpha by animateFloatAsState(
         targetValue = if (hasClipFrame) 1f else 0f,
         animationSpec = tween(CANVAS_CROSSFADE_DURATION_MS, easing = FastOutSlowInEasing),
@@ -260,6 +271,24 @@ internal fun FullscreenThumbnailBackground(
             }
         }
 
+        if (overlayMode && blurFrame != null) {
+            var frameShown by remember(blurFrame) { mutableStateOf(false) }
+            LaunchedEffect(blurFrame) { frameShown = true }
+            val frameAlpha by animateFloatAsState(
+                targetValue = if (frameShown) 1f else 0f,
+                animationSpec = tween(400, easing = LinearEasing),
+                label = "wideOverlayFrameBlur",
+            )
+            Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = frameAlpha }) {
+                FullscreenMirroredBlurCanvas(
+                    artwork = blurFrame,
+                    mirrorSeamFraction = seam,
+                    mirrorFadeStart = seamFadeStart,
+                    scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+                )
+            }
+        }
+
         if (hasVideo) {
             // Keep BackgroundVideoView composed even when videoVisible == 0f so ExoPlayer prepares
             // and remains cached across lyrics toggles, fading in smoothly once the first frame arrives.
@@ -273,24 +302,25 @@ internal fun FullscreenThumbnailBackground(
                     fallbackBackground()
                 }
                 CanvasFrameBackdrop(
-                    frame = { if (supportsNativeBlur()) canvasFrame else null },
+                    frame = { canvasFrame },
                     fallback = shownBitmap,
                 )
-                if (shownBitmap != null) {
-                    FullscreenMirroredBlurCanvas(
-                        artwork = shownBitmap,
-                        mirrorSeamFraction = seam,
-                        mirrorFadeStart = seamFadeStart,
-                        scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
-                    )
-                }
-                if (supportsNativeBlur()) {
-                    ClipFrameBleed(
-                        frame = { canvasFrame },
-                        alpha = { clipBleedAlpha },
-                        seam = seam,
-                        fadeStart = seamFadeStart,
-                    )
+                // Cover-based blur until the first canvas frame arrives, then it cross-fades to that.
+                Crossfade(
+                    targetState = canvasFrame,
+                    modifier = Modifier.fillMaxSize(),
+                    animationSpec = tween(400, easing = LinearEasing),
+                    label = "fullscreenBleedBlurSource",
+                ) { frame ->
+                    val source = frame ?: shownBitmap
+                    if (source != null) {
+                        FullscreenMirroredBlurCanvas(
+                            artwork = source,
+                            mirrorSeamFraction = seam,
+                            mirrorFadeStart = seamFadeStart,
+                            scrimAlpha = BLURRED_ARTWORK_SCRIM_ALPHA,
+                        )
+                    }
                 }
 
                 if (!heroMorph) {
@@ -305,7 +335,7 @@ internal fun FullscreenThumbnailBackground(
                                 drawRect(brush = videoBottomMask, blendMode = BlendMode.DstIn)
                             },
                     ) {
-                        canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                        canvasContent(Modifier.fillMaxSize(), frameSink)
                     }
                 }
             }
@@ -317,6 +347,7 @@ internal fun FullscreenThumbnailBackground(
             val slotHeightDp = with(density) { slotHeightPx.toDp() }
             val artHeightDp = with(density) { visibleArtHeight.toDp() }
             val headerRadiusPx = with(density) { 12.dp.toPx() }
+            val containerWidthPx = shownBitmap?.let { visibleArtHeight * it.width / it.height.coerceAtLeast(1) } ?: viewportWidthPx.toFloat()
             // The slot never moves; only the layer inside it does, so the measured natural bounds stay
             // stable while the morph runs.
             Box(
@@ -368,16 +399,34 @@ internal fun FullscreenThumbnailBackground(
                                         .height(artHeightDp)
                                         .graphicsLayer {
                                             transformOrigin = TransformOrigin(0.5f, 0f)
-                                            val scale = 1f + (coverToCanvasScale - 1f) * videoVisible
+                                            val progress = lyricsProgress()
+                                            val rest = 1f + (coverToCanvasScale - 1f) * videoVisible
+                                            // The window is cover-filled with the header square, which would
+                                            // show a zoomed-in centre crop of this (zoomed) Bleed cover.
+                                            // Scale towards "whole square art in the window" instead, so it
+                                            // already looks like the header cover when it lands.
+                                            val windowSide = min(viewportWidthPx.toFloat(), slotHeightPx)
+                                            val fit = windowSide / min(containerWidthPx, visibleArtHeight).coerceAtLeast(1f)
+                                            val scale = rest + (fit - rest) * progress
                                             scaleX = scale
                                             scaleY = scale
-                                            this.alpha = (lyricsProgress() * 10f).coerceIn(0f, 1f)
+                                            translationY = progress * (slotHeightPx / 2f - visibleArtHeight * scale / 2f)
+                                            // Fully opaque from the first moment of the flight; only the last
+                                            // sliver on the way back fades into the backdrop's own cover.
+                                            this.alpha = (progress * 30f).coerceIn(0f, 1f)
                                         },
                             )
                         }
                         if (hasVideo) {
-                            Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = videoVisible }) {
-                                canvasContent(Modifier.fillMaxSize()) { canvasFrame = it }
+                            Box(
+                                Modifier.fillMaxSize().graphicsLayer {
+                                    // Static Bleed: the canvas gives way to the (opaque) cover under it as
+                                    // the window nears the header instead of being cut away at the end.
+                                    val landing = if (showStaticBleed) 1f - ((lyricsProgress() - 0.1f) / 0.7f).coerceIn(0f, 1f) else 1f
+                                    this.alpha = videoVisible * landing
+                                },
+                            ) {
+                                canvasContent(Modifier.fillMaxSize(), frameSink)
                             }
                         }
                     }

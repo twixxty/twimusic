@@ -665,6 +665,8 @@ fun Player(
         // progress values are only ever read in the draw phase, so animating them is free of
         // recomposition and layout work.
         val hero = remember { CoverHeroState() }
+        // First frame of the wide canvas: the blur under the controls is built from it.
+        var wideCanvasFrame by remember(canvasVideoUrl) { mutableStateOf<ImageBitmap?>(null) }
         val isWideCanvasPresent = !isBleedActive && !isLandscape && isCanvasActive && !isSquareCanvas
         val isWideCanvasActive = !isBleedActive && isCanvasActive && !isSquareCanvas && isVideoReady
         val isSquareCanvasActive = !isBleedActive && isCanvasActive && isSquareCanvas
@@ -974,7 +976,10 @@ fun Player(
             // artwork has landed in the lyrics header. Landscape keeps the plain fade.
             val fullscreenBgAlpha: () -> Float = {
                 if (isBleedHero) {
-                    canvasProgress.value * (1f - (lyricsProgress.value / 0.6f).coerceIn(0f, 1f))
+                    // Leaves quickly when the lyrics open, but only returns once the artwork has
+                    // (almost) landed again, so no second cover shows where it is flying to.
+                    val span = if (isShowingLyrics) 0.6f else 0.12f
+                    canvasProgress.value * (1f - (lyricsProgress.value / span).coerceIn(0f, 1f))
                 } else {
                     bleedPresence.value
                 }
@@ -1112,7 +1117,16 @@ fun Player(
                                     )
                                 }
                             }
-                            if (isCanvasActive) canvasContent(Modifier.fillMaxSize(), null)
+                            if (isCanvasActive) canvasContent(
+                                Modifier.fillMaxSize(),
+                                if (wideCanvasFrame == null) {
+                                    { frame: ImageBitmap? ->
+                                        if (frame != null && wideCanvasFrame == null) wideCanvasFrame = frame
+                                    }
+                                } else {
+                                    null
+                                }
+                            )
                         }
                     }
                 }
@@ -1132,7 +1146,8 @@ fun Player(
                         transitionBounds = null,
                         isLandscape = false,
                         isBlurredBackgroundStyle = true,
-                        overlayMode = true
+                        overlayMode = true,
+                        blurFrame = wideCanvasFrame
                     )
                 }
                 if (wideBgAlpha > 0.001f) {
