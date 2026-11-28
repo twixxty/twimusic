@@ -444,9 +444,10 @@ internal fun FullscreenThumbnailBackground(
                                             scaleY = k
                                             translationY = ty
                                             // Opaque from the first moment of the flight when there is no
-                                            // video underneath; with a canvas the art fades in over it.
+                                            // video underneath; with a canvas the art cross-fades in over it for the
+                                            // whole flight, like the Wide layout (no switch at the end).
                                             this.alpha =
-                                                if (hasVideo) (progress * 4f).coerceIn(0f, 1f)
+                                                if (hasVideo) progress.coerceIn(0f, 1f)
                                                 else (progress * 30f).coerceIn(0f, 1f)
                                         },
                             ) {
