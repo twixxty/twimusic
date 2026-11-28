@@ -186,7 +186,8 @@ class CoverHeroState {
         lyrics: Float,
         canvasProgress: Float,
         coverRadius: Float,
-        headerRadius: Float
+        headerRadius: Float,
+        squareFlight: Boolean = false
     ): Frame? {
         val canvasSlot = canvasRect()
         val coverBounds = coverRect() ?: canvasSlot ?: return null
@@ -200,6 +201,14 @@ class CoverHeroState {
 
         if (headerBounds != null) {
             window = lerp(window, headerBounds, lyrics)
+            if (squareFlight) {
+                // Turn the tall bleed window into a square early, so the art never has to be
+                // zoomed/cropped to fill a portrait window while it flies.
+                val eh = heroSquareEase(lyrics)
+                val h = window.height + (window.width - window.height) * eh
+                val c = window.center
+                window = Rect(c.x - window.width / 2f, c.y - h / 2f, c.x + window.width / 2f, c.y + h / 2f)
+            }
             radius = lerp(radius, headerRadius, lyrics)
         }
 
@@ -249,9 +258,10 @@ class CoverHeroState {
         lyricsProgress: Float,
         canvasProgress: Float,
         coverRadius: Float,
-        headerRadius: Float
+        headerRadius: Float,
+        squareFlight: Boolean = false
     ) {
-        val frame = frameOf(lyricsProgress, canvasProgress, coverRadius, headerRadius)
+        val frame = frameOf(lyricsProgress, canvasProgress, coverRadius, headerRadius, squareFlight)
         val natural = frame?.canvas
         if (frame == null || natural == null) {
             scope.alpha = if (canvasProgress > 0f) (1f - lyricsProgress).coerceIn(0f, 1f) else 0f
@@ -307,6 +317,12 @@ class CoverHeroState {
         val cover: Rect,
         val canvas: Rect?
     )
+}
+
+/** 0 -> 1 over the first ~40% of the lyrics flight (window becomes square / art fits). */
+fun heroSquareEase(lyrics: Float): Float {
+    val t = (lyrics / 0.4f).coerceIn(0f, 1f)
+    return t * t * (3f - 2f * t)
 }
 
 private data class WindowClipShape(

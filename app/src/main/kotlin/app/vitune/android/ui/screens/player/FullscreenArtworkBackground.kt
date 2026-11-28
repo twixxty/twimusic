@@ -37,6 +37,8 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -389,6 +391,7 @@ internal fun FullscreenThumbnailBackground(
                                 canvasProgress = heroProgress(),
                                 coverRadius = 0f,
                                 headerRadius = headerRadiusPx,
+                                squareFlight = true,
                             )
                         },
                 ) {
@@ -410,15 +413,13 @@ internal fun FullscreenThumbnailBackground(
                         // backdrop already draws it with its progressive blur).
                         val cover = shownBitmap
                         if (showStaticBleed && cover != null && visibleArtHeight > 0f) {
-                            Image(
-                                bitmap = cover,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                alignment = Alignment.TopCenter,
+                            val artSideDp = with(density) { max(viewport.width.toFloat(), visibleArtHeight).toDp() }
+                            Box(
                                 modifier =
                                     Modifier
                                         .fillMaxWidth()
                                         .height(artHeightDp)
+                                        .wrapContentSize(Alignment.TopCenter, unbounded = true)
                                         .graphicsLayer {
                                             transformOrigin = TransformOrigin(0.5f, 0f)
                                             val progress = lyricsProgress()
@@ -430,14 +431,14 @@ internal fun FullscreenThumbnailBackground(
                                                 // Morph the artwork inside the flying window so that it
                                                 // lands as the exact, un-zoomed square cover of the lyrics
                                                 // header (no swap pop, no zoomed-in crop).
-                                                val slotW = size.width
+                                                val eh = heroSquareEase(progress)
+                                                // Layer is the full square art (side S >= viewport width).
+                                                val slotW = viewport.width.toFloat()
                                                 val slotH = slotHeightPx
-                                                val layerScale = max(side / slotW, side / slotH)
-                                                val windowSide = side / layerScale
-                                                val artSide = min(slotW, size.height)
-                                                val kFit = windowSide / artSide
-                                                k = k0 + (kFit - k0) * progress
-                                                ty = progress * (slotH / 2f - size.height * k / 2f)
+                                                val artDisplaySide = size.width
+                                                val kFit = slotW / artDisplaySide
+                                                k = k0 + (kFit - k0) * eh
+                                                ty = eh * (slotH / 2f - artDisplaySide * k / 2f)
                                             }
                                             scaleX = k
                                             scaleY = k
@@ -448,7 +449,17 @@ internal fun FullscreenThumbnailBackground(
                                                 if (hasVideo) (progress * 4f).coerceIn(0f, 1f)
                                                 else (progress * 30f).coerceIn(0f, 1f)
                                         },
-                            )
+                            ) {
+                                // The whole square art (not pre-cropped to the screen width) so the
+                                // flight can shrink it to the exact header cover.
+                                Image(
+                                    bitmap = cover,
+                                    contentDescription = null,
+                                    contentScale = ContentScale.Crop,
+                                    alignment = Alignment.TopCenter,
+                                    modifier = Modifier.size(artSideDp),
+                                )
+                            }
                         }
                         if (hasVideo) {
                             Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = videoVisible }) {

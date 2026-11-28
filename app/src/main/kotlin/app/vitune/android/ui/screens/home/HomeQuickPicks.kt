@@ -334,8 +334,9 @@ fun QuickPicks(
             )
         }
 
-        // Also try the (anonymous) YT Music home when not logged in; fall back to related picks.
-        run {
+        // Only a logged-in session gets the personalised YT Music home; the anonymous one is just
+        // generic regional charts and ignores listening history.
+        if (AccountPreferences.isLoggedIn) {
             val sections = fetchYouTubeMusicHomeSections()
             if (!sections.isNullOrEmpty()) {
                 dynamicSectionsResult = Result.success(sections)
