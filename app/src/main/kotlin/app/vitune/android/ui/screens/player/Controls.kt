@@ -54,6 +54,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -721,10 +722,13 @@ private fun ExpressiveControls(
                     ) {
                         val artworkUri = binder.player.currentMediaItem?.mediaMetadata?.artworkUri
                             ?: binder.player.mediaMetadata.artworkUri
+                        if (hero != null) SideEffect { hero.headerExpectedUri = artworkUri }
                         AsyncImage(
                             model = artworkUri?.thumbnail(140.dp.px),
-                            placeholder = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
+                            // No placeholder: while this loads the flying cover stays on screen.
+                            onSuccess = { hero?.headerReadyUri = artworkUri },
                             error = painterResource(id = AppearancePreferences.appLogo.iconDrawableRes),
+                            onError = { hero?.headerReadyUri = artworkUri },
                             contentDescription = null,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier

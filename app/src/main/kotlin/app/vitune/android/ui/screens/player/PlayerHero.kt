@@ -21,6 +21,7 @@ import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -167,13 +168,22 @@ class CoverHeroState {
     /** Side of the (square) lyrics header cover in px, or null when there is none. */
     fun headerSidePx(): Float? = headerRect()?.let { min(it.width, it.height) }
 
+    /**
+     * The header cover is a separately loaded image. Until it has really loaded the flying layer
+     * must stay on screen, otherwise its placeholder flashes right after the flight lands.
+     */
+    var headerExpectedUri: Any? by mutableStateOf(null)
+    var headerReadyUri: Any? by mutableStateOf(null)
+    private fun headerImageReady() = headerReadyUri == headerExpectedUri
+
     /** `true` when there is a lyrics header cover to fly to. */
     fun hasHeader() = headerRect() != null
 
     private fun hasSourceSlot() = coverRect() != null || canvasRect() != null
 
     /** Alpha of the real cover in the lyrics header: hard swap right before the flight lands. */
-    fun headerArtAlpha() = if (!hasSourceSlot() || lyricsProgress() >= HandoffThreshold) 1f else 0f
+    fun headerArtAlpha() =
+        if (!hasSourceSlot() || (lyricsProgress() >= HandoffThreshold && headerImageReady())) 1f else 0f
 
     /**
      * Alpha of a canvas video that lives *inside* the cover (square canvas). It fades to the
@@ -214,17 +224,18 @@ class CoverHeroState {
 
         // How much of the window currently shows the canvas video.
         val canvasVisibility = if (morph) canvasWeight * (1f - lyrics) else canvasWeight
+        val handedOff = morph && lyrics >= HandoffThreshold && headerImageReady()
 
         return Frame(
             window = window,
             radius = radius,
             coverAlpha = when {
-                morph && lyrics >= HandoffThreshold -> 0f
+                handedOff -> 0f
                 morph -> 1f - canvasVisibility
                 else -> (1f - canvasWeight) * (1f - lyrics)
             },
             canvasAlpha = when {
-                morph -> if (canvasVisibility > 0.002f) 1f else 0f
+                morph -> if (!handedOff && (canvasVisibility > 0.002f || (canvasWeight > 0f && lyrics > 0.5f))) 1f else 0f
                 canvasWeight > 0f -> 1f - lyrics
                 else -> 0f
             },

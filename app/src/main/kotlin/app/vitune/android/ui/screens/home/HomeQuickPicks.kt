@@ -176,13 +176,27 @@ private suspend fun fetchYouTubeMusicHomeSectionsOnce(): List<DynamicHomeSection
     runCatching {
         runCatching { YouTubeSync.ensureAuth() }
             .onFailure { android.util.Log.w("HomeQuickPicks", "ensureAuth failed", it) }
-        val homeResult = YouTube.home().onFailure {
+        val first = YouTube.home().onFailure {
             android.util.Log.w("HomeQuickPicks", "YouTube.home() failed", it)
         }.getOrNull() ?: return@runCatching null
-        if (homeResult.sections.isEmpty()) {
+        if (first.sections.isEmpty()) {
             android.util.Log.w("HomeQuickPicks", "YouTube.home() returned 0 sections")
             return@runCatching null
         }
+        // The first page of the YT Music home usually holds just "Quick picks"; the playlists and
+        // the rest of the shelves arrive through continuations, so follow a few of them.
+        val allSections = first.sections.toMutableList()
+        var next = first.continuation
+        var pages = 0
+        while (next != null && pages < 5 && allSections.size < 14) {
+            val page = YouTube.home(continuation = next).onFailure {
+                android.util.Log.w("HomeQuickPicks", "home continuation failed", it)
+            }.getOrNull() ?: break
+            allSections += page.sections
+            next = page.continuation
+            pages++
+        }
+        val homeResult = first.copy(sections = allSections)
 
         homeResult.sections.mapIndexedNotNull { index, sec ->
             val items = sec.items.mapNotNull { ytItem ->
