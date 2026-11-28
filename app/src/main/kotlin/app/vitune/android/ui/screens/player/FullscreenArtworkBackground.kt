@@ -205,7 +205,13 @@ internal fun FullscreenThumbnailBackground(
                     .clipToBounds()
                     .graphicsLayer {
                         this.alpha = alpha()
-                        if (overlayMode) compositingStrategy = CompositingStrategy.Offscreen
+                        if (overlayMode) {
+                            compositingStrategy = CompositingStrategy.Offscreen
+                        } else if (heroMorph) {
+                            // The backdrop is a stack of opaque layers: modulating each one avoids a
+                            // full-screen offscreen pass on every frame of the morph.
+                            compositingStrategy = CompositingStrategy.ModulateAlpha
+                        }
                     }
                     .drawWithContent {
                         drawContent()
@@ -347,7 +353,6 @@ internal fun FullscreenThumbnailBackground(
             val slotHeightDp = with(density) { slotHeightPx.toDp() }
             val artHeightDp = with(density) { visibleArtHeight.toDp() }
             val headerRadiusPx = with(density) { 12.dp.toPx() }
-            val containerWidthPx = shownBitmap?.let { visibleArtHeight * it.width / it.height.coerceAtLeast(1) } ?: viewportWidthPx.toFloat()
             // The slot never moves; only the layer inside it does, so the measured natural bounds stay
             // stable while the morph runs.
             Box(
@@ -400,32 +405,18 @@ internal fun FullscreenThumbnailBackground(
                                         .graphicsLayer {
                                             transformOrigin = TransformOrigin(0.5f, 0f)
                                             val progress = lyricsProgress()
-                                            val rest = 1f + (coverToCanvasScale - 1f) * videoVisible
-                                            // The window is cover-filled with the header square, which would
-                                            // show a zoomed-in centre crop of this (zoomed) Bleed cover.
-                                            // Scale towards "whole square art in the window" instead, so it
-                                            // already looks like the header cover when it lands.
-                                            val windowSide = min(viewportWidthPx.toFloat(), slotHeightPx)
-                                            val fit = windowSide / min(containerWidthPx, visibleArtHeight).coerceAtLeast(1f)
-                                            val scale = rest + (fit - rest) * progress
+                                            val scale = 1f + (coverToCanvasScale - 1f) * videoVisible
                                             scaleX = scale
                                             scaleY = scale
-                                            translationY = progress * (slotHeightPx / 2f - visibleArtHeight * scale / 2f)
-                                            // Fully opaque from the first moment of the flight; only the last
+                                            // Same as the Wide static cover: the window simply cover-fills it.
+                                            // Opaque from the first moment of the flight; only the last
                                             // sliver on the way back fades into the backdrop's own cover.
                                             this.alpha = (progress * 30f).coerceIn(0f, 1f)
                                         },
                             )
                         }
                         if (hasVideo) {
-                            Box(
-                                Modifier.fillMaxSize().graphicsLayer {
-                                    // Static Bleed: the canvas gives way to the (opaque) cover under it as
-                                    // the window nears the header instead of being cut away at the end.
-                                    val landing = if (showStaticBleed) 1f - ((lyricsProgress() - 0.1f) / 0.7f).coerceIn(0f, 1f) else 1f
-                                    this.alpha = videoVisible * landing
-                                },
-                            ) {
+                            Box(Modifier.fillMaxSize().graphicsLayer { this.alpha = videoVisible }) {
                                 canvasContent(Modifier.fillMaxSize(), frameSink)
                             }
                         }

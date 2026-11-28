@@ -978,7 +978,7 @@ fun Player(
                 if (isBleedHero) {
                     // Leaves quickly when the lyrics open, but only returns once the artwork has
                     // (almost) landed again, so no second cover shows where it is flying to.
-                    val span = if (isShowingLyrics) 0.6f else 0.12f
+                    val span = if (isShowingLyrics) 0.6f else 0.03f
                     canvasProgress.value * (1f - (lyricsProgress.value / span).coerceIn(0f, 1f))
                 } else {
                     bleedPresence.value
